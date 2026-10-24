@@ -1,0 +1,35 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+.vscode/
+coverage/
+*.g.dart
+*.freezed.dart
+*.config.dart
+lib/l10n/app_localizations*.dart
+
+# Secrets
+.env
+env.json
+*.jks
+*.keystore
+key.properties
+google-services.json
+GoogleService-Info.plist
+supabase/.temp/
+supabase/.branches/
+service_role*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated debug artifacts
+*.log
