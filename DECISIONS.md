@@ -11,3 +11,10 @@
 - Calls: LiveKit signalling via Supabase Realtime, ringing via high-priority FCM + flutter_callkit_incoming. TURN over TCP/443. Opus DTX/FEC, audio-only fallback <60kbps.
 - Search: Drift FTS5 with Ge'ez-aware normalization (folding) for Amharic/Tigrinya.
 - Voice notes: Opus, waveform, hold-to-record, slide-to-cancel, lock.
+
+## Phase 3
+- Wallet: double-entry ledger, immutable entries (no UPDATE/DELETE). Balances derived from sum.
+- Money movement only via Edge Functions with service role. Client never writes ledger.
+- Idempotency keys on all money ops. PIN hashed with Argon2, rate-limited.
+- Payment providers behind interface: Telebirr, CBE Birr, Chapa. Webhook signature verification.
+- Red packets: double-mean split, atomic claim with SELECT ... FOR UPDATE SKIP LOCKED, expiry refunds.
