@@ -7,7 +7,11 @@
 - [x] Complete
 
 ## M2 - Supabase core
-- [x] Migration 0001 added
-- [x] pgTAP tests added
-- [x] Seed data ready
-- [x] Migrations in place
+- [x] Complete
+
+## M3 - Local DB + repositories
+- [ ] Drift schema complete
+- [ ] Repository interfaces
+- [ ] Implementations
+- [ ] Typed failures
+- [ ] Unit tests >= 85%
