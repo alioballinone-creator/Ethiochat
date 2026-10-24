@@ -16,7 +16,6 @@ part 'app_database.g.dart';
     MessageReceipts,
     Outbox,
     ContactsLocal,
-    Drafts,
   ],
 )
 class AppDatabase extends _$AppDatabase {
