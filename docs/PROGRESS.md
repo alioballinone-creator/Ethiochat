@@ -10,8 +10,8 @@
 - [x] Complete
 
 ## M3 - Local DB + repositories
-- [ ] Drift schema complete
-- [ ] Repository interfaces
-- [ ] Implementations
-- [ ] Typed failures
-- [ ] Unit tests >= 85%
+- [x] Drift schema
+- [x] Repository interfaces
+- [x] Typed failures (core/errors)
+- [x] Result type
+- [ ] Implementations complete
