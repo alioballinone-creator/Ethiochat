@@ -4,8 +4,10 @@
 - [x] Complete
 
 ## M1 - Design system
-- [x] Copy design package to lib/core/design
-- [x] Design tokens (colors, spacing)
-- [x] Widgets (EthioButton)
-- [x] Gallery screen
-- [x] Golden test added
+- [x] Complete
+
+## M2 - Supabase core
+- [ ] Run migration 0001
+- [ ] Fix and extend pgTAP tests
+- [ ] Seed data
+- [ ] Generated Dart models
