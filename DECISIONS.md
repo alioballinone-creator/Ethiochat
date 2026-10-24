@@ -18,3 +18,9 @@
 - Idempotency keys on all money ops. PIN hashed with Argon2, rate-limited.
 - Payment providers behind interface: Telebirr, CBE Birr, Chapa. Webhook signature verification.
 - Red packets: double-mean split, atomic claim with SELECT ... FOR UPDATE SKIP LOCKED, expiry refunds.
+
+## Phase 4
+- Moments: friends-only, visibility controls, mutual-only likes/comments, keyset pagination.
+- Channels: vertical swipe, preload next 2, data-saver 360p, resumable upload.
+- Official Accounts: verified, subscription feed, in-chat menu.
+- Mini Programs: signed bundles, sandboxed WebView, whitelisted permission-gated bridge, offline cache.
