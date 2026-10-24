@@ -1,1 +1,1 @@
--- Minimal seed for local development. No real PII.
+-- Seed data for development
