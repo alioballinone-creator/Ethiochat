@@ -1,8 +1,11 @@
 # Progress
 
 ## M0 - Bootstrap
-- [x] Project structure
-- [x] Package id set (com.ethiochat.app)
-- [x] Lints configured (very_good_analysis)
-- [x] CI workflow added
-- [x] CI green
+- [x] Complete
+
+## M1 - Design system
+- [ ] Copy design package
+- [ ] Fonts
+- [ ] Theme and widgets
+- [ ] Gallery screen
+- [ ] Golden tests
