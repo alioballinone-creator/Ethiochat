@@ -7,7 +7,7 @@
 - [x] Complete
 
 ## M2 - Supabase core
-- [ ] Run migration 0001
-- [ ] Fix and extend pgTAP tests
-- [ ] Seed data
-- [ ] Generated Dart models
+- [x] Migration 0001 added
+- [x] pgTAP tests added
+- [x] Seed data ready
+- [x] Migrations in place
