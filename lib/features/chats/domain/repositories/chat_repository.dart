@@ -1,6 +1,6 @@
-import 'package:ethiochat/core/errors/result.dart';
-import 'package:ethiochat/features/chats/domain/entities/conversation_entity.dart';
-import 'package:ethiochat/features/chats/domain/entities/message_entity.dart';
+import '../../../../core/errors/result.dart';
+import '../entities/conversation_entity.dart';
+import '../entities/message_entity.dart';
 
 abstract class ChatRepository {
   Stream<List<ConversationEntity>> watchConversations();
