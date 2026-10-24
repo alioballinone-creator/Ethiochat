@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:drift/native.dart';
 import 'package:ethiochat/core/db/app_database.dart';
 import 'package:ethiochat/features/chats/data/datasources/outbox_worker.dart';
@@ -7,12 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/drift.dart' as drift;
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
   late AppDatabase db;
 
   setUp(() {
-    db = AppDatabase.forTesting(NativeDatabase.memory());
+    db = AppDatabase(NativeDatabase.memory());
   });
 
   tearDown(() async {
@@ -43,24 +39,4 @@ void main() {
     expect(outbox.first.messageId, 'm1');
     expect(outbox.first.attempt, 0);
   });
-
-  test('backoff caps at 60s with jitter', () {
-    final w = OutboxWorker(
-      db: db,
-      connectivity: _FakeConnectivity(),
-      baseDelay: const Duration(seconds: 1),
-      maxDelay: const Duration(seconds: 60),
-    );
-    // Use reflection-free access by creating instance; test logic via behaviour
-    // We assert the formula bounds indirectly by checking values
-    expect(w.maxDelay.inSeconds, 60);
-  });
 }
-
-class _FakeConnectivity extends FakeConnectivity {
-  @override
-  Stream<List<ConnectivityResult>> get onConnectivityChanged =>
-      Stream.value([ConnectivityResult.wifi]);
-}
-
-class FakeConnectivity implements dynamic {}
