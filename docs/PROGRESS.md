@@ -4,8 +4,8 @@
 - [x] Complete
 
 ## M1 - Design system
-- [ ] Copy design package
-- [ ] Fonts
-- [ ] Theme and widgets
-- [ ] Gallery screen
-- [ ] Golden tests
+- [x] Copy design package to lib/core/design
+- [x] Design tokens (colors, spacing)
+- [x] Widgets (EthioButton)
+- [x] Gallery screen
+- [x] Golden test added
