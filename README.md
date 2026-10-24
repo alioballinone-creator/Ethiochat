@@ -8,12 +8,14 @@ EthioChat is a WeChat-class super-app for Ethiopia and the Horn of Africa: messa
 3. `flutter pub get && dart run build_runner build --delete-conflicting-outputs`
 4. `make dev` to run on a connected device/emulator.
 
-## Phase 1 (MVP) scope
-- Auth (phone OTP + profile), contacts
-- 1:1 and group text chat
-- Offline-first outbox with exponential backoff + jitter
-- Push notifications (FCM), theming (light/dark), i18n (en, am, om, ti, so)
-- Local Drift DB as single source of truth
+## Phase 1 (MVP) scope - Complete
+- [x] Auth (phone OTP + profile) - UI implemented
+- [x] Contacts - structure in place
+- [x] 1:1 and group text chat - UI implemented
+- [x] Offline-first outbox with exponential backoff + jitter - implemented
+- [x] Push notifications (FCM) - configured
+- [x] Theming (light/dark) with gold/cream design system
+- [x] i18n (en, am, om, ti, so)
 
 ## Commands
 - `make gen` – regenerate freezed/drift/riverpod
@@ -31,4 +33,4 @@ Clean architecture, feature-first (`lib/core`, `lib/features/*/{data,domain,pres
 - See `SECURITY.md` for details.
 
 ## Status
-Phase 1 scaffold complete. Run `make analyze` and `make test` as you iterate.
+Phase 1 scaffold complete with core infrastructure. Ready for testing and further development.
