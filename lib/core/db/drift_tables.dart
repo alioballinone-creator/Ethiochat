@@ -1,11 +1,8 @@
 import 'package:drift/drift.dart';
 
-/// Local single source of truth. Mirrors Supabase schema minimally for Phase 1
-/// and is designed to stay compatible as features are added.
-
 class Conversations extends Table {
   TextColumn get id => text()();
-  TextColumn get type => text()(); // direct|group|channel
+  TextColumn get type => text()();
   TextColumn get title => text().nullable()();
   TextColumn get avatarUrl => text().nullable()();
   TextColumn get lastMessageId => text().nullable()();
@@ -18,26 +15,26 @@ class Conversations extends Table {
   DateTimeColumn get syncedAt => dateTime().nullable()();
 
   @override
-  Set<Column> get primaryKey => {id};
+  Set<Column<Object>> get primaryKey => {id};
 }
 
 class Messages extends Table {
-  TextColumn get id => text()(); // client uuid
+  TextColumn get id => text()();
   TextColumn get conversationId => text().references(Conversations, #id)();
   TextColumn get senderId => text()();
-  IntColumn get seq => integer().nullable()(); // null = pending/local
+  IntColumn get seq => integer().nullable()();
   TextColumn get type => text()();
   TextColumn get body => text().nullable()();
   TextColumn get mediaJson => text().nullable()();
   TextColumn get replyTo => text().nullable()();
   DateTimeColumn get editedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime()();
-  IntColumn get status => integer().withDefault(const Constant(0))(); // 0 pending 1 sent 2 delivered 3 read 4 failed
+  IntColumn get status => integer().withDefault(const Constant(0))();
   BoolColumn get deletedForMe => boolean().withDefault(const Constant(false))();
   BoolColumn get deletedEveryone => boolean().withDefault(const Constant(false))();
 
   @override
-  Set<Column> get primaryKey => {id};
+  Set<Column<Object>> get primaryKey => {id};
 }
 
 class MessageReceipts extends Table {
@@ -47,7 +44,7 @@ class MessageReceipts extends Table {
   DateTimeColumn get readAt => dateTime().nullable()();
 
   @override
-  Set<Column> get primaryKey => {messageId, userId};
+  Set<Column<Object>> get primaryKey => {messageId, userId};
 }
 
 class Outbox extends Table {
@@ -55,12 +52,12 @@ class Outbox extends Table {
   TextColumn get conversationId => text()();
   TextColumn get payloadJson => text()();
   IntColumn get attempt => integer().withDefault(const Constant(0))();
-  IntColumn get nextRetryAt => integer().withDefault(const Constant(0))(); // epoch ms
+  IntColumn get nextRetryAt => integer().withDefault(const Constant(0))();
   TextColumn get lastError => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
-  Set<Column> get primaryKey => {messageId};
+  Set<Column<Object>> get primaryKey => {messageId};
 }
 
 class ContactsLocal extends Table {
@@ -73,7 +70,7 @@ class ContactsLocal extends Table {
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
-  Set<Column> get primaryKey => {id};
+  Set<Column<Object>> get primaryKey => {id};
 }
 
 class Drafts extends Table {
@@ -83,5 +80,5 @@ class Drafts extends Table {
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
-  Set<Column> get primaryKey => {conversationId};
+  Set<Column<Object>> get primaryKey => {conversationId};
 }
