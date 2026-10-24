@@ -8,7 +8,7 @@ void main() {
   late AppDatabase db;
 
   setUp(() {
-    db = AppDatabase(NativeDatabase.memory());
+    db = AppDatabase.forTesting(NativeDatabase.memory());
   });
 
   tearDown(() async {
