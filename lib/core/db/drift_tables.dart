@@ -72,13 +72,3 @@ class ContactsLocal extends Table {
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
-
-class Drafts extends Table {
-  TextColumn get conversationId => text()();
-  TextColumn get text => text().nullable()();
-  TextColumn get replyTo => text().nullable()();
-  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
-
-  @override
-  Set<Column<Object>> get primaryKey => {conversationId};
-}
