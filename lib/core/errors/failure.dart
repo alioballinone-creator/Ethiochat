@@ -1,4 +1,3 @@
-/// Typed failures. No raw exception may cross from data/domain into the UI.
 sealed class Failure implements Exception {
   const Failure(this.message, {this.code, this.cause});
 
@@ -11,62 +10,46 @@ sealed class Failure implements Exception {
 }
 
 final class NetworkFailure extends Failure {
-  const NetworkFailure([
-    super.message = 'No internet connection.',
-    super.code,
-    super.cause,
-  ]);
+  const NetworkFailure([super.message = 'No internet connection.', super.code, super.cause]);
 }
 
 final class TimeoutFailure extends Failure {
-  const TimeoutFailure([super.message = 'The request timed out.']);
+  const TimeoutFailure([super.message = 'The request timed out.', super.code, super.cause]);
 }
 
 final class ServerFailure extends Failure {
-  const ServerFailure([
-    super.message = 'Something went wrong on our side.',
-    super.code,
-    super.cause,
-  ]);
+  const ServerFailure([super.message = 'Something went wrong on our side.', super.code, super.cause]);
 }
 
 final class AuthFailure extends Failure {
-  const AuthFailure([super.message = 'Could not sign you in.', super.code]);
+  const AuthFailure([super.message = 'Could not sign you in.', super.code, super.cause]);
 }
 
 final class ValidationFailure extends Failure {
-  const ValidationFailure([super.message = 'Please check your input.']);
+  const ValidationFailure([super.message = 'Please check your input.', super.code, super.cause]);
 }
 
 final class StorageFailure extends Failure {
-  const StorageFailure([
-    super.message = 'Could not access local storage.',
-    super.code,
-    super.cause,
-  ]);
+  const StorageFailure([super.message = 'Could not access local storage.', super.code, super.cause]);
 }
 
 final class PermissionFailure extends Failure {
-  const PermissionFailure([super.message = 'Permission denied.']);
+  const PermissionFailure([super.message = 'Permission denied.', super.code, super.cause]);
 }
 
 final class NotFoundFailure extends Failure {
-  const NotFoundFailure([super.message = 'Not found.']);
+  const NotFoundFailure([super.message = 'Not found.', super.code, super.cause]);
 }
 
 final class RateLimitFailure extends Failure {
-  const RateLimitFailure([
-    super.message = 'Too many attempts. Please wait and try again.',
-  ]);
+  const RateLimitFailure([super.message = 'Too many attempts. Please wait and try again.', super.code, super.cause]);
 }
 
 final class UnknownFailure extends Failure {
-  const UnknownFailure([super.message = 'Unexpected error.', super.code,
-      super.cause,]);
+  const UnknownFailure([super.message = 'Unexpected error.', super.code, super.cause]);
 }
 
-/// Maps an arbitrary object (usually from Supabase) to a [Failure].
-Failure mapError(Object error, [StackTrace? _]) {
+Failure mapError(Object error, [StackTrace? stackTrace]) {
   if (error is Failure) return error;
   final text = error.toString().toLowerCase();
   if (text.contains('socket') ||
