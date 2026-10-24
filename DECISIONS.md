@@ -24,3 +24,7 @@
 - Channels: vertical swipe, preload next 2, data-saver 360p, resumable upload.
 - Official Accounts: verified, subscription feed, in-chat menu.
 - Mini Programs: signed bundles, sandboxed WebView, whitelisted permission-gated bridge, offline cache.
+
+## Phase 5
+- Marketplace and nearby features with privacy controls.
+- Growth features implemented with consent.
