@@ -87,3 +87,7 @@ LazyDatabase _openConnection() {
     return NativeDatabase.createInBackground(file);
   });
 }
+
+AppDatabase createTestDatabase() {
+  return AppDatabase(NativeDatabase.memory());
+}
