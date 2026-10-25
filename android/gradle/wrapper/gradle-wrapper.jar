@@ -1,16 +1,2 @@
-<html>
-<head><title>404 Not Found</title></head>
-<body bgcolor="white">
-<center><h1>404 Not Found</h1></center>
-<hr><center>nginx</center>
-</body>
-</html>
-<!-- a padding to disable MSIE and Chrome friendly error page -->
-<!-- a padding to disable MSIE and Chrome friendly error page -->
-<!-- a padding to disable MSIE and Chrome friendly error page -->
-<!-- a padding to disable MSIE and Chrome friendly error page -->
-<!-- a padding to disable MSIE and Chrome friendly error page -->
-<!-- a padding to disable MSIE and Chrome friendly error page -->
-
-
-
+<?xml version="1.0" encoding="UTF-8"?>
+<Error><Code>NoSuchKey</Code><Message>The specified key does not exist.</Message><Key>distributions/gradle-7.6.4-wrapper.jar</Key><RequestId>1ZZQ9TAMZJ9ADZ31</RequestId><HostId>UkOrjee5dwuHfAwR+b+l8Abh9ckAID2aGNb+FuqDq0Aj1X1Yso8+6YoaWefBG3ANSpVeiu2jUOk=</HostId></Error>
