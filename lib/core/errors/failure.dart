@@ -66,17 +66,17 @@ Failure mapError(Object error, [StackTrace? stackTrace]) {
       text.contains('connection') ||
       text.contains('network') ||
       text.contains('failed host lookup')) {
-    return NetworkFailure(cause: error);
+    return NetworkFailure('No internet connection.', null, error);
   }
-  if (text.contains('timeout')) return TimeoutFailure(cause: error);
+  if (text.contains('timeout')) return TimeoutFailure('The request timed out.', null, error);
   if (text.contains('jwt') ||
       text.contains('token') ||
       text.contains('otp') ||
       text.contains('unauthorized')) {
-    return AuthFailure(cause: error);
+    return AuthFailure('Could not sign you in.', null, error);
   }
   if (text.contains('rate limit') || text.contains('too many')) {
-    return RateLimitFailure(cause: error);
+    return RateLimitFailure('Too many attempts. Please wait and try again.', null, error);
   }
-  return UnknownFailure(cause: error);
+  return UnknownFailure('Unexpected error.', null, error);
 }
