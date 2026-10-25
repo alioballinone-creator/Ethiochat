@@ -34,13 +34,6 @@ jobs:
       - name: Run tests (non-blocking)
         run: flutter test || true
 
-      - name: Setup Gradle Wrapper
-        run: |
-          cd android
-          gradle wrapper --gradle-version 7.6.4
-          chmod +x gradlew
-          ls -lh gradlew gradle/wrapper/
-
       - name: Build APK (release)
         run: flutter build apk --release --no-tree-shake-icons || flutter build apk --release || true
 
