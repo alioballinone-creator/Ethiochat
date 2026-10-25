@@ -34,6 +34,12 @@ jobs:
       - name: Run tests (non-blocking)
         run: flutter test || true
 
+      - name: Create gradlew wrapper
+        run: |
+          cd android
+          curl -o gradle/wrapper/gradle-wrapper.jar https://repo1.maven.org/maven2/gradle/wrapper/gradle-wrapper/7.6.4/gradle-wrapper-7.6.4.jar
+          ls -lh gradle/wrapper/gradle-wrapper.jar
+
       - name: Build APK (release)
         run: flutter build apk --release --no-tree-shake-icons || flutter build apk --release || true
 
