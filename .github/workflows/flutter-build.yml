@@ -21,19 +21,17 @@ jobs:
           cache: true
       - name: Get dependencies
         run: flutter pub get
-      - name: Build AAB
-        run: flutter build appbundle --release --no-tree-shake-icons || flutter build appbundle --release || true
       - name: Build APK
-        run: flutter build apk --release --split-per-abi || true
+        run: flutter build apk --release
+      - name: Build AAB
+        run: flutter build appbundle --release
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
-          name: app-bundle
+          name: app-bundle-aab
           path: build/app/outputs/bundle/release/app-release.aab
-          if-no-files-found: ignore
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-apk
+          name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: ignore
