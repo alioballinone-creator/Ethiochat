@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ethiochat/core/theme/app_spacing.dart';
-import 'package:ethiochat/core/utils/phone.dart';
-import 'package:ethiochat/l10n/app_localizations.dart';
+import 'package:go_router/go_router.dart';
 
 class PhoneEntryScreen extends StatefulWidget {
   const PhoneEntryScreen({super.key});
@@ -12,7 +10,7 @@ class PhoneEntryScreen extends StatefulWidget {
 
 class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
   final _controller = TextEditingController();
-  String? _error;
+  bool _loading = false;
 
   @override
   void dispose() {
@@ -20,47 +18,58 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
     super.dispose();
   }
 
-  void _submit() {
-    final normalized = PhoneUtils.normalize(_controller.text);
-    if (normalized == null) {
-      setState(() => _error = 'Enter a valid Ethiopian number (+251 9XX XXX XXX)');
-      return;
+  void _sendOtp() async {
+    setState(() => _loading = true);
+    await Future.delayed(const Duration(seconds: 1));
+    if (mounted) {
+      setState(() => _loading = false);
+      context.push('/auth/otp', extra: {'phone': _controller.text});
     }
-    setState(() => _error = null);
-    // Navigate to OTP - wired when routing is added
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.appName)),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: AppSpacing.xl),
-              Text(l10n.phoneNumber, style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: _controller,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  prefixText: '+251 ',
-                  hintText: '9XX XXX XXX',
-                  errorText: _error,
-                ),
+      appBar: AppBar(title: const Text('Welcome to EthioChat')),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 32),
+            Text(
+              'Enter your phone number',
+              style: Theme.of(context).textTheme.headlineSmall,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'We will send you a verification code',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            TextField(
+              controller: _controller,
+              decoration: const InputDecoration(
+                labelText: 'Phone Number',
+                hintText: '+251 9XX XXX XXX',
+                prefixIcon: Icon(Icons.phone),
               ),
-              const Spacer(),
-              ElevatedButton(
-                onPressed: _submit,
-                child: Text(l10n.continueLabel),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-            ],
-          ),
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: _loading ? null : _sendOtp,
+              child: _loading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Send OTP'),
+            ),
+          ],
         ),
       ),
     );
