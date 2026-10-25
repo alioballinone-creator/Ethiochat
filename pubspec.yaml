@@ -80,3 +80,9 @@ flutter:
     - family: NotoSansEthiopic
       fonts:
         - asset: assets/fonts/NotoSansEthiopic.ttf
+
+  # Caching & animations
+  flutter_cache_manager: ^3.4.1
+  shimmer: ^3.0.0
+  lottie: ^3.1.2
+  animations: ^2.0.11

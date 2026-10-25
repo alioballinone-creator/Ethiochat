@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import 'core/theme/app_theme.dart';
-import 'features/auth/presentation/screens/phone_entry_screen.dart';
-import 'features/shell/presentation/app_shell.dart';
+import 'core/router/app_router.dart';
+import 'core/theme/ethio_app_theme.dart';
+import 'core/widgets/offline_banner.dart';
 import 'l10n/app_localizations.dart';
 
 class EthioChatApp extends ConsumerWidget {
@@ -13,25 +12,13 @@ class EthioChatApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final router = GoRouter(
-      initialLocation: '/chats',
-      routes: [
-        GoRoute(
-          path: '/auth/phone',
-          builder: (context, state) => const PhoneEntryScreen(),
-        ),
-        GoRoute(
-          path: '/chats',
-          builder: (context, state) => const AppShell(),
-        ),
-      ],
-    );
+    final router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
       title: 'EthioChat',
       debugShowCheckedModeBanner: false,
-      theme: lightTheme,
-      darkTheme: darkTheme,
+      theme: EthioAppTheme.lightTheme,
+      darkTheme: EthioAppTheme.darkTheme,
       themeMode: ThemeMode.system,
       routerConfig: router,
       localizationsDelegates: const [
@@ -41,6 +28,14 @@ class EthioChatApp extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) {
+        return Column(
+          children: [
+            const OfflineBanner(),
+            Expanded(child: child ?? const SizedBox.shrink()),
+          ],
+        );
+      },
     );
   }
 }

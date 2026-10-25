@@ -5,6 +5,6 @@ import 'app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Supabase/Firebase initialization will be added when credentials are provided.
+  // Initialize services here (Supabase, Firebase, etc.)
   runApp(const ProviderScope(child: EthioChatApp()));
 }
