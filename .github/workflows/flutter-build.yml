@@ -18,6 +18,9 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -34,12 +37,12 @@ jobs:
       - name: Run tests (non-blocking)
         run: flutter test || true
 
-      - name: Ensure Gradle wrapper
+      - name: Generate Gradle wrapper
         run: |
           cd android
-          rm -rf gradle/wrapper/gradle-wrapper.jar
-          curl -L -o gradle/wrapper/gradle-wrapper.jar https://repo1.maven.org/maven2/org/gradle/wrapper/gradle-wrapper/7.6.4/gradle-wrapper-7.6.4.jar
-          ls -lh gradle/wrapper/
+          rm -f gradle/wrapper/gradle-wrapper.jar gradlew gradlew.bat
+          gradle wrapper --gradle-version 7.6.4
+          chmod +x gradlew
 
       - name: Build APK (release)
         run: flutter build apk --release --no-tree-shake-icons || flutter build apk --release || true
