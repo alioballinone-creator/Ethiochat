@@ -19,7 +19,7 @@ part 'app_database.g.dart';
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
 
   @override
   int get schemaVersion => 1;
@@ -28,7 +28,6 @@ class AppDatabase extends _$AppDatabase {
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (Migrator m) async {
           await m.createAll();
-          // FTS5 for message search will be added in a later migration
           await customStatement('''
             CREATE INDEX IF NOT EXISTS idx_messages_conv_created
             ON messages(conversation_id, created_at);
@@ -86,8 +85,4 @@ LazyDatabase _openConnection() {
     final file = File(p.join(dir.path, 'ethiochat.db'));
     return NativeDatabase.createInBackground(file);
   });
-}
-
-AppDatabase createTestDatabase() {
-  return AppDatabase(NativeDatabase.memory());
 }
