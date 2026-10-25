@@ -52,6 +52,12 @@ dependencies:
   collection: ^1.18.0
   archive: ^3.6.1
 
+  # Caching & animations
+  flutter_cache_manager: ^3.4.1
+  shimmer: ^3.0.0
+  lottie: ^3.1.2
+  animations: ^2.0.11
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -72,17 +78,9 @@ flutter:
   assets:
     - assets/
   fonts:
-    # Variable fonts: a single file covers the full weight axis and keeps the
-    # bundle small for low-end devices.
     - family: Inter
       fonts:
         - asset: assets/fonts/Inter.ttf
     - family: NotoSansEthiopic
       fonts:
         - asset: assets/fonts/NotoSansEthiopic.ttf
-
-  # Caching & animations
-  flutter_cache_manager: ^3.4.1
-  shimmer: ^3.0.0
-  lottie: ^3.1.2
-  animations: ^2.0.11
