@@ -37,7 +37,7 @@ jobs:
       - name: Setup Gradle wrapper
         run: |
           cd android
-          wget -O gradle/wrapper/gradle-wrapper.jar https://repo1.maven.org/maven2/org/gradle/wrapper/gradle-wrapper/7.6.4/gradle-wrapper-7.6.4.jar
+          curl -L -o gradle/wrapper/gradle-wrapper.jar https://repo1.maven.org/maven2/gradle/wrapper/gradle-wrapper/7.6.4/gradle-wrapper-7.6.4.jar
           ls -lh gradle/wrapper/
 
       - name: Build APK (release)
