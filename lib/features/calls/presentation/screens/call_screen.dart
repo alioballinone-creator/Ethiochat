@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/design/design.dart';
 
 class CallScreen extends StatefulWidget {
   final bool isVideo;
@@ -14,54 +15,83 @@ class _CallScreenState extends State<CallScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: EthioColors.black,
       body: SafeArea(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircleAvatar(
-              radius: 60,
-              child: Icon(Icons.person, size: 60),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Contact Name',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+            const Spacer(),
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: EthioColors.gold,
+                  width: 3,
+                ),
               ),
+              child: const EthioAvatar(name: 'Abebe Kebede', size: 120),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Sp.x6),
+            Text(
+              'Abebe Kebede',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: EthioColors.cream,
+                  ),
+            ),
+            const SizedBox(height: Sp.x2),
             Text(
               widget.isIncoming ? 'Incoming call' : 'Calling...',
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 16,
-              ),
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: EthioColors.cream.withOpacity(0.7),
+                  ),
             ),
             const Spacer(),
             Padding(
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(Sp.x8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  FloatingActionButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    backgroundColor: Colors.red,
-                    child: const Icon(Icons.call_end),
+                  _CallButton(
+                    icon: Icons.call_end_rounded,
+                    color: EthioColors.danger,
+                    onTap: () => Navigator.of(context).pop(),
                   ),
                   if (widget.isIncoming)
-                    FloatingActionButton(
-                      onPressed: () {},
-                      backgroundColor: Colors.green,
-                      child: const Icon(Icons.call),
+                    _CallButton(
+                      icon: Icons.call_rounded,
+                      color: EthioColors.success,
+                      onTap: () {},
                     ),
                 ],
               ),
             ),
+            const SizedBox(height: Sp.x4),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _CallButton extends StatelessWidget {
+  const _CallButton({required this.icon, required this.color, required this.onTap});
+
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 72,
+        height: 72,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: Colors.white, size: 32),
       ),
     );
   }

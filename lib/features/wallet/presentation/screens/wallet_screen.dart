@@ -1,85 +1,143 @@
 import 'package:flutter/material.dart';
-import 'package:ethiochat/core/theme/app_spacing.dart';
-import 'package:ethiochat/core/theme/ethio_colors.dart';
+import '../../../../core/design/design.dart';
 
 class WalletScreen extends StatelessWidget {
   const WalletScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final pal = EthioPalette.of(context);
+    
     return Scaffold(
-      appBar: AppBar(title: const Text('Wallet')),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            decoration: const BoxDecoration(
-              gradient: EthioColors.goldGradient,
-              borderRadius: BorderRadius.all(Radius.circular(AppSpacing.radius)),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Wallet',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: Sp.screen,
+          children: [
+            const WalletCard(balance: 1250.50),
+            const SizedBox(height: Sp.x6),
+            Text(
+              'Quick actions',
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Balance',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: EthioColors.black),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'ETB 0.00',
-                  style: Theme.of(context).textTheme.displaySmall?.copyWith(color: EthioColors.black),
-                ),
+            const SizedBox(height: Sp.x3),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 3,
+              childAspectRatio: 1.1,
+              children: const [
+                _QuickAction(icon: Icons.send_rounded, label: 'Send'),
+                _QuickAction(icon: Icons.call_received_rounded, label: 'Receive'),
+                _QuickAction(icon: Icons.qr_code_scanner_rounded, label: 'Scan'),
+                _QuickAction(icon: Icons.add_circle_outline_rounded, label: 'Top up'),
+                _QuickAction(icon: Icons.receipt_long_outlined, label: 'Bills'),
+                _QuickAction(icon: Icons.card_giftcard_outlined, label: 'Red packet'),
               ],
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _Action(icon: Icons.add, label: 'Top up'),
-              _Action(icon: Icons.send, label: 'Send'),
-              _Action(icon: Icons.qr_code, label: 'Receive'),
-              _Action(icon: Icons.qr_code_scanner, label: 'Scan'),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text('Recent transactions', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: AppSpacing.sm),
-          const Card(
-            child: ListTile(
-              title: Text('No transactions yet'),
-              subtitle: Text('Your transactions will appear here'),
+            const SizedBox(height: Sp.x6),
+            Text(
+              'Recent activity',
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-          ),
-        ],
+            const SizedBox(height: Sp.x3),
+            Container(
+              padding: const EdgeInsets.all(Sp.x4),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: Rad.r18,
+                border: Border.all(color: pal.line),
+              ),
+              child: Column(
+                children: [
+                  _ActivityItem(title: 'Received from Abebe', amount: '+ ETB 500.00', isPositive: true),
+                  Divider(color: pal.line),
+                  _ActivityItem(title: 'Sent to Tigist', amount: '- ETB 200.00', isPositive: false),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _Action extends StatelessWidget {
-  const _Action({required this.icon, required this.label});
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
 
   @override
   Widget build(BuildContext context) {
+    final pal = EthioPalette.of(context);
+    
     return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Container(
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            shape: BoxShape.circle,
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: pal.line),
           ),
-          child: Icon(icon, color: EthioColors.goldDeep),
+          child: Icon(icon),
         ),
-        const SizedBox(height: 8),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: Sp.x2),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall,
+          textAlign: TextAlign.center,
+        ),
       ],
+    );
+  }
+}
+
+class _ActivityItem extends StatelessWidget {
+  const _ActivityItem({required this.title, required this.amount, required this.isPositive});
+
+  final String title;
+  final String amount;
+  final bool isPositive;
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = EthioPalette.of(context);
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Sp.x2),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          Text(
+            amount,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: isPositive ? EthioColors.success : Theme.of(context).colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ],
+      ),
     );
   }
 }
