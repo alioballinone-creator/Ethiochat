@@ -18,15 +18,16 @@ void main() {
   /// Advances a bounded amount of time. An indeterminate spinner or a blinking
   /// caret must fail the assertion below, not hang the whole test job.
   Future<void> settle(WidgetTester tester) async {
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
+    // Drift and the initial route animation both need alternating real time
+    // (for async work) and frames (for the provider rebuild/transition).
+    for (var round = 0; round < 3; round++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
     }
-    // Drift schedules stream work on the real event loop. Give that work a
-    // chance to run, then pump its result into the widget tree.
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 100)),
-    );
-    await tester.pump(const Duration(milliseconds: 50));
   }
 
   Future<void> disposeApp(WidgetTester tester) async {
@@ -77,6 +78,7 @@ void main() {
     // Chats is the start tab and is seeded from the local database.
     expect(find.text('Chats'), findsWidgets);
     final seeded = await db.select(db.conversations).get();
+    await tester.pump();
     final visibleText = tester
         .widgetList<Text>(find.byType(Text))
         .map((text) => text.data)
@@ -122,6 +124,7 @@ void main() {
     router.go('/chats');
     await settle(tester);
     expect(find.text('Abebe Kebede'), findsOneWidget);
+    await disposeApp(tester);
   });
 
   testWidgets('opens a seeded chat, sends a message and persists it',
@@ -171,6 +174,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Message'), findsOneWidget);
+    await disposeApp(tester);
   });
 
   testWidgets('search finds a message stored in the database', (tester) async {
@@ -186,6 +190,7 @@ void main() {
 
     expect(find.textContaining('invoice'), findsWidgets);
     expect(find.text('Did you get the invoice?'), findsOneWidget);
+    await disposeApp(tester);
   });
 
   testWidgets('new chat opens a direct conversation from a contact',
@@ -202,6 +207,7 @@ void main() {
     final summaries = await db.select(db.conversations).get();
     final hanna = summaries.where((s) => s.title == 'Hanna Girma');
     expect(hanna, hasLength(1));
+    await disposeApp(tester);
   });
 
   testWidgets('new group creates a group chat and opens it', (tester) async {
@@ -219,5 +225,6 @@ void main() {
     final summaries = await db.select(db.conversations).get();
     final group = summaries.firstWhere((s) => s.title == 'Football team');
     expect(group.type, 'group');
+    await disposeApp(tester);
   });
 }
