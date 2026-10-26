@@ -41,9 +41,9 @@ class AppRouter {
   static const String call = '/call/:id';
   static const String settings = '/me/settings';
 
-  static GoRouter createRouter() {
+  static GoRouter createRouter({String initialLocation = splash}) {
     return GoRouter(
-      initialLocation: splash,
+      initialLocation: initialLocation,
       routes: [
         GoRoute(
           path: splash,
@@ -70,7 +70,11 @@ class AppRouter {
         ),
         GoRoute(
           path: chats,
-          builder: (context, state) => const ChatListScreen(),
+          builder: (context, state) {
+            final filter =
+                int.tryParse(state.uri.queryParameters['filter'] ?? '') ?? 0;
+            return ChatListScreen(initialFilter: filter);
+          },
         ),
         GoRoute(
           path: chatDetail,
@@ -126,7 +130,11 @@ class AppRouter {
           builder: (context, state) {
             final isVideo = state.uri.queryParameters['video'] == 'true';
             final isIncoming = state.uri.queryParameters['incoming'] == 'true';
-            return CallScreen(isVideo: isVideo, isIncoming: isIncoming);
+            return CallScreen(
+              isVideo: isVideo,
+              isIncoming: isIncoming,
+              chatId: state.pathParameters['id'] ?? '',
+            );
           },
         ),
         GoRoute(

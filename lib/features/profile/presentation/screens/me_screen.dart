@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/config/feature_flags.dart';
 import '../../../../core/design/design.dart';
+import '../../../profile/application/profile_controller.dart';
 
-class MeScreen extends StatelessWidget {
+class MeScreen extends ConsumerWidget {
   const MeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final pal = EthioPalette.of(context);
-    
+    final profile = ref.watch(userProfileProvider);
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -39,26 +42,44 @@ class MeScreen extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const EthioAvatar(name: 'Abebe Kebede', size: 64),
+                      EthioAvatar(
+                        name: profile.name,
+                        imageUrl: profile.avatarPath,
+                        size: 64,
+                      ),
                       const SizedBox(width: Sp.x4),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Abebe Kebede',
+                              profile.name,
                               style: Theme.of(context).textTheme.titleLarge,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: Sp.x1),
                             Text(
-                              'Ethio ID: EC-123456',
-                              style:
-                                  Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: pal.textSecondary,
-                                      ),
+                              'Ethio ID: ${profile.ethioId}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: pal.textSecondary,
+                                  ),
                             ),
+                            if (profile.bio.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                profile.bio,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(color: pal.textSecondary),
+                              ),
+                            ],
                             const SizedBox(height: Sp.x2),
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -80,7 +101,9 @@ class MeScreen extends StatelessWidget {
                                   const SizedBox(width: 2),
                                   Flexible(
                                     child: Text(
-                                      'Addis Ababa',
+                                      profile.phone.isEmpty
+                                          ? 'Addis Ababa'
+                                          : profile.phone,
                                       style: Theme.of(context)
                                           .textTheme
                                           .labelSmall
@@ -117,12 +140,17 @@ class MeScreen extends StatelessWidget {
             _MeItem(
               icon: Icons.favorite_border_rounded,
               title: 'Favorites',
-              onTap: () {},
+              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content:
+                      Text('No favorites yet — starred messages show here.'),
+                ),
+              ),
             ),
             _MeItem(
               icon: Icons.shield_outlined,
               title: 'Privacy and security',
-              onTap: () {},
+              onTap: () => context.push('/me/settings'),
             ),
             _MeItem(
               icon: Icons.settings_outlined,
@@ -135,9 +163,9 @@ class MeScreen extends StatelessWidget {
       bottomNavigationBar: EthioBottomNav(
         index: 3,
         onTap: (i) {
-          if (i == 0) Navigator.pushNamed(context, '/chats');
-          if (i == 1) Navigator.pushNamed(context, '/contacts');
-          if (i == 2) Navigator.pushNamed(context, '/discover');
+          if (i == 0) context.go('/chats');
+          if (i == 1) context.go('/contacts');
+          if (i == 2) context.go('/discover');
         },
       ),
     );
@@ -154,7 +182,7 @@ class _MeItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: Sp.x2),
       decoration: BoxDecoration(
@@ -175,7 +203,8 @@ class _MeItem extends StatelessWidget {
         ),
         title: Text(title, style: Theme.of(context).textTheme.titleMedium),
         trailing: const Icon(Icons.chevron_right_rounded, size: 22),
-        contentPadding: const EdgeInsets.symmetric(horizontal: Sp.x4, vertical: Sp.x1),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: Sp.x4, vertical: Sp.x1),
       ),
     );
   }

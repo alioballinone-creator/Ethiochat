@@ -41,8 +41,7 @@ ThemeData buildTheme(Brightness brightness) {
     useMaterial3: true,
     brightness: brightness,
     colorScheme: scheme,
-    scaffoldBackgroundColor:
-        isDark ? EthioColors.black : EthioColors.cream,
+    scaffoldBackgroundColor: isDark ? EthioColors.black : EthioColors.cream,
     fontFamily: 'Inter',
     fontFamilyFallback: const ['NotoSansEthiopic'],
     visualDensity: VisualDensity.standard,
@@ -93,9 +92,8 @@ ThemeData buildTheme(Brightness brightness) {
       style: ElevatedButton.styleFrom(
         backgroundColor: EthioColors.gold,
         foregroundColor: EthioColors.black,
-        disabledBackgroundColor: isDark
-            ? EthioColors.blackSoft
-            : EthioColors.creamDark,
+        disabledBackgroundColor:
+            isDark ? EthioColors.blackSoft : EthioColors.creamDark,
         disabledForegroundColor:
             isDark ? const Color(0xFF777266) : const Color(0xFF8D8574),
         minimumSize: const Size.fromHeight(52),

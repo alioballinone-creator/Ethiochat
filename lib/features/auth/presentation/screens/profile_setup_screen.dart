@@ -1,22 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/design/design.dart';
+import '../../../profile/application/profile_controller.dart';
 
-/// Profile setup — shown once after OTP verification.
+/// Profile setup — shown once after OTP verification, and from Settings.
 ///
 /// Avatar, display name and an optional bio. Everything scrolls, the primary
 /// action stays above the keyboard via [SafeArea] + [ListView].
-class ProfileSetupScreen extends StatefulWidget {
+class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
 
   @override
-  State<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
+  ConsumerState<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
 }
 
-class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
+class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _name = TextEditingController();
   final _bio = TextEditingController();
+  String? _avatarPath;
+  bool _loaded = false;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final profile = ref.read(userProfileProvider);
+    if (profile.isComplete) {
+      _loaded = true;
+      _name.text = profile.name;
+      _bio.text = profile.bio;
+      _avatarPath = profile.avatarPath;
+    }
+  }
 
   @override
   void dispose() {
@@ -27,16 +45,54 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   bool get _valid => _name.text.trim().length >= 2;
 
+  Future<void> _pickPhoto() async {
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1200,
+      );
+      if (picked == null || !mounted) return;
+      setState(() => _avatarPath = picked.path);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not pick a photo: $error')),
+      );
+    }
+  }
+
+  Future<void> _save() async {
+    if (!_valid || _saving) return;
+    setState(() => _saving = true);
+    await ref.read(userProfileProvider.notifier).save(
+          name: _name.text,
+          bio: _bio.text,
+          avatarPath: _avatarPath,
+        );
+    if (!mounted) return;
+    context.go('/chats');
+  }
+
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
     final text = Theme.of(context).textTheme;
 
+    ref.listen<UserProfile>(userProfileProvider, (previous, next) {
+      if (_loaded || !next.isComplete || _name.text.isNotEmpty) return;
+      setState(() {
+        _loaded = true;
+        _name.text = next.name;
+        _bio.text = next.bio;
+        _avatarPath = next.avatarPath;
+      });
+    });
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        automaticallyImplyLeading: false,
         title: Text('Your profile', style: text.headlineMedium),
       ),
       body: SafeArea(
@@ -44,38 +100,49 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           padding: Sp.screen.copyWith(top: Sp.x4, bottom: Sp.x6),
           children: [
             Center(
-              child: Stack(
-                children: [
-                  const EthioAvatar(name: 'New user', size: 104),
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        gradient: EthioColors.goldGradient,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Theme.of(context).scaffoldBackgroundColor,
-                          width: 3,
+              child: GestureDetector(
+                onTap: _pickPhoto,
+                child: Stack(
+                  children: [
+                    EthioAvatar(
+                      name: _name.text.trim().isEmpty
+                          ? 'New user'
+                          : _name.text.trim(),
+                      imageUrl: _avatarPath,
+                      size: 104,
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          gradient: EthioColors.goldGradient,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Theme.of(context).scaffoldBackgroundColor,
+                            width: 3,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt_outlined,
+                          size: 18,
+                          color: EthioColors.black,
                         ),
                       ),
-                      child: const Icon(
-                        Icons.camera_alt_outlined,
-                        size: 18,
-                        color: EthioColors.black,
-                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: Sp.x3),
             Center(
               child: TextButton(
-                onPressed: () {},
-                child: const Text('Add a photo'),
+                onPressed: _pickPhoto,
+                child: Text(
+                  _avatarPath == null ? 'Add a photo' : 'Change photo',
+                ),
               ),
             ),
             const SizedBox(height: Sp.x4),
@@ -119,8 +186,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             ),
             const SizedBox(height: Sp.x6),
             EthioButton(
-              label: 'Continue',
-              onPressed: _valid ? () => context.go('/chats') : null,
+              label: _saving ? 'Saving…' : 'Continue',
+              onPressed: _valid && !_saving ? _save : null,
             ),
           ],
         ),

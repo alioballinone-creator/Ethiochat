@@ -1,85 +1,65 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/design.dart';
+import '../../../../core/utils/time_format.dart';
+import '../../../chats/application/chat_providers.dart';
+import '../../../chats/domain/entities/conversation_entity.dart';
+import '../../../chats/domain/entities/conversation_summary.dart';
 
-/// 04 — Chats.
-class ChatListScreen extends StatefulWidget {
-  const ChatListScreen({super.key});
+/// 04 — Chats, backed by the local Drift database.
+class ChatListScreen extends ConsumerStatefulWidget {
+  const ChatListScreen({super.key, this.initialFilter = 0});
+
+  final int initialFilter;
 
   @override
-  State<ChatListScreen> createState() => _ChatListScreenState();
+  ConsumerState<ChatListScreen> createState() => _ChatListScreenState();
 }
 
-class _ChatListScreenState extends State<ChatListScreen> {
+class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   int _filter = 0;
-  bool _offline = false;
 
-  static const _filters = ['All', 'Unread', 'Groups', 'Official'];
+  static const _filters = ['All', 'Unread', 'Groups', 'Official', 'Archived'];
 
-  static const _chats = <_ChatPreview>[
-    _ChatPreview(
-      id: '1',
-      name: 'Abebe Kebede',
-      preview: 'See you tomorrow',
-      time: '14:32',
-      unread: 2,
-      online: true,
-      pinned: true,
-    ),
-    _ChatPreview(
-      id: '2',
-      name: 'Tigist Alemayehu',
-      preview: 'Thanks! 🙏',
-      time: '12:15',
-      group: true,
-    ),
-    _ChatPreview(
-      id: '3',
-      name: 'EthioChat Support',
-      preview: 'Welcome to EthioChat',
-      time: 'Yesterday',
-      official: true,
-    ),
-    _ChatPreview(
-      id: '4',
-      name: 'Work group',
-      preview: 'Dawit: Meeting moved to 3 PM',
-      time: 'Yesterday',
-      unread: 5,
-      group: true,
-      muted: true,
-    ),
-    _ChatPreview(
-      id: '5',
-      name: 'Hanna Girma',
-      preview: 'Voice message · 0:12',
-      time: 'Mon',
-    ),
-    _ChatPreview(
-      id: '6',
-      name: 'Selam Bekele',
-      preview: 'Sent ETB 250.00',
-      time: 'Sun',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _filter = widget.initialFilter.clamp(0, _filters.length - 1).toInt();
+  }
 
-  List<_ChatPreview> get _visible {
-    switch (_filter) {
-      case 1:
-        return _chats.where((c) => c.unread > 0).toList(growable: false);
-      case 2:
-        return _chats.where((c) => c.group).toList(growable: false);
-      case 3:
-        return _chats.where((c) => c.official).toList(growable: false);
-      default:
-        return _chats;
+  @override
+  void didUpdateWidget(covariant ChatListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialFilter != oldWidget.initialFilter) {
+      _filter = widget.initialFilter.clamp(0, _filters.length - 1).toInt();
     }
   }
 
-  Future<void> _showActions(_ChatPreview chat) async {
+  List<ConversationSummary> _visible(List<ConversationSummary> all) {
+    final active = all.where((c) => !c.archived);
+    switch (_filter) {
+      case 1:
+        return active.where((c) => c.unread > 0).toList(growable: false);
+      case 2:
+        return active
+            .where((c) => c.type == ConversationType.group)
+            .toList(growable: false);
+      case 3:
+        return active
+            .where((c) => c.type == ConversationType.channel)
+            .toList(growable: false);
+      case 4:
+        return all.where((c) => c.archived).toList(growable: false);
+      default:
+        return active.toList(growable: false);
+    }
+  }
+
+  Future<void> _showActions(ConversationSummary chat) async {
     final pal = EthioPalette.of(context);
-    await showModalBottomSheet<void>(
+    final action = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Theme.of(context).colorScheme.surface,
       showDragHandle: true,
@@ -89,12 +69,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
           children: [
             ListTile(
               leading: Icon(
-                chat.pinned
-                    ? Icons.push_pin_rounded
-                    : Icons.push_pin_outlined,
+                chat.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
               ),
               title: Text(chat.pinned ? 'Unpin chat' : 'Pin chat'),
-              onTap: () => Navigator.pop(sheetContext),
+              onTap: () => Navigator.pop(sheetContext, 'pin'),
             ),
             ListTile(
               leading: Icon(
@@ -103,20 +81,24 @@ class _ChatListScreenState extends State<ChatListScreen> {
                     : Icons.notifications_off_outlined,
               ),
               title: Text(chat.muted ? 'Unmute' : 'Mute'),
-              onTap: () => Navigator.pop(sheetContext),
+              onTap: () => Navigator.pop(sheetContext, 'mute'),
             ),
             ListTile(
-              leading: const Icon(Icons.archive_outlined),
-              title: const Text('Archive'),
-              onTap: () => Navigator.pop(sheetContext),
+              leading: Icon(
+                chat.archived
+                    ? Icons.unarchive_outlined
+                    : Icons.archive_outlined,
+              ),
+              title: Text(chat.archived ? 'Unarchive' : 'Archive'),
+              onTap: () => Navigator.pop(sheetContext, 'archive'),
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline_rounded),
-              title: Text(
+              title: const Text(
                 'Delete',
                 style: TextStyle(color: EthioColors.danger),
               ),
-              onTap: () => Navigator.pop(sheetContext),
+              onTap: () => Navigator.pop(sheetContext, 'delete'),
             ),
             Divider(color: pal.line, height: 1),
             const SizedBox(height: Sp.x2),
@@ -124,12 +106,89 @@ class _ChatListScreenState extends State<ChatListScreen> {
         ),
       ),
     );
+    if (action == null || !mounted) return;
+
+    final repo = ref.read(chatRepositoryProvider);
+    if (action == 'delete') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Delete chat?'),
+          content: Text(
+            'This removes your conversation with ${chat.title}, including '
+            'all messages on this device.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text(
+                'Delete',
+                style: TextStyle(color: EthioColors.danger),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      final result = await repo.deleteConversation(chat.id);
+      _feedback(
+          result.isSuccess ? 'Chat deleted' : result.failureOrNull!.message);
+      return;
+    }
+
+    switch (action) {
+      case 'pin':
+        {
+          final result = await repo.setPinned(chat.id, !chat.pinned);
+          _feedback(result.isSuccess
+              ? chat.pinned
+                  ? 'Chat unpinned'
+                  : 'Chat pinned'
+              : result.failureOrNull!.message);
+          break;
+        }
+      case 'mute':
+        {
+          final result = await repo.setMuted(chat.id, !chat.muted);
+          _feedback(result.isSuccess
+              ? chat.muted
+                  ? 'Notifications unmuted'
+                  : 'Notifications muted'
+              : result.failureOrNull!.message);
+          break;
+        }
+      case 'archive':
+        {
+          final result = await repo.setArchived(chat.id, !chat.archived);
+          _feedback(result.isSuccess
+              ? chat.archived
+                  ? 'Chat unarchived'
+                  : 'Chat archived'
+              : result.failureOrNull!.message);
+          break;
+        }
+    }
+  }
+
+  void _feedback(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
-    final pal = EthioPalette.of(context);
-    final chats = _visible;
+    final seed = ref.watch(demoSeedProvider);
+    final summaries = ref.watch(conversationSummariesProvider);
+    final all = summaries.valueOrNull ?? const <ConversationSummary>[];
+    final chats = _visible(all);
+    final loading =
+        seed.isLoading && all.isEmpty || summaries.isLoading && all.isEmpty;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -165,7 +224,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
         top: false,
         child: Column(
           children: [
-            if (_offline) const _OfflineBanner(),
             SizedBox(
               height: 44,
               child: ListView.separated(
@@ -179,76 +237,91 @@ class _ChatListScreenState extends State<ChatListScreen> {
                     label: Text(_filters[i]),
                     selected: selected,
                     showCheckmark: false,
-                    backgroundColor: pal.chip,
+                    backgroundColor: EthioPalette.of(context).chip,
                     selectedColor: EthioColors.gold,
                     side: BorderSide(
-                      color: selected ? Colors.transparent : pal.line,
+                      color: selected
+                          ? Colors.transparent
+                          : EthioPalette.of(context).line,
                     ),
-                    labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: selected ? EthioColors.black : null,
-                          fontWeight:
-                              selected ? FontWeight.w600 : FontWeight.w500,
-                        ),
+                    labelStyle:
+                        Theme.of(context).textTheme.labelMedium?.copyWith(
+                              color: selected ? EthioColors.black : null,
+                              fontWeight:
+                                  selected ? FontWeight.w600 : FontWeight.w500,
+                            ),
                     onSelected: (_) => setState(() => _filter = i),
                   );
                 },
               ),
             ),
             Expanded(
-              child: chats.isEmpty
-                  ? _EmptyChats(
-                      message: _filter == 0
-                          ? 'No chats yet'
-                          : 'Nothing in ${_filters[_filter]}',
-                      onNewChat: () => context.push('/new-chat'),
-                    )
-                  : RefreshIndicator(
-                      color: EthioColors.gold,
-                      onRefresh: () async {
-                        setState(() => _offline = false);
-                        await Future<void>.delayed(
-                          const Duration(milliseconds: 600),
-                        );
-                      },
-                      child: ListView.builder(
-                        padding: const EdgeInsets.only(
-                          top: Sp.x2,
-                          bottom: Sp.x8,
-                        ),
-                        itemCount: chats.length,
-                        itemBuilder: (context, i) {
-                          final chat = chats[i];
-                          return Dismissible(
-                            key: ValueKey(chat.id),
-                            direction: DismissDirection.endToStart,
-                            confirmDismiss: (_) async {
-                              await _showActions(chat);
-                              return false;
-                            },
-                            background: Container(
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: Sp.x6),
+              child: loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : summaries.hasError && all.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: Sp.screen,
+                            child: Text(
+                              'Could not load chats: '
+                              '${summaries.error}',
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
+                      : chats.isEmpty
+                          ? _EmptyChats(
+                              message: _filter == 0
+                                  ? 'No chats yet'
+                                  : 'Nothing in ${_filters[_filter]}',
+                              onNewChat: () => context.push('/new-chat'),
+                            )
+                          : RefreshIndicator(
                               color: EthioColors.gold,
-                              child: const Icon(
-                                Icons.more_horiz_rounded,
-                                color: EthioColors.black,
+                              onRefresh: () async {
+                                await ref.read(demoSeedProvider.future);
+                                ref.invalidate(conversationSummariesProvider);
+                              },
+                              child: ListView.builder(
+                                padding: const EdgeInsets.only(
+                                  top: Sp.x2,
+                                  bottom: Sp.x8,
+                                ),
+                                itemCount: chats.length,
+                                itemBuilder: (context, i) {
+                                  final chat = chats[i];
+                                  return Dismissible(
+                                    key: ValueKey(chat.id),
+                                    direction: DismissDirection.endToStart,
+                                    confirmDismiss: (_) async {
+                                      await _showActions(chat);
+                                      return false;
+                                    },
+                                    background: Container(
+                                      alignment: Alignment.centerRight,
+                                      padding:
+                                          const EdgeInsets.only(right: Sp.x6),
+                                      color: EthioColors.gold,
+                                      child: const Icon(
+                                        Icons.more_horiz_rounded,
+                                        color: EthioColors.black,
+                                      ),
+                                    ),
+                                    child: ChatListTile(
+                                      title: chat.title,
+                                      preview: chat.preview,
+                                      time: chatListTime(chat.lastMessageAt),
+                                      unread: chat.unread,
+                                      pinned: chat.pinned,
+                                      muted: chat.muted,
+                                      onTap: () =>
+                                          context.push('/chats/${chat.id}'),
+                                      onLongPress: () => _showActions(chat),
+                                    ),
+                                  );
+                                },
                               ),
                             ),
-                            child: ChatListTile(
-                              title: chat.name,
-                              preview: chat.preview,
-                              time: chat.time,
-                              unread: chat.unread,
-                              pinned: chat.pinned,
-                              muted: chat.muted,
-                              online: chat.online,
-                              onTap: () => context.push('/chats/${chat.id}'),
-                              onLongPress: () => _showActions(chat),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
             ),
           ],
         ),
@@ -263,32 +336,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
       ),
     );
   }
-}
-
-class _ChatPreview {
-  const _ChatPreview({
-    required this.id,
-    required this.name,
-    required this.preview,
-    required this.time,
-    this.unread = 0,
-    this.online = false,
-    this.pinned = false,
-    this.muted = false,
-    this.group = false,
-    this.official = false,
-  });
-
-  final String id;
-  final String name;
-  final String preview;
-  final String time;
-  final int unread;
-  final bool online;
-  final bool pinned;
-  final bool muted;
-  final bool group;
-  final bool official;
 }
 
 class _EmptyChats extends StatelessWidget {
@@ -339,39 +386,6 @@ class _EmptyChats extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _OfflineBanner extends StatelessWidget {
-  const _OfflineBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    final pal = EthioPalette.of(context);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: Sp.x5,
-        vertical: Sp.x2,
-      ),
-      color: pal.chip,
-      child: Row(
-        children: [
-          Icon(Icons.cloud_off_rounded, size: 16, color: pal.textSecondary),
-          const SizedBox(width: Sp.x2),
-          Expanded(
-            child: Text(
-              'You are offline. Messages will send when you reconnect.',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelSmall
-                  ?.copyWith(color: pal.textSecondary),
-            ),
-          ),
-        ],
       ),
     );
   }

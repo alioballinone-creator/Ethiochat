@@ -10,7 +10,7 @@ class OfflineBanner extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isOnline = ref.watch(isOnlineProvider);
     if (isOnline) return const SizedBox.shrink();
-    
+
     return Material(
       color: Colors.orange,
       child: SafeArea(
@@ -25,7 +25,8 @@ class OfflineBanner extends ConsumerWidget {
               SizedBox(width: 8),
               Text(
                 'You are offline',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                style:
+                    TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
               ),
             ],
           ),

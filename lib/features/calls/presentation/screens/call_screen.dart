@@ -1,72 +1,218 @@
-import 'package:flutter/material.dart';
-import '../../../../core/design/design.dart';
+import 'dart:async';
 
-class CallScreen extends StatefulWidget {
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../core/design/design.dart';
+import '../../../chats/application/chat_providers.dart';
+
+class CallScreen extends ConsumerStatefulWidget {
+  const CallScreen({
+    super.key,
+    required this.isVideo,
+    required this.isIncoming,
+    this.chatId = '',
+  });
+
   final bool isVideo;
   final bool isIncoming;
-
-  const CallScreen({super.key, required this.isVideo, required this.isIncoming});
+  final String chatId;
 
   @override
-  State<CallScreen> createState() => _CallScreenState();
+  ConsumerState<CallScreen> createState() => _CallScreenState();
 }
 
-class _CallScreenState extends State<CallScreen> {
+class _CallScreenState extends ConsumerState<CallScreen> {
+  Timer? _timer;
+  int _seconds = 0;
+  bool _connected = false;
+  bool _muted = false;
+  bool _speaker = false;
+  bool _videoOn = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.isIncoming) {
+      _connected = true;
+      _startTimer();
+    }
+  }
+
+  void _startTimer() {
+    _timer ??= Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _seconds++);
+    });
+  }
+
+  void _accept() {
+    setState(() => _connected = true);
+    _startTimer();
+  }
+
+  void _end() {
+    _timer?.cancel();
+    if (mounted) context.pop();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String get _duration {
+    final minutes = (_seconds ~/ 60).toString().padLeft(2, '0');
+    final seconds = (_seconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final conversation = ref.watch(conversationProvider(widget.chatId));
+    final title = conversation.valueOrNull?.title ?? 'Abebe Kebede';
+
     return Scaffold(
       backgroundColor: EthioColors.black,
-      body: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Spacer(),
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: EthioColors.gold,
-                  width: 3,
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              EthioColors.black,
+              widget.isVideo && _videoOn && _connected
+                  ? const Color(0xFF1B2A24)
+                  : EthioColors.blackSoft,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Align(
+                alignment: Alignment.topLeft,
+                child: IconButton(
+                  tooltip: 'Back',
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                  color: EthioColors.cream,
+                  onPressed: _end,
                 ),
               ),
-              child: const EthioAvatar(name: 'Abebe Kebede', size: 120),
-            ),
-            const SizedBox(height: Sp.x6),
-            Text(
-              'Abebe Kebede',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: EthioColors.cream,
+              const Spacer(),
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: EthioColors.gold,
+                    width: 3,
                   ),
-            ),
-            const SizedBox(height: Sp.x2),
-            Text(
-              widget.isIncoming ? 'Incoming call' : 'Calling...',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: EthioColors.cream.withValues(alpha: 0.7),
-                  ),
-            ),
-            const Spacer(),
-            Padding(
-              padding: const EdgeInsets.all(Sp.x8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _CallButton(
-                    icon: Icons.call_end_rounded,
-                    color: EthioColors.danger,
-                    onTap: () => Navigator.of(context).pop(),
-                  ),
-                  if (widget.isIncoming)
-                    _CallButton(
-                      icon: Icons.call_rounded,
-                      color: EthioColors.success,
-                      onTap: () {},
-                    ),
-                ],
+                ),
+                child: EthioAvatar(name: title, size: 120),
               ),
-            ),
-            const SizedBox(height: Sp.x4),
-          ],
+              const SizedBox(height: Sp.x6),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: EthioColors.cream,
+                    ),
+              ),
+              const SizedBox(height: Sp.x2),
+              Text(
+                _connected
+                    ? (widget.isVideo ? 'Video call · $_duration' : _duration)
+                    : widget.isIncoming
+                        ? 'Incoming ${widget.isVideo ? 'video ' : ''}call'
+                        : 'Calling…',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: EthioColors.cream.withValues(alpha: 0.7),
+                    ),
+              ),
+              if (!_connected && widget.isIncoming) ...[
+                const SizedBox(height: Sp.x6),
+                Text(
+                  'Tap the green button to answer',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: EthioColors.cream.withValues(alpha: 0.5),
+                      ),
+                ),
+              ],
+              const Spacer(),
+              if (_connected)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Sp.x8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _CallButton(
+                        icon: _muted
+                            ? Icons.mic_off_rounded
+                            : Icons.mic_none_rounded,
+                        label: _muted ? 'Unmute' : 'Mute',
+                        color: _muted
+                            ? EthioColors.cream
+                            : Colors.white.withValues(alpha: 0.16),
+                        iconColor:
+                            _muted ? EthioColors.black : EthioColors.cream,
+                        onTap: () => setState(() => _muted = !_muted),
+                      ),
+                      _CallButton(
+                        icon: _speaker
+                            ? Icons.volume_up_rounded
+                            : Icons.volume_down_rounded,
+                        label: 'Speaker',
+                        color: _speaker
+                            ? EthioColors.cream
+                            : Colors.white.withValues(alpha: 0.16),
+                        iconColor:
+                            _speaker ? EthioColors.black : EthioColors.cream,
+                        onTap: () => setState(() => _speaker = !_speaker),
+                      ),
+                      if (widget.isVideo)
+                        _CallButton(
+                          icon: _videoOn
+                              ? Icons.videocam_rounded
+                              : Icons.videocam_off_rounded,
+                          label: 'Video',
+                          color: _videoOn
+                              ? EthioColors.cream
+                              : Colors.white.withValues(alpha: 0.16),
+                          iconColor:
+                              _videoOn ? EthioColors.black : EthioColors.cream,
+                          onTap: () => setState(() => _videoOn = !_videoOn),
+                        ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: Sp.x8),
+              Padding(
+                padding: const EdgeInsets.all(Sp.x8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _CallButton(
+                      icon: Icons.call_end_rounded,
+                      label: 'End',
+                      color: EthioColors.danger,
+                      iconColor: Colors.white,
+                      onTap: _end,
+                    ),
+                    if (widget.isIncoming && !_connected)
+                      _CallButton(
+                        icon: Icons.call_rounded,
+                        label: 'Answer',
+                        color: EthioColors.success,
+                        iconColor: Colors.white,
+                        onTap: _accept,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: Sp.x4),
+            ],
+          ),
         ),
       ),
     );
@@ -74,24 +220,44 @@ class _CallScreenState extends State<CallScreen> {
 }
 
 class _CallButton extends StatelessWidget {
-  const _CallButton({required this.icon, required this.color, required this.onTap});
+  const _CallButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.iconColor,
+    required this.onTap,
+  });
 
   final IconData icon;
+  final String label;
   final Color color;
+  final Color iconColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 72,
-        height: 72,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: Colors.white, size: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: iconColor, size: 28),
+          ),
+          const SizedBox(height: Sp.x2),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: EthioColors.cream.withValues(alpha: 0.8),
+                ),
+          ),
+        ],
       ),
     );
   }

@@ -1,34 +1,224 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/design.dart';
+import '../../../chats/application/chat_providers.dart';
+import '../../../chats/domain/entities/conversation_entity.dart';
+import '../../../chats/domain/entities/message_entity.dart' as entity;
+import '../../../contacts/domain/entities/contact_entity.dart';
 
-/// Chat info / conversation settings.
-class ChatInfoScreen extends StatefulWidget {
+/// Chat info / conversation settings, persisted to the local database.
+class ChatInfoScreen extends ConsumerStatefulWidget {
   const ChatInfoScreen({super.key, required this.chatId});
 
   final String chatId;
 
   @override
-  State<ChatInfoScreen> createState() => _ChatInfoScreenState();
+  ConsumerState<ChatInfoScreen> createState() => _ChatInfoScreenState();
 }
 
-class _ChatInfoScreenState extends State<ChatInfoScreen> {
-  bool _muted = false;
-  bool _pinned = true;
+class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
+  bool _busy = false;
 
-  static const _media = <int>[0, 1, 2, 3, 4, 5];
+  Future<void> _setMuted(bool muted) async {
+    final result =
+        await ref.read(chatRepositoryProvider).setMuted(widget.chatId, muted);
+    if (result.failureOrNull case final failure?) _feedback(failure.message);
+  }
+
+  Future<void> _setPinned(bool pinned) async {
+    final result =
+        await ref.read(chatRepositoryProvider).setPinned(widget.chatId, pinned);
+    if (result.failureOrNull case final failure?) _feedback(failure.message);
+  }
+
+  Future<void> _clearChat() async {
+    final confirmed = await _confirm(
+      title: 'Clear chat?',
+      message: 'All messages in this conversation will be removed from this '
+          'device. This cannot be undone.',
+      confirmLabel: 'Clear',
+    );
+    if (!confirmed) return;
+    final result =
+        await ref.read(chatRepositoryProvider).clearMessages(widget.chatId);
+    _feedback(
+        result.isSuccess ? 'Chat cleared' : result.failureOrNull!.message);
+  }
+
+  Future<void> _deleteChat() async {
+    final confirmed = await _confirm(
+      title: 'Delete chat?',
+      message: 'This conversation and its messages will be removed from this '
+          'device.',
+      confirmLabel: 'Delete',
+    );
+    if (!confirmed) return;
+    final result = await ref
+        .read(chatRepositoryProvider)
+        .deleteConversation(widget.chatId);
+    if (!mounted) return;
+    if (result.isSuccess) {
+      context.go('/chats');
+    } else {
+      _feedback(result.failureOrNull!.message);
+    }
+  }
+
+  Future<void> _blockContact(String name) async {
+    final confirmed = await _confirm(
+      title: 'Block $name?',
+      message: 'Blocked contacts can no longer call you or send new messages.',
+      confirmLabel: 'Block',
+    );
+    if (!confirmed) return;
+    _feedback('$name blocked');
+  }
+
+  Future<void> _report(String name) async {
+    final reason = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final reason in [
+              'Spam or scam',
+              'Harassment',
+              'Inappropriate content',
+              'Other',
+            ])
+              ListTile(
+                title: Text(reason),
+                onTap: () => Navigator.pop(sheetContext, reason),
+              ),
+            const SizedBox(height: Sp.x2),
+          ],
+        ),
+      ),
+    );
+    if (reason == null) return;
+    _feedback('Reported $name for "$reason". Thank you.');
+  }
+
+  Future<bool> _confirm({
+    required String title,
+    required String message,
+    required String confirmLabel,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(
+              confirmLabel,
+              style: const TextStyle(color: EthioColors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  void _feedback(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
     final text = Theme.of(context).textTheme;
+    final conversation = ref.watch(conversationProvider(widget.chatId));
+    final messages = ref.watch(messagesProvider(widget.chatId)).valueOrNull ??
+        const <entity.MessageEntity>[];
+    final contacts =
+        ref.watch(contactsProvider).valueOrNull ?? const <ContactEntity>[];
+    final info = conversation.valueOrNull;
+    final title = info?.title ?? 'Chat';
+    final isGroup = info?.type == ConversationType.group;
+    final images = messages
+        .where((m) =>
+            m.type == entity.MessageType.image &&
+            (m.media?['path'] as String?) != null)
+        .toList(growable: false);
+    final documents =
+        messages.where((m) => m.type == entity.MessageType.file).length;
+    final links = messages.where((m) => (m.body ?? '').contains('http')).length;
+    ContactEntity? contact;
+    for (final c in contacts) {
+      if (c.displayName == title) {
+        contact = c;
+        break;
+      }
+    }
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         title: Text('Chat info', style: text.headlineMedium),
+        actions: [
+          IconButton(
+            tooltip: 'More',
+            icon: const Icon(Icons.more_horiz_rounded),
+            onPressed: _busy
+                ? null
+                : () async {
+                    final action = await showModalBottomSheet<String>(
+                      context: context,
+                      showDragHandle: true,
+                      backgroundColor: Theme.of(context).colorScheme.surface,
+                      builder: (sheetContext) => SafeArea(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ListTile(
+                              leading:
+                                  const Icon(Icons.cleaning_services_outlined),
+                              title: const Text('Clear chat'),
+                              onTap: () => Navigator.pop(sheetContext, 'clear'),
+                            ),
+                            ListTile(
+                              leading: const Icon(
+                                Icons.delete_outline_rounded,
+                                color: EthioColors.danger,
+                              ),
+                              title: const Text(
+                                'Delete chat',
+                                style: TextStyle(color: EthioColors.danger),
+                              ),
+                              onTap: () =>
+                                  Navigator.pop(sheetContext, 'delete'),
+                            ),
+                            const SizedBox(height: Sp.x2),
+                          ],
+                        ),
+                      ),
+                    );
+                    setState(() => _busy = true);
+                    if (action == 'clear') await _clearChat();
+                    if (action == 'delete') await _deleteChat();
+                    if (mounted) setState(() => _busy = false);
+                  },
+          ),
+        ],
       ),
       body: SafeArea(
         top: false,
@@ -38,12 +228,26 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
             Center(
               child: Column(
                 children: [
-                  const EthioAvatar(name: 'Abebe Kebede', size: 88),
+                  EthioAvatar(
+                    name: title,
+                    imageUrl: info?.avatarUrl,
+                    size: 88,
+                  ),
                   const SizedBox(height: Sp.x3),
-                  Text('Abebe Kebede', style: text.headlineSmall),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: text.headlineSmall,
+                  ),
                   const SizedBox(height: Sp.x1),
                   Text(
-                    '+251 91 234 5678',
+                    isGroup
+                        ? '${messages.map((m) => m.senderId).toSet().length} '
+                            'participants'
+                        : contact?.phoneE164 ??
+                            (contact?.ethioId == null
+                                ? 'EthioChat contact'
+                                : 'Ethio ID: ${contact?.ethioId}'),
                     style: text.bodyMedium?.copyWith(color: pal.textSecondary),
                   ),
                   const SizedBox(height: Sp.x3),
@@ -55,12 +259,13 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
                       _QuickPill(
                         icon: Icons.call_outlined,
                         label: 'Call',
-                        onTap: () => context.push('/call/1'),
+                        onTap: () => context.push('/call/${widget.chatId}'),
                       ),
                       _QuickPill(
                         icon: Icons.videocam_outlined,
                         label: 'Video',
-                        onTap: () => context.push('/call/1?video=true'),
+                        onTap: () =>
+                            context.push('/call/${widget.chatId}?video=true'),
                       ),
                       _QuickPill(
                         icon: Icons.search_rounded,
@@ -78,14 +283,14 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
                 _SwitchRow(
                   icon: Icons.notifications_off_outlined,
                   title: 'Mute notifications',
-                  value: _muted,
-                  onChanged: (v) => setState(() => _muted = v),
+                  value: info?.mutedUntil != null,
+                  onChanged: _setMuted,
                 ),
                 _SwitchRow(
                   icon: Icons.push_pin_outlined,
                   title: 'Pin chat',
-                  value: _pinned,
-                  onChanged: (v) => setState(() => _pinned = v),
+                  value: info?.pinned ?? false,
+                  onChanged: _setPinned,
                   last: true,
                 ),
               ],
@@ -95,57 +300,81 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
               children: [
                 Text('Media', style: text.titleMedium),
                 const Spacer(),
-                TextButton(onPressed: () {}, child: const Text('See all')),
+                TextButton(
+                  onPressed: () => _showMedia(images),
+                  child: const Text('See all'),
+                ),
               ],
             ),
-            SizedBox(
-              height: 84,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _media.length,
-                separatorBuilder: (_, __) => const SizedBox(width: Sp.x2),
-                itemBuilder: (context, i) => Container(
-                  width: 84,
-                  decoration: BoxDecoration(
-                    borderRadius: Rad.r14,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        EthioColors.avatarTones[i % EthioColors.avatarTones.length],
-                        EthioColors.avatarTones[(i + 3) % EthioColors.avatarTones.length],
-                      ],
-                    ),
-                  ),
+            if (images.isEmpty)
+              Container(
+                height: 84,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: Rad.r14,
+                  border: Border.all(color: pal.line),
+                ),
+                child: Text(
+                  'No media yet',
+                  style: text.bodyMedium?.copyWith(color: pal.textSecondary),
+                ),
+              )
+            else
+              SizedBox(
+                height: 84,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: images.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: Sp.x2),
+                  itemBuilder: (context, i) {
+                    final image = images[i];
+                    return GestureDetector(
+                      onTap: () => _showMedia(images, initial: i),
+                      child: _MediaThumb(
+                        path: image.media!['path'] as String,
+                        index: i,
+                      ),
+                    );
+                  },
                 ),
               ),
-            ),
             const SizedBox(height: Sp.x4),
             _Card(
               children: [
                 _NavRow(
                   icon: Icons.photo_library_outlined,
                   title: 'Photos and videos',
-                  trailing: '128',
-                  onTap: () {},
+                  trailing: '${images.length}',
+                  onTap: () => _showMedia(images),
                 ),
                 _NavRow(
                   icon: Icons.insert_drive_file_outlined,
                   title: 'Documents',
-                  trailing: '12',
-                  onTap: () {},
+                  trailing: '$documents',
+                  onTap: () => _feedback(
+                    documents == 0
+                        ? 'No documents in this chat yet.'
+                        : '$documents document(s) shared.',
+                  ),
                 ),
                 _NavRow(
                   icon: Icons.link_rounded,
                   title: 'Links',
-                  trailing: '9',
-                  onTap: () {},
+                  trailing: '$links',
+                  onTap: () => _feedback(
+                    links == 0
+                        ? 'No links in this chat yet.'
+                        : '$links link(s) shared.',
+                  ),
                 ),
                 _NavRow(
                   icon: Icons.auto_delete_outlined,
                   title: 'Disappearing messages',
                   trailing: 'Off',
-                  onTap: () {},
+                  onTap: () => _feedback(
+                    'Disappearing messages are not available in this release.',
+                  ),
                   last: true,
                 ),
               ],
@@ -155,15 +384,15 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
               children: [
                 _NavRow(
                   icon: Icons.block_outlined,
-                  title: 'Block contact',
+                  title: isGroup ? 'Block group' : 'Block contact',
                   danger: true,
-                  onTap: () {},
+                  onTap: () => _blockContact(title),
                 ),
                 _NavRow(
                   icon: Icons.flag_outlined,
                   title: 'Report',
                   danger: true,
-                  onTap: () {},
+                  onTap: () => _report(title),
                   last: true,
                 ),
               ],
@@ -171,6 +400,70 @@ class _ChatInfoScreenState extends State<ChatInfoScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _showMedia(
+    List<entity.MessageEntity> images, {
+    int initial = 0,
+  }) async {
+    if (images.isEmpty) {
+      _feedback('No photos or videos in this chat.');
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        child: SizedBox(
+          width: 320,
+          height: 420,
+          child: PageView.builder(
+            controller: PageController(initialPage: initial),
+            itemCount: images.length,
+            itemBuilder: (context, i) {
+              final path = images[i].media!['path'] as String;
+              if (!File(path).existsSync()) {
+                return const Center(child: Text('Media unavailable'));
+              }
+              return InteractiveViewer(
+                child: Image.file(File(path), fit: BoxFit.contain),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MediaThumb extends StatelessWidget {
+  const _MediaThumb({required this.path, required this.index});
+
+  final String path;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final exists = File(path).existsSync();
+    return ClipRRect(
+      borderRadius: Rad.r14,
+      child: exists
+          ? Image.file(File(path), width: 84, height: 84, fit: BoxFit.cover)
+          : Container(
+              width: 84,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    EthioColors
+                        .avatarTones[index % EthioColors.avatarTones.length],
+                    EthioColors.avatarTones[
+                        (index + 3) % EthioColors.avatarTones.length],
+                  ],
+                ),
+              ),
+            ),
     );
   }
 }

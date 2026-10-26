@@ -18,22 +18,22 @@ void main() {
   test('enqueue writes to outbox and message starts pending', () async {
     final now = DateTime.now();
     await db.into(db.conversations).insert(
-      ConversationsCompanion.insert(
-        id: 'c1',
-        type: 'direct',
-      ),
-    );
+          ConversationsCompanion.insert(
+            id: 'c1',
+            type: 'direct',
+          ),
+        );
     await db.into(db.messages).insert(
-      MessagesCompanion.insert(
-        id: 'm1',
-        conversationId: 'c1',
-        senderId: 'u1',
-        type: 'text',
-        body: const drift.Value('hello'),
-        createdAt: now,
-        status: const drift.Value(0),
-      ),
-    );
+          MessagesCompanion.insert(
+            id: 'm1',
+            conversationId: 'c1',
+            senderId: 'u1',
+            type: 'text',
+            body: const drift.Value('hello'),
+            createdAt: now,
+            status: const drift.Value(0),
+          ),
+        );
     await OutboxWorker.enqueue(
       db,
       messageId: 'm1',

@@ -103,7 +103,8 @@ class OutboxWorker {
       await (db.update(db.messages)..where((m) => m.id.equals(row.messageId)))
           .write(const MessagesCompanion(status: Value(4)));
       AppLogger.warn('Outbox gave up on ${row.messageId} after $attempt');
-      await (db.delete(db.outbox)..where((o) => o.messageId.equals(row.messageId)))
+      await (db.delete(db.outbox)
+            ..where((o) => o.messageId.equals(row.messageId)))
           .go();
       return;
     }
@@ -120,12 +121,14 @@ class OutboxWorker {
       await (db.update(db.messages)..where((m) => m.id.equals(row.messageId)))
           .write(const MessagesCompanion(status: Value(1))); // sent
 
-      await (db.delete(db.outbox)..where((o) => o.messageId.equals(row.messageId)))
+      await (db.delete(db.outbox)
+            ..where((o) => o.messageId.equals(row.messageId)))
           .go();
     } catch (e) {
       final delay = _backoff(attempt);
       final next = DateTime.now().add(delay).millisecondsSinceEpoch;
-      await (db.update(db.outbox)..where((o) => o.messageId.equals(row.messageId)))
+      await (db.update(db.outbox)
+            ..where((o) => o.messageId.equals(row.messageId)))
           .write(
         OutboxCompanion(
           attempt: Value(attempt),
@@ -153,13 +156,13 @@ class OutboxWorker {
     required Map<String, dynamic> payload,
   }) async {
     await db.into(db.outbox).insertOnConflictUpdate(
-      OutboxCompanion(
-        messageId: Value(messageId),
-        conversationId: Value(conversationId),
-        payloadJson: Value(jsonEncode(payload)),
-        attempt: const Value(0),
-        nextRetryAt: Value(DateTime.now().millisecondsSinceEpoch),
-      ),
-    );
+          OutboxCompanion(
+            messageId: Value(messageId),
+            conversationId: Value(conversationId),
+            payloadJson: Value(jsonEncode(payload)),
+            attempt: const Value(0),
+            nextRetryAt: Value(DateTime.now().millisecondsSinceEpoch),
+          ),
+        );
   }
 }

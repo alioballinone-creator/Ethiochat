@@ -130,7 +130,8 @@ class DesignGallery extends StatelessWidget {
             children: [
               const EthioAvatar(name: 'Abebe Kebede', size: 44),
               const SizedBox(width: Sp.x2),
-              const EthioAvatar(name: 'Tigist Alemayehu', size: 44, online: true),
+              const EthioAvatar(
+                  name: 'Tigist Alemayehu', size: 44, online: true),
               const SizedBox(width: Sp.x2),
               const EthioAvatar(name: 'Dawit Bekele', size: 44),
               const Spacer(),

@@ -1,28 +1,168 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/config/feature_flags.dart';
 import '../../../../core/design/design.dart';
+import '../../../../core/settings/app_settings.dart';
 
 /// Settings — grouped cards on the cream wallpaper.
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _messageNotifications = true;
   bool _groupNotifications = true;
   bool _readReceipts = true;
   bool _showLastSeen = true;
   bool _mediaAutoDownload = false;
 
+  Future<void> _pickAppearance() async {
+    final settings = ref.read(appSettingsProvider);
+    final choice = await showModalBottomSheet<ThemeMode>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final entry in const [
+              (ThemeMode.system, 'System', 'Follow your device'),
+              (ThemeMode.light, 'Light', 'Cream and gold'),
+              (ThemeMode.dark, 'Dark', 'Low-light friendly'),
+            ])
+              ListTile(
+                title: Text(entry.$2),
+                subtitle: Text(entry.$3),
+                trailing: settings.themeMode == entry.$1
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: EthioColors.goldDeep,
+                      )
+                    : null,
+                onTap: () => Navigator.pop(sheetContext, entry.$1),
+              ),
+            const SizedBox(height: Sp.x2),
+          ],
+        ),
+      ),
+    );
+    if (choice != null) {
+      await ref.read(appSettingsProvider.notifier).setThemeMode(choice);
+    }
+  }
+
+  Future<void> _pickLanguage() async {
+    final settings = ref.read(appSettingsProvider);
+    final choice = await showModalBottomSheet<Locale>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('English'),
+              trailing: settings.locale.languageCode == 'en'
+                  ? const Icon(Icons.check_rounded, color: EthioColors.goldDeep)
+                  : null,
+              onTap: () => Navigator.pop(sheetContext, const Locale('en')),
+            ),
+            ListTile(
+              title: const Text('አማርኛ — Amharic'),
+              trailing: settings.locale.languageCode == 'am'
+                  ? const Icon(Icons.check_rounded, color: EthioColors.goldDeep)
+                  : null,
+              onTap: () => Navigator.pop(sheetContext, const Locale('am')),
+            ),
+            for (final coming in const [
+              'Afaan Oromoo',
+              'Soomaali',
+              'ትግርኛ — Tigrinya',
+            ])
+              ListTile(
+                enabled: false,
+                title: Text(coming),
+                trailing: const Text('Soon'),
+              ),
+            const SizedBox(height: Sp.x2),
+          ],
+        ),
+      ),
+    );
+    if (choice != null) {
+      await ref.read(appSettingsProvider.notifier).setLocale(choice);
+    }
+  }
+
+  Future<void> _signOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text(
+          'Your chats stay on this device. You can sign back in with your '
+          'phone number.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text(
+              'Sign out',
+              style: TextStyle(color: EthioColors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    context.go('/welcome');
+  }
+
+  void _showAbout() {
+    showAboutDialog(
+      context: context,
+      applicationName: 'EthioChat',
+      applicationVersion: '0.1.0',
+      applicationLegalese: 'Made in Addis Ababa 🇪🇹\n'
+          'Local-first messaging for Ethiopia and the Horn of Africa.',
+      children: [
+        const SizedBox(height: Sp.x2),
+        const Text(
+          'Chats are stored on your device with Drift and queued for delivery '
+          'when you are back online.',
+        ),
+      ],
+    );
+  }
+
+  void _feedback(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
     final text = Theme.of(context).textTheme;
+    final settings = ref.watch(appSettingsProvider);
+    final appearance = switch (settings.themeMode) {
+      ThemeMode.light => 'Light',
+      ThemeMode.dark => 'Dark',
+      ThemeMode.system => 'Follows your system',
+    };
+    final language = settings.locale.languageCode == 'am' ? 'አማርኛ' : 'English';
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -54,7 +194,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icons.verified_user_outlined,
                   title: 'Privacy and security',
                   subtitle: 'Blocked contacts, read receipts',
-                  onTap: () {},
+                  onTap: () => _feedback(
+                    'Read receipts and last seen are below. Chat-level controls '
+                    'live in Chat info.',
+                  ),
                   last: !FeatureFlags.wallet,
                 ),
                 if (FeatureFlags.wallet)
@@ -116,26 +259,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _NavRow(
                   icon: Icons.dark_mode_outlined,
                   title: 'Appearance',
-                  subtitle: 'Follows your system',
-                  onTap: () {},
+                  subtitle: appearance,
+                  onTap: _pickAppearance,
                 ),
                 _NavRow(
                   icon: Icons.language_rounded,
                   title: 'Language',
-                  subtitle: 'English · አማርኛ',
-                  onTap: () {},
+                  subtitle: language,
+                  onTap: _pickLanguage,
                 ),
                 _NavRow(
                   icon: Icons.storage_outlined,
                   title: 'Storage and data',
-                  subtitle: '1.2 GB used',
-                  onTap: () {},
+                  subtitle: 'Chats stored on this device',
+                  onTap: () => _feedback(
+                    'Media is cached on device. Database size grows with your '
+                    'chat history.',
+                  ),
                 ),
                 _NavRow(
                   icon: Icons.info_outline_rounded,
                   title: 'About EthioChat',
                   subtitle: 'Version 0.1.0',
-                  onTap: () {},
+                  onTap: _showAbout,
                   last: true,
                 ),
               ],
@@ -145,7 +291,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               label: 'Sign out',
               kind: EthioButtonKind.danger,
               icon: Icons.logout_rounded,
-              onPressed: () {},
+              onPressed: _signOut,
             ),
             const SizedBox(height: Sp.x4),
             Center(

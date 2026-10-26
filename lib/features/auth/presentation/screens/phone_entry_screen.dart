@@ -25,7 +25,7 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
-    
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -86,7 +86,8 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
               EthioButton(
                 label: 'Send code',
                 onPressed: _isValid
-                    ? () => context.go('/auth/otp?phone=+251${_controller.text.replaceAll(RegExp(r'[^0-9]'), '')}')
+                    ? () => context.go(
+                        '/auth/otp?phone=+251${_controller.text.replaceAll(RegExp(r'[^0-9]'), '')}')
                     : null,
               ),
               const SizedBox(height: Sp.x4),

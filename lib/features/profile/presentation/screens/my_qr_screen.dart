@@ -1,15 +1,101 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/design/design.dart';
+import '../../application/profile_controller.dart';
 
 /// My QR code — scan-to-add card.
-class MyQrScreen extends StatelessWidget {
+class MyQrScreen extends ConsumerStatefulWidget {
   const MyQrScreen({super.key});
+
+  @override
+  ConsumerState<MyQrScreen> createState() => _MyQrScreenState();
+}
+
+class _MyQrScreenState extends ConsumerState<MyQrScreen> {
+  final _qrKey = GlobalKey();
+
+  String get _inviteText {
+    final profile = ref.read(userProfileProvider);
+    return 'Add ${profile.name} on EthioChat — code ${profile.ethioId}';
+  }
+
+  void _feedback(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _share() async {
+    await Clipboard.setData(ClipboardData(text: _inviteText));
+    _feedback('Invite copied. Paste it in any chat to share your code.');
+  }
+
+  Future<void> _save() async {
+    try {
+      final boundary =
+          _qrKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      final image = await boundary.toImage(pixelRatio: 3);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (bytes == null) {
+        _feedback('Could not render the QR code.');
+        return;
+      }
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/ethiochat-qr.png');
+      await file.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
+      _feedback('QR code saved to ${file.path}');
+    } catch (error) {
+      _feedback('Could not save the QR code: $error');
+    }
+  }
+
+  void _scan() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(Sp.x4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Scan a code',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: Sp.x2),
+              const Text(
+                'Camera scanning is available on a device. Open the camera, '
+                'point it at an EthioChat QR code and the contact is added '
+                'automatically.',
+              ),
+              const SizedBox(height: Sp.x4),
+              EthioButton(
+                label: 'Got it',
+                onPressed: () => Navigator.pop(sheetContext),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
     final text = Theme.of(context).textTheme;
+    final profile = ref.watch(userProfileProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -39,7 +125,14 @@ class MyQrScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  const _QrCode(size: 220),
+                  RepaintBoundary(
+                    key: _qrKey,
+                    child: Container(
+                      color: Colors.white,
+                      padding: const EdgeInsets.all(Sp.x2),
+                      child: const _QrCode(size: 220),
+                    ),
+                  ),
                   const SizedBox(height: Sp.x4),
                   Text.rich(
                     TextSpan(
@@ -66,12 +159,13 @@ class MyQrScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: Sp.x1),
                   Text(
-                    'Abebe Kebede',
+                    profile.name,
+                    textAlign: TextAlign.center,
                     style: text.titleLarge?.copyWith(color: EthioColors.black),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Ethio ID · EC-123456',
+                    'Ethio ID · ${profile.ethioId}',
                     style: text.labelSmall?.copyWith(
                       color: const Color(0xFF6E6550),
                     ),
@@ -95,8 +189,7 @@ class MyQrScreen extends StatelessWidget {
                     child: Text(
                       'Keep the code inside the frame. Increase your screen '
                       'brightness so friends can scan it easily.',
-                      style: text.bodySmall
-                          ?.copyWith(color: pal.textSecondary),
+                      style: text.bodySmall?.copyWith(color: pal.textSecondary),
                     ),
                   ),
                 ],
@@ -106,19 +199,19 @@ class MyQrScreen extends StatelessWidget {
             EthioButton(
               label: 'Share code',
               icon: Icons.share_outlined,
-              onPressed: () {},
+              onPressed: _share,
             ),
             const SizedBox(height: Sp.x3),
             EthioButton(
               label: 'Save to gallery',
               kind: EthioButtonKind.secondary,
               icon: Icons.download_outlined,
-              onPressed: () {},
+              onPressed: _save,
             ),
             const SizedBox(height: Sp.x4),
             Center(
               child: TextButton.icon(
-                onPressed: () {},
+                onPressed: _scan,
                 icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
                 label: const Text('Scan a code instead'),
               ),

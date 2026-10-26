@@ -19,7 +19,8 @@ sealed class Result<T> {
         Err<T>(:final failure) => failure,
       };
 
-  R fold<R>(R Function(Failure failure) onFailure, R Function(T value) onSuccess) {
+  R fold<R>(
+      R Function(Failure failure) onFailure, R Function(T value) onSuccess) {
     return switch (this) {
       Success<T>(:final value) => onSuccess(value),
       Err<T>(:final failure) => onFailure(failure),

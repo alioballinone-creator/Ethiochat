@@ -12,7 +12,8 @@ class OtpVerificationScreen extends StatefulWidget {
 }
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
-  final List<TextEditingController> _controllers = List.generate(6, (_) => TextEditingController());
+  final List<TextEditingController> _controllers =
+      List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   int _seconds = 42;
   Timer? _timer;
@@ -20,13 +21,41 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   @override
   void initState() {
     super.initState();
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
       if (_seconds > 0) {
         setState(() => _seconds--);
       } else {
         timer.cancel();
       }
     });
+  }
+
+  String get _code => _controllers.map((c) => c.text).join();
+
+  bool get _complete => _code.length == 6;
+
+  void _verify() {
+    if (!_complete) return;
+    context.go('/auth/profile');
+  }
+
+  void _resend() {
+    setState(() => _seconds = 42);
+    _startTimer();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'A new code was sent to '
+          '${widget.phone.isEmpty ? 'your phone' : widget.phone}.',
+        ),
+      ),
+    );
   }
 
   @override
@@ -44,7 +73,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
-    
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -104,15 +133,17 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: Rad.r14,
-                          borderSide: const BorderSide(color: EthioColors.gold, width: 1.5),
+                          borderSide: const BorderSide(
+                              color: EthioColors.gold, width: 1.5),
                         ),
                       ),
                       onChanged: (value) {
                         if (value.isNotEmpty && index < 5) {
                           _focusNodes[index + 1].requestFocus();
                         }
-                        if (index == 5 && value.isNotEmpty) {
-                          context.go('/chats');
+                        setState(() {});
+                        if (_complete) {
+                          _verify();
                         }
                       },
                     ),
@@ -121,17 +152,22 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               ),
               const SizedBox(height: Sp.x6),
               Center(
-                child: Text(
-                  'Resend in 0:${_seconds.toString().padLeft(2, '0')}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: pal.textSecondary,
+                child: _seconds > 0
+                    ? Text(
+                        'Resend in 0:${_seconds.toString().padLeft(2, '0')}',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: pal.textSecondary,
+                            ),
+                      )
+                    : TextButton(
+                        onPressed: _resend,
+                        child: const Text('Resend code'),
                       ),
-                ),
               ),
               const Spacer(),
               EthioButton(
                 label: 'Verify',
-                onPressed: () => context.go('/chats'),
+                onPressed: _complete ? _verify : null,
               ),
               const SizedBox(height: Sp.x4),
             ],

@@ -1,35 +1,53 @@
 import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:ethiochat/core/db/app_database.dart';
 import 'package:ethiochat/core/errors/failure.dart';
 import 'package:ethiochat/core/errors/result.dart';
 import 'package:ethiochat/features/chats/data/datasources/outbox_worker.dart';
 import 'package:ethiochat/features/chats/domain/entities/conversation_entity.dart';
+import 'package:ethiochat/features/chats/domain/entities/conversation_summary.dart';
 import 'package:ethiochat/features/chats/domain/entities/message_entity.dart';
 import 'package:ethiochat/features/chats/domain/repositories/chat_repository.dart';
+import 'package:ethiochat/features/contacts/domain/entities/contact_entity.dart';
 import 'package:uuid/uuid.dart';
 
 class ChatRepositoryImpl implements ChatRepository {
   ChatRepositoryImpl(this.db);
+
   final AppDatabase db;
   final _uuid = const Uuid();
 
   @override
-  Stream<List<ConversationEntity>> watchConversations() {
-    return db.watchConversations().map((rows) => rows.map((r) {
-      return ConversationEntity(
-        id: r.id,
-        type: ConversationType.direct,
-        title: r.title,
-        avatarUrl: r.avatarUrl,
-        lastMessageId: r.lastMessageId,
-        lastMessageAt: r.lastMessageAt,
-        unread: r.localUnread,
-        pinned: r.pinned,
-        archived: r.archived,
-        mutedUntil: r.mutedUntil,
-      );
-    }).toList());
+  Stream<List<ConversationSummary>> watchSummaries() {
+    final query = db.select(db.conversations).join([
+      leftOuterJoin(
+        db.messages,
+        db.messages.id.equalsExp(db.conversations.lastMessageId),
+      ),
+    ])
+      ..orderBy([
+        OrderingTerm.desc(db.conversations.pinned),
+        OrderingTerm.desc(db.conversations.lastMessageAt),
+      ]);
+
+    return query.watch().map((rows) => rows.map((row) {
+          final conversation = row.readTable(db.conversations);
+          final last = row.readTableOrNull(db.messages);
+          return ConversationSummary(
+            conversation: _toConversation(conversation),
+            preview: _preview(last),
+            lastMessageAt: last?.createdAt ?? conversation.lastMessageAt,
+            lastMessageType: last?.type,
+          );
+        }).toList());
+  }
+
+  @override
+  Stream<ConversationEntity?> watchConversation(String conversationId) {
+    return db.watchConversation(conversationId).map(
+          (row) => row == null ? null : _toConversation(row),
+        );
   }
 
   @override
@@ -39,25 +57,15 @@ class ChatRepositoryImpl implements ChatRepository {
           ..where((m) => m.deletedForMe.equals(false))
           ..orderBy([(m) => OrderingTerm.asc(m.createdAt)]))
         .watch()
-        .map((rows) => rows.map((r) {
-              return MessageEntity(
-                id: r.id,
-                conversationId: r.conversationId,
-                senderId: r.senderId,
-                seq: r.seq,
-                type: MessageType.text,
-                body: r.body,
-                media: r.mediaJson == null
-                    ? null
-                    : jsonDecode(r.mediaJson!) as Map<String, dynamic>,
-                replyTo: r.replyTo,
-                editedAt: r.editedAt,
-                createdAt: r.createdAt,
-                status: MessageStatus.values[r.status.clamp(0, 4)],
-                deletedForMe: r.deletedForMe,
-                deletedEveryone: r.deletedEveryone,
-              );
-            }).toList());
+        .map((rows) => rows.map(_toMessage).toList());
+  }
+
+  @override
+  Stream<List<ContactEntity>> watchContacts() {
+    return (db.select(db.contactsLocal)
+          ..orderBy([(c) => OrderingTerm.asc(c.displayName)]))
+        .watch()
+        .map((rows) => rows.map(_toContact).toList());
   }
 
   @override
@@ -71,32 +79,40 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       final id = _uuid.v4();
       final now = DateTime.now();
-      await db.into(db.messages).insert(
-        MessagesCompanion.insert(
-          id: id,
+      await db.transaction(() async {
+        await db.into(db.messages).insert(
+              MessagesCompanion.insert(
+                id: id,
+                conversationId: conversationId,
+                senderId: 'me',
+                type: type.name,
+                body: Value(body),
+                mediaJson: Value(media == null ? null : jsonEncode(media)),
+                replyTo: Value(replyTo),
+                createdAt: now,
+                status: const Value(0),
+              ),
+            );
+        await db.updateConversationLastMessage(
           conversationId: conversationId,
-          senderId: 'me',
-          type: type.name,
-          body: Value(body),
-          mediaJson: Value(media == null ? null : jsonEncode(media)),
-          replyTo: Value(replyTo),
-          createdAt: now,
-          status: const Value(0), // pending
-        ),
-      );
-      await OutboxWorker.enqueue(
-        db,
-        messageId: id,
-        conversationId: conversationId,
-        payload: {
-          'id': id,
-          'conversation_id': conversationId,
-          'type': type.name,
-          'body': body,
-          'media': media,
-          'reply_to': replyTo,
-        },
-      );
+          messageId: id,
+          at: now,
+        );
+        await OutboxWorker.enqueue(
+          db,
+          messageId: id,
+          conversationId: conversationId,
+          payload: {
+            'id': id,
+            'conversation_id': conversationId,
+            'type': type.name,
+            'body': body,
+            'media': media,
+            'reply_to': replyTo,
+            'created_at': now.toIso8601String(),
+          },
+        );
+      });
       return Result.success(
         MessageEntity(
           id: id,
@@ -109,6 +125,110 @@ class ChatRepositoryImpl implements ChatRepository {
           createdAt: now,
         ),
       );
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<Result<ConversationEntity>> ensureConversation(String id) async {
+    try {
+      final existing = await (db.select(db.conversations)
+            ..where((c) => c.id.equals(id)))
+          .getSingleOrNull();
+      if (existing != null) {
+        return Result.success(_toConversation(existing));
+      }
+      await db.into(db.conversations).insert(
+            ConversationsCompanion.insert(
+              id: id,
+              type: ConversationType.direct.name,
+              title: const Value('Chat'),
+            ),
+          );
+      final row = await (db.select(db.conversations)
+            ..where((c) => c.id.equals(id)))
+          .getSingle();
+      return Result.success(_toConversation(row));
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<Result<ConversationEntity>> openDirectChat(
+    String displayName,
+  ) async {
+    try {
+      final name = displayName.trim();
+      final existing = await (db.select(db.conversations)
+            ..where((c) => c.type.equals(ConversationType.direct.name))
+            ..where((c) => c.title.equals(name)))
+          .getSingleOrNull();
+      if (existing != null) {
+        return Result.success(_toConversation(existing));
+      }
+      final id = _uuid.v4();
+      await db.into(db.conversations).insert(
+            ConversationsCompanion.insert(
+              id: id,
+              type: ConversationType.direct.name,
+              title: Value(name),
+            ),
+          );
+      final row = await (db.select(db.conversations)
+            ..where((c) => c.id.equals(id)))
+          .getSingle();
+      return Result.success(_toConversation(row));
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<Result<ConversationEntity>> createGroup(
+    String title,
+    List<String> memberNames,
+  ) async {
+    try {
+      final id = _uuid.v4();
+      final name = title.trim().isEmpty
+          ? (memberNames.isEmpty ? 'New group' : memberNames.join(', '))
+          : title.trim();
+      await db.transaction(() async {
+        await db.into(db.conversations).insert(
+              ConversationsCompanion.insert(
+                id: id,
+                type: ConversationType.group.name,
+                title: Value(name),
+              ),
+            );
+        final messageId = _uuid.v4();
+        final now = DateTime.now();
+        await db.into(db.messages).insert(
+              MessagesCompanion.insert(
+                id: messageId,
+                conversationId: id,
+                senderId: 'system',
+                type: MessageType.system.name,
+                body: Value(
+                  'Group created with ${memberNames.length} member'
+                  '${memberNames.length == 1 ? '' : 's'}',
+                ),
+                createdAt: now,
+                status: const Value(3),
+              ),
+            );
+        await db.updateConversationLastMessage(
+          conversationId: id,
+          messageId: messageId,
+          at: now,
+        );
+      });
+      final row = await (db.select(db.conversations)
+            ..where((c) => c.id.equals(id)))
+          .getSingle();
+      return Result.success(_toConversation(row));
     } catch (e) {
       return Result.failure(mapError(e));
     }
@@ -129,7 +249,9 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       await (db.update(db.messages)..where((m) => m.id.equals(messageId)))
           .write(const MessagesCompanion(status: Value(0)));
-      final msg = await (db.select(db.messages)..where((m) => m.id.equals(messageId))).getSingle();
+      final msg = await (db.select(db.messages)
+            ..where((m) => m.id.equals(messageId)))
+          .getSingle();
       await OutboxWorker.enqueue(
         db,
         messageId: messageId,
@@ -140,5 +262,345 @@ class ChatRepositoryImpl implements ChatRepository {
     } catch (e) {
       return Result.failure(mapError(e));
     }
+  }
+
+  @override
+  Future<Result<void>> setPinned(String conversationId, bool pinned) {
+    return _writeConversation(
+      conversationId,
+      ConversationsCompanion(pinned: Value(pinned)),
+    );
+  }
+
+  @override
+  Future<Result<void>> setMuted(String conversationId, bool muted) {
+    return _writeConversation(
+      conversationId,
+      ConversationsCompanion(
+        mutedUntil: Value(
+          muted ? DateTime.now().add(const Duration(days: 365)) : null,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<Result<void>> setArchived(String conversationId, bool archived) {
+    return _writeConversation(
+      conversationId,
+      ConversationsCompanion(archived: Value(archived)),
+    );
+  }
+
+  @override
+  Future<Result<void>> clearMessages(String conversationId) async {
+    try {
+      await db.clearMessages(conversationId);
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> deleteConversation(String conversationId) async {
+    try {
+      await db.deleteConversationData(conversationId);
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<Result<ContactEntity>> addContact({
+    required String displayName,
+    String? phoneE164,
+  }) async {
+    try {
+      final id = _uuid.v4();
+      final name = displayName.trim();
+      await db.into(db.contactsLocal).insert(
+            ContactsLocalCompanion.insert(
+              id: id,
+              displayName: Value(name),
+              phoneE164: Value(phoneE164),
+              ethioId: Value('EC-${id.substring(0, 6).toUpperCase()}'),
+            ),
+          );
+      return Result.success(
+        ContactEntity(
+          id: id,
+          displayName: name,
+          phoneE164: phoneE164,
+          ethioId: 'EC-${id.substring(0, 6).toUpperCase()}',
+        ),
+      );
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<Result<List<MessageEntity>>> searchMessages(String query) async {
+    try {
+      final rows = await db.searchMessages(query);
+      return Result.success(rows.map(_toMessage).toList());
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<void> seedDemoData() async {
+    if (await db.conversationCount() > 0) return;
+    // Contacts survive deleting every chat; keep the demo feed from returning.
+    final existingContacts = await db.select(db.contactsLocal).get();
+    if (existingContacts.isNotEmpty) return;
+
+    final now = DateTime.now();
+    final contacts = <(String, String, String)>[
+      ('u1', 'Abebe Kebede', '+251911234567'),
+      ('u2', 'Tigist Alemayehu', '+251912345678'),
+      ('u3', 'Dawit Bekele', '+251913456789'),
+      ('u4', 'Hanna Girma', '+251914567890'),
+      ('u5', 'Samuel Tesfaye', '+251915678901'),
+      ('u6', 'Marta Assefa', '+251916789012'),
+      ('u7', 'Yonas Alemu', '+251917890123'),
+      ('u8', 'Selam Bekele', '+251918901234'),
+      ('u9', 'Amanuel Girma', '+251919012345'),
+      ('u10', 'Alemayehu Tadesse', '+251910123456'),
+    ];
+
+    final seededConversations = <({
+      String id,
+      String type,
+      String title,
+      int unread,
+      bool pinned,
+      List<(String body, bool mine, Duration ago)> messages,
+    })>[
+      (
+        id: '1',
+        type: 'direct',
+        title: 'Abebe Kebede',
+        unread: 2,
+        pinned: true,
+        messages: [
+          ('Hello! How are you?', false, const Duration(hours: 2)),
+          (
+            'I am fine, thanks! Are we still meeting tomorrow?',
+            true,
+            const Duration(hours: 1)
+          ),
+          (
+            'Yes — see you at 9 at Bole. 🙌',
+            false,
+            const Duration(minutes: 40)
+          ),
+          ('See you tomorrow', false, const Duration(minutes: 12)),
+        ],
+      ),
+      (
+        id: '2',
+        type: 'direct',
+        title: 'Tigist Alemayehu',
+        unread: 0,
+        pinned: false,
+        messages: [
+          ('Did you get the invoice?', true, const Duration(hours: 5)),
+          ('Thanks! 🙏', false, const Duration(hours: 4)),
+        ],
+      ),
+      (
+        id: '3',
+        type: 'channel',
+        title: 'EthioChat Support',
+        unread: 0,
+        pinned: false,
+        messages: [
+          (
+            'Welcome to EthioChat 👋 Tap here for help at any time.',
+            false,
+            const Duration(days: 1)
+          ),
+        ],
+      ),
+      (
+        id: '4',
+        type: 'group',
+        title: 'Work group',
+        unread: 5,
+        pinned: false,
+        messages: [
+          (
+            'Dawit: Meeting moved to 3 PM',
+            false,
+            const Duration(days: 1, hours: 2)
+          ),
+        ],
+      ),
+      (
+        id: '5',
+        type: 'direct',
+        title: 'Hanna Girma',
+        unread: 0,
+        pinned: false,
+        messages: [
+          ('Voice message · 0:12', false, const Duration(days: 2)),
+        ],
+      ),
+      (
+        id: '6',
+        type: 'direct',
+        title: 'Selam Bekele',
+        unread: 0,
+        pinned: false,
+        messages: [
+          ('Sent ETB 250.00', true, const Duration(days: 3)),
+        ],
+      ),
+    ];
+
+    await db.transaction(() async {
+      for (final contact in contacts) {
+        await db.into(db.contactsLocal).insert(
+              ContactsLocalCompanion.insert(
+                id: contact.$1,
+                displayName: Value(contact.$2),
+                phoneE164: Value(contact.$3),
+                ethioId: Value(
+                  'EC-${contact.$1.replaceAll('u', '').padLeft(4, '0')}',
+                ),
+              ),
+            );
+      }
+
+      for (final seeded in seededConversations) {
+        await db.into(db.conversations).insert(
+              ConversationsCompanion.insert(
+                id: seeded.id,
+                type: seeded.type,
+                title: Value(seeded.title),
+                pinned: Value(seeded.pinned),
+                localUnread: Value(seeded.unread),
+              ),
+            );
+        String? lastId;
+        DateTime? lastAt;
+        var seq = 1;
+        for (final message in seeded.messages) {
+          final id = '${seeded.id}-m$seq';
+          final at = now.subtract(message.$3);
+          await db.into(db.messages).insert(
+                MessagesCompanion.insert(
+                  id: id,
+                  conversationId: seeded.id,
+                  senderId: message.$2 ? 'me' : 'u-${seeded.id}',
+                  seq: Value(seq),
+                  type: MessageType.text.name,
+                  body: Value(message.$1),
+                  createdAt: at,
+                  status: const Value(3),
+                ),
+              );
+          lastId = id;
+          lastAt = at;
+          seq++;
+        }
+        await db.updateConversationLastMessage(
+          conversationId: seeded.id,
+          messageId: lastId!,
+          at: lastAt!,
+        );
+        await (db.update(db.conversations)
+              ..where((c) => c.id.equals(seeded.id)))
+            .write(
+          ConversationsCompanion(localUnread: Value(seeded.unread)),
+        );
+      }
+    });
+  }
+
+  Future<Result<void>> _writeConversation(
+    String conversationId,
+    ConversationsCompanion companion,
+  ) async {
+    try {
+      await (db.update(db.conversations)
+            ..where((c) => c.id.equals(conversationId)))
+          .write(companion);
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  ConversationEntity _toConversation(Conversation row) {
+    return ConversationEntity(
+      id: row.id,
+      type: ConversationType.values.firstWhere(
+        (t) => t.name == row.type,
+        orElse: () => ConversationType.direct,
+      ),
+      title: row.title,
+      avatarUrl: row.avatarUrl,
+      lastMessageId: row.lastMessageId,
+      lastMessageAt: row.lastMessageAt,
+      unread: row.localUnread,
+      pinned: row.pinned,
+      archived: row.archived,
+      mutedUntil: row.mutedUntil,
+    );
+  }
+
+  MessageEntity _toMessage(Message row) {
+    return MessageEntity(
+      id: row.id,
+      conversationId: row.conversationId,
+      senderId: row.senderId,
+      seq: row.seq,
+      type: MessageType.values.firstWhere(
+        (t) => t.name == row.type,
+        orElse: () => MessageType.text,
+      ),
+      body: row.body,
+      media: row.mediaJson == null
+          ? null
+          : jsonDecode(row.mediaJson!) as Map<String, dynamic>,
+      replyTo: row.replyTo,
+      editedAt: row.editedAt,
+      createdAt: row.createdAt,
+      status: MessageStatus
+          .values[row.status.clamp(0, MessageStatus.values.length - 1).toInt()],
+      deletedForMe: row.deletedForMe,
+      deletedEveryone: row.deletedEveryone,
+    );
+  }
+
+  ContactEntity _toContact(Contact row) {
+    return ContactEntity(
+      id: row.id,
+      displayName: row.displayName ?? 'Contact',
+      phoneE164: row.phoneE164,
+      ethioId: row.ethioId,
+      avatarUrl: row.avatarUrl,
+    );
+  }
+
+  String _preview(Message? message) {
+    if (message == null) return 'No messages yet';
+    final body = message.body?.trim();
+    if (body != null && body.isNotEmpty) return body;
+    return switch (message.type) {
+      'image' => 'Photo',
+      'voice' => 'Voice message',
+      'video' => 'Video',
+      'file' => 'Document',
+      'location' => 'Location',
+      'payment' => 'Payment',
+      'redpacket' => 'Red packet',
+      _ => 'Message',
+    };
   }
 }

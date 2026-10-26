@@ -1,39 +1,96 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/design.dart';
+import '../../../chats/application/chat_providers.dart';
+import '../../../contacts/domain/entities/contact_entity.dart';
 
-/// New chat — pick a contact or start a group.
-class NewChatScreen extends StatefulWidget {
+/// New chat — pick a contact or start a group. Opens a real conversation row.
+class NewChatScreen extends ConsumerStatefulWidget {
   const NewChatScreen({super.key});
 
   @override
-  State<NewChatScreen> createState() => _NewChatScreenState();
+  ConsumerState<NewChatScreen> createState() => _NewChatScreenState();
 }
 
-class _NewChatScreenState extends State<NewChatScreen> {
+class _NewChatScreenState extends ConsumerState<NewChatScreen> {
   String _query = '';
 
-  static const _contacts = [
-    ('Abebe Kebede', 'online'),
-    ('Tigist Alemayehu', 'last seen 12:15'),
-    ('Dawit Bekele', 'last seen yesterday'),
-    ('Hanna Girma', 'online'),
-    ('Samuel Tesfaye', 'last seen 09:02'),
-    ('Marta Assefa', 'last seen Monday'),
-    ('Yonas Alemu', 'online'),
-    ('Selam Bekele', 'last seen 21:40'),
-  ];
+  Future<void> _openChat(ContactEntity contact) async {
+    final result = await ref
+        .read(chatRepositoryProvider)
+        .openDirectChat(contact.displayName);
+    if (!mounted) return;
+    final conversation = result.valueOrNull;
+    if (conversation == null) {
+      _feedback(result.failureOrNull?.message ?? 'Could not open chat');
+      return;
+    }
+    context.push('/chats/${conversation.id}');
+  }
+
+  Future<void> _addContact() async {
+    final name = TextEditingController();
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('New contact'),
+        content: EthioTextField(
+          controller: name,
+          hint: 'Full name',
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (name.text.trim().length < 2) return;
+              Navigator.pop(dialogContext, true);
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    if (created != true || !mounted) {
+      name.dispose();
+      return;
+    }
+    final result = await ref.read(chatRepositoryProvider).addContact(
+          displayName: name.text.trim(),
+        );
+    name.dispose();
+    if (!mounted) return;
+    if (result.isSuccess) {
+      await _openChat(result.valueOrNull!);
+    } else {
+      _feedback(result.failureOrNull!.message);
+    }
+  }
+
+  void _feedback(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
     final text = Theme.of(context).textTheme;
+    ref.watch(demoSeedProvider);
+    final contactsAsync = ref.watch(contactsProvider);
+    final contacts = contactsAsync.valueOrNull ?? const <ContactEntity>[];
     final q = _query.trim().toLowerCase();
     final filtered = q.isEmpty
-        ? _contacts
-        : _contacts
-            .where((c) => c.$1.toLowerCase().contains(q))
+        ? contacts
+        : contacts
+            .where((c) => c.displayName.toLowerCase().contains(q))
             .toList(growable: false);
 
     return Scaffold(
@@ -63,38 +120,15 @@ class _NewChatScreenState extends State<NewChatScreen> {
               ),
             ),
             Expanded(
-              child: filtered.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: Sp.screen,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.person_search_outlined,
-                              size: 44,
-                              color: pal.textTertiary,
-                            ),
-                            const SizedBox(height: Sp.x3),
-                            Text('No contacts found', style: text.titleMedium),
-                            const SizedBox(height: Sp.x1),
-                            Text(
-                              'Try another name or invite a friend.',
-                              textAlign: TextAlign.center,
-                              style: text.bodyMedium
-                                  ?.copyWith(color: pal.textSecondary),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
+              child: contactsAsync.isLoading && contacts.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
                   : ListView(
                       padding: Sp.screen.copyWith(top: Sp.x3, bottom: Sp.x8),
                       children: [
                         _ActionRow(
                           icon: Icons.person_add_alt_1_outlined,
                           title: 'New contact',
-                          onTap: () {},
+                          onTap: _addContact,
                         ),
                         _ActionRow(
                           icon: Icons.group_add_outlined,
@@ -102,28 +136,71 @@ class _NewChatScreenState extends State<NewChatScreen> {
                           onTap: () => context.push('/new-group'),
                         ),
                         const SizedBox(height: Sp.x4),
-                        Text('Contacts', style: text.titleMedium),
-                        const SizedBox(height: Sp.x2),
-                        for (final c in filtered)
-                          ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: Sp.x1,
-                              vertical: Sp.x1,
+                        if (filtered.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: Sp.x8),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.person_search_outlined,
+                                  size: 44,
+                                  color: pal.textTertiary,
+                                ),
+                                const SizedBox(height: Sp.x3),
+                                Text(
+                                  'No contacts found',
+                                  style: text.titleMedium,
+                                ),
+                                const SizedBox(height: Sp.x1),
+                                Text(
+                                  'Try another name or invite a friend.',
+                                  textAlign: TextAlign.center,
+                                  style: text.bodyMedium?.copyWith(
+                                    color: pal.textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(height: Sp.x4),
+                                EthioButton(
+                                  label: 'New contact',
+                                  expand: false,
+                                  onPressed: _addContact,
+                                ),
+                              ],
                             ),
-                            leading: EthioAvatar(name: c.$1, size: 48),
-                            title: Text(c.$1, style: text.titleMedium),
-                            subtitle: Text(
-                              c.$2,
-                              style: text.labelSmall
-                                  ?.copyWith(color: pal.textSecondary),
+                          )
+                        else ...[
+                          Text('Contacts', style: text.titleMedium),
+                          const SizedBox(height: Sp.x2),
+                          for (final c in filtered)
+                            ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: Sp.x1,
+                                vertical: Sp.x1,
+                              ),
+                              leading: EthioAvatar(
+                                name: c.displayName,
+                                imageUrl: c.avatarUrl,
+                                size: 48,
+                              ),
+                              title: Text(
+                                c.displayName,
+                                style: text.titleMedium,
+                              ),
+                              subtitle: Text(
+                                c.phoneE164 ??
+                                    'Hey there! I am using EthioChat.',
+                                style: text.labelSmall?.copyWith(
+                                  color: pal.textSecondary,
+                                ),
+                              ),
+                              trailing: Icon(
+                                Icons.chat_bubble_outline_rounded,
+                                size: 20,
+                                color: pal.textTertiary,
+                              ),
+                              onTap: () => _openChat(c),
                             ),
-                            trailing: Icon(
-                              Icons.chat_bubble_outline_rounded,
-                              size: 20,
-                              color: pal.textTertiary,
-                            ),
-                            onTap: () => context.go('/chats/1'),
-                          ),
+                        ],
                       ],
                     ),
             ),

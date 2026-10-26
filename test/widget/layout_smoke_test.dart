@@ -1,4 +1,7 @@
+import 'package:drift/native.dart';
+import 'package:ethiochat/core/db/app_database.dart';
 import 'package:ethiochat/core/design/ethio_theme.dart';
+import 'package:ethiochat/core/providers/app_providers.dart';
 import 'package:ethiochat/features/auth/presentation/screens/otp_verification_screen.dart';
 import 'package:ethiochat/features/auth/presentation/screens/phone_entry_screen.dart';
 import 'package:ethiochat/features/auth/presentation/screens/profile_setup_screen.dart';
@@ -18,6 +21,7 @@ import 'package:ethiochat/features/search/presentation/screens/search_screen.dar
 import 'package:ethiochat/features/settings/presentation/screens/settings_screen.dart';
 import 'package:ethiochat/features/wallet/presentation/screens/wallet_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 typedef ScreenBuilder = Widget Function();
@@ -61,16 +65,22 @@ Future<void> _pumpScreen(
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
 
+  final db = AppDatabase(NativeDatabase.memory());
+  addTearDown(db.close);
+
   await tester.pumpWidget(
-    MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: buildEthioTheme(brightness),
-      home: Builder(
-        builder: (context) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: TextScaler.linear(textScale),
+    ProviderScope(
+      overrides: [appDatabaseProvider.overrideWithValue(db)],
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: buildEthioTheme(brightness),
+        home: Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(textScale),
+            ),
+            child: child,
           ),
-          child: child,
         ),
       ),
     ),

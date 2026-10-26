@@ -7,7 +7,7 @@ class WalletScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
-    
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -65,7 +65,10 @@ class WalletScreen extends StatelessWidget {
                       icon: Icons.card_giftcard_outlined,
                       label: 'Red packet',
                     ),
-                  ].map((action) => SizedBox(width: tileWidth, child: action)).toList(),
+                  ]
+                      .map(
+                          (action) => SizedBox(width: tileWidth, child: action))
+                      .toList(),
                 );
               },
             ),
@@ -84,9 +87,15 @@ class WalletScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  _ActivityItem(title: 'Received from Abebe', amount: '+ ETB 500.00', isPositive: true),
+                  _ActivityItem(
+                      title: 'Received from Abebe',
+                      amount: '+ ETB 500.00',
+                      isPositive: true),
                   Divider(color: pal.line),
-                  _ActivityItem(title: 'Sent to Tigist', amount: '- ETB 200.00', isPositive: false),
+                  _ActivityItem(
+                      title: 'Sent to Tigist',
+                      amount: '- ETB 200.00',
+                      isPositive: false),
                 ],
               ),
             ),
@@ -106,7 +115,7 @@ class _QuickAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
-    
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -132,7 +141,8 @@ class _QuickAction extends StatelessWidget {
 }
 
 class _ActivityItem extends StatelessWidget {
-  const _ActivityItem({required this.title, required this.amount, required this.isPositive});
+  const _ActivityItem(
+      {required this.title, required this.amount, required this.isPositive});
 
   final String title;
   final String amount;

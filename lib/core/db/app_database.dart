@@ -63,6 +63,94 @@ class AppDatabase extends _$AppDatabase {
     return query.get();
   }
 
+  Stream<Conversation?> watchConversation(String id) {
+    return (select(conversations)..where((c) => c.id.equals(id)))
+        .watchSingleOrNull();
+  }
+
+  Future<List<Message>> searchMessages(String query, {int limit = 50}) {
+    final needle = '%${query.trim()}%';
+    return (select(messages)
+          ..where((m) => m.deletedForMe.equals(false))
+          ..where((m) => m.body.like(needle))
+          ..orderBy([(m) => OrderingTerm.desc(m.createdAt)])
+          ..limit(limit))
+        .get();
+  }
+
+  Future<int> conversationCount() async {
+    final c = countAll();
+    final row = await (selectOnly(conversations)..addColumns([c])).getSingle();
+    return row.read(c) ?? 0;
+  }
+
+  Future<void> updateConversationLastMessage({
+    required String conversationId,
+    required String messageId,
+    required DateTime at,
+    bool incrementUnread = false,
+  }) async {
+    final existing = await (select(conversations)
+          ..where((c) => c.id.equals(conversationId)))
+        .getSingleOrNull();
+    if (existing == null) return;
+    await (update(conversations)..where((c) => c.id.equals(conversationId)))
+        .write(
+      ConversationsCompanion(
+        lastMessageId: Value(messageId),
+        lastMessageAt: Value(at),
+        updatedAt: Value(DateTime.now()),
+        localUnread: Value(
+          incrementUnread ? existing.localUnread + 1 : existing.localUnread,
+        ),
+      ),
+    );
+  }
+
+  Future<void> clearMessages(String conversationId) async {
+    await transaction(() async {
+      final ids = await (select(messages)
+            ..where((m) => m.conversationId.equals(conversationId)))
+          .get();
+      for (final m in ids) {
+        await (delete(messageReceipts)..where((r) => r.messageId.equals(m.id)))
+            .go();
+      }
+      await (delete(outbox)
+            ..where((o) => o.conversationId.equals(conversationId)))
+          .go();
+      await (delete(messages)
+            ..where((m) => m.conversationId.equals(conversationId)))
+          .go();
+      await (update(conversations)..where((c) => c.id.equals(conversationId)))
+          .write(const ConversationsCompanion(
+        lastMessageId: Value(null),
+        lastMessageAt: Value(null),
+        localUnread: Value(0),
+      ));
+    });
+  }
+
+  Future<void> deleteConversationData(String conversationId) async {
+    await transaction(() async {
+      final ids = await (select(messages)
+            ..where((m) => m.conversationId.equals(conversationId)))
+          .get();
+      for (final m in ids) {
+        await (delete(messageReceipts)..where((r) => r.messageId.equals(m.id)))
+            .go();
+      }
+      await (delete(outbox)
+            ..where((o) => o.conversationId.equals(conversationId)))
+          .go();
+      await (delete(messages)
+            ..where((m) => m.conversationId.equals(conversationId)))
+          .go();
+      await (delete(conversations)..where((c) => c.id.equals(conversationId)))
+          .go();
+    });
+  }
+
   Stream<List<Conversation>> watchConversations() {
     final query = select(conversations)
       ..where((c) => c.archived.equals(false))

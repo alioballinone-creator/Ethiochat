@@ -23,7 +23,9 @@ class GoldButton extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: enabled ? EthioColors.goldGradient : null,
-        color: enabled ? null : Theme.of(context).disabledColor.withValues(alpha: 0.3),
+        color: enabled
+            ? null
+            : Theme.of(context).disabledColor.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Material(
@@ -38,7 +40,8 @@ class GoldButton extends StatelessWidget {
                 ? const SizedBox(
                     height: 22,
                     width: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: EthioColors.black),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: EthioColors.black),
                   )
                 : Row(
                     mainAxisAlignment: MainAxisAlignment.center,

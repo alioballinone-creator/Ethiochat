@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Loads the real brand fonts for every test so golden images and text layout
 /// match the app. Fonts are read from disk because font assets declared under
@@ -14,6 +15,7 @@ Future<ByteData> _load(String path) async {
 
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues(<String, Object>{});
 
   final poppins = FontLoader('Poppins')
     ..addFont(_load('assets/fonts/Poppins-Regular.ttf'))

@@ -1,23 +1,30 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/design.dart';
+import '../../../chats/application/chat_providers.dart';
+import '../../../chats/domain/entities/conversation_summary.dart';
+import '../../../chats/domain/entities/message_entity.dart' as entity;
+import '../../../contacts/domain/entities/contact_entity.dart';
 
-/// Global search across chats, contacts and messages.
-class SearchScreen extends StatefulWidget {
+/// Global search across chats, contacts and messages (local database).
+class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
   @override
-  State<SearchScreen> createState() => _SearchScreenState();
+  ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends State<SearchScreen> {
+class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _controller = TextEditingController();
   String _query = '';
+  String _committed = '';
   int _filter = 0;
-
-  static const _filters = ['All', 'Chats', 'Contacts', 'Messages', 'Files'];
-
-  static const _recent = [
+  Timer? _debounce;
+  final _recent = <String>[
     'Abebe Kebede',
     'rent',
     'Tigist',
@@ -25,31 +32,98 @@ class _SearchScreenState extends State<SearchScreen> {
     'invoice.pdf',
   ];
 
-  static const _contacts = [
-    ('Abebe Kebede', 'See you tomorrow'),
-    ('Tigist Alemayehu', 'Thanks!'),
-    ('Dawit Bekele', 'On my way'),
-  ];
-
-  static const _messages = [
-    ('Abebe Kebede', 'I will send the rent tomorrow morning'),
-    ('Tigist Alemayehu', 'Thanks for the invoice'),
-    ('Work group', 'Meeting moved to 3 PM'),
-  ];
+  static const _filters = ['All', 'Chats', 'Contacts', 'Messages', 'Files'];
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
-  void _search(String value) => setState(() => _query = value.trim());
+  void _search(String value) {
+    setState(() => _query = value.trim());
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 220), () {
+      if (!mounted) return;
+      setState(() => _committed = value.trim());
+    });
+  }
+
+  void _useRecent(String term) {
+    _controller.text = term;
+    _controller.selection = TextSelection.collapsed(offset: term.length);
+    setState(() {
+      _query = term;
+      _committed = term;
+    });
+  }
+
+  Future<void> _openConversation(String id) async {
+    context.push('/chats/$id');
+  }
+
+  Future<void> _openContact(ContactEntity contact) async {
+    final result = await ref
+        .read(chatRepositoryProvider)
+        .openDirectChat(contact.displayName);
+    if (!mounted) return;
+    final conversation = result.valueOrNull;
+    if (conversation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.failureOrNull?.message ?? 'Failed')),
+      );
+      return;
+    }
+    context.push('/chats/${conversation.id}');
+  }
+
+  void _feedback(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
     final text = Theme.of(context).textTheme;
     final q = _query.toLowerCase();
+    final committed = _committed.toLowerCase();
+
+    final summaries = ref.watch(conversationSummariesProvider).valueOrNull ??
+        const <ConversationSummary>[];
+    final contacts =
+        ref.watch(contactsProvider).valueOrNull ?? const <ContactEntity>[];
+    final messageResults = committed.length < 2
+        ? const <entity.MessageEntity>[]
+        : ref.watch(messageSearchProvider(_committed)).valueOrNull ??
+            const <entity.MessageEntity>[];
+
+    final matchingChats = q.isEmpty
+        ? const <ConversationSummary>[]
+        : summaries
+            .where((c) =>
+                c.title.toLowerCase().contains(q) ||
+                c.preview.toLowerCase().contains(q))
+            .toList(growable: false);
+    final matchingContacts = q.isEmpty
+        ? const <ContactEntity>[]
+        : contacts
+            .where((c) =>
+                c.displayName.toLowerCase().contains(q) ||
+                (c.phoneE164 ?? '').contains(q))
+            .toList(growable: false);
+    final matchingMessages = messageResults;
+    final showChats = _filter == 0 || _filter == 1;
+    final showContacts = _filter == 0 || _filter == 2;
+    final showMessages = _filter == 0 || _filter == 3;
+    final showFiles = _filter == 4;
+    final empty = q.isNotEmpty &&
+        (!showChats || matchingChats.isEmpty) &&
+        (!showContacts || matchingContacts.isEmpty) &&
+        (!showMessages || matchingMessages.isEmpty);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -58,7 +132,7 @@ class _SearchScreenState extends State<SearchScreen> {
         title: Text('Search', style: text.headlineMedium),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => context.pop(),
             child: const Text('Cancel'),
           ),
         ],
@@ -90,7 +164,168 @@ class _SearchScreenState extends State<SearchScreen> {
             Expanded(
               child: _query.isEmpty
                   ? _emptyState(context, pal, text)
-                  : _results(context, pal, text, q),
+                  : ListView(
+                      padding: Sp.screen.copyWith(top: Sp.x2, bottom: Sp.x8),
+                      children: [
+                        SizedBox(
+                          height: 44,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _filters.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(width: Sp.x2),
+                            itemBuilder: (context, i) {
+                              final selected = i == _filter;
+                              return ChoiceChip(
+                                label: Text(_filters[i]),
+                                selected: selected,
+                                showCheckmark: false,
+                                backgroundColor: pal.chip,
+                                selectedColor: EthioColors.gold,
+                                side: BorderSide(
+                                  color:
+                                      selected ? Colors.transparent : pal.line,
+                                ),
+                                labelStyle: text.labelMedium?.copyWith(
+                                  color: selected ? EthioColors.black : null,
+                                  fontWeight: selected
+                                      ? FontWeight.w600
+                                      : FontWeight.w500,
+                                ),
+                                onSelected: (_) => setState(() => _filter = i),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: Sp.x4),
+                        if (showFiles)
+                          _NoResults(
+                            icon: Icons.folder_open_outlined,
+                            title: 'No files indexed yet',
+                            subtitle:
+                                'Documents shared in chats will appear here.',
+                          )
+                        else if (empty)
+                          _NoResults(
+                            icon: Icons.search_off_rounded,
+                            title: 'No results for “$_query”',
+                            subtitle: 'Try a different name or keyword.',
+                          ),
+                        if (showChats && matchingChats.isNotEmpty) ...[
+                          Text('Chats', style: text.titleMedium),
+                          const SizedBox(height: Sp.x2),
+                          _Group(
+                            children: [
+                              for (final chat in matchingChats)
+                                ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: Sp.x4,
+                                    vertical: Sp.x1,
+                                  ),
+                                  leading: EthioAvatar(
+                                    name: chat.title,
+                                    imageUrl: chat.conversation.avatarUrl,
+                                    size: 44,
+                                  ),
+                                  title: Text(
+                                    chat.title,
+                                    style: text.titleMedium,
+                                  ),
+                                  subtitle: Text(
+                                    chat.preview,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: text.labelSmall?.copyWith(
+                                      color: pal.textSecondary,
+                                    ),
+                                  ),
+                                  onTap: () => _openConversation(chat.id),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: Sp.x4),
+                        ],
+                        if (showContacts && matchingContacts.isNotEmpty) ...[
+                          Text('Contacts', style: text.titleMedium),
+                          const SizedBox(height: Sp.x2),
+                          _Group(
+                            children: [
+                              for (final c in matchingContacts)
+                                ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: Sp.x4,
+                                    vertical: Sp.x1,
+                                  ),
+                                  leading: EthioAvatar(
+                                    name: c.displayName,
+                                    imageUrl: c.avatarUrl,
+                                    size: 44,
+                                  ),
+                                  title: Text(
+                                    c.displayName,
+                                    style: text.titleMedium,
+                                  ),
+                                  subtitle: Text(
+                                    c.phoneE164 ?? 'EthioChat contact',
+                                    style: text.labelSmall?.copyWith(
+                                      color: pal.textSecondary,
+                                    ),
+                                  ),
+                                  onTap: () => _openContact(c),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: Sp.x4),
+                        ],
+                        if (showMessages && matchingMessages.isNotEmpty) ...[
+                          Text('Messages', style: text.titleMedium),
+                          const SizedBox(height: Sp.x2),
+                          _Group(
+                            children: [
+                              for (final m in matchingMessages)
+                                Builder(
+                                  builder: (context) {
+                                    final chat = summaries
+                                        .where((c) => c.id == m.conversationId)
+                                        .toList(growable: false);
+                                    final title = chat.isEmpty
+                                        ? 'Chat'
+                                        : chat.first.title;
+                                    return ListTile(
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                        horizontal: Sp.x4,
+                                        vertical: Sp.x1,
+                                      ),
+                                      leading:
+                                          EthioAvatar(name: title, size: 44),
+                                      title: Text(
+                                        title,
+                                        style: text.titleMedium,
+                                      ),
+                                      subtitle: Text(
+                                        m.body ?? '[${m.type.name}]',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: text.bodySmall?.copyWith(
+                                          color: pal.textSecondary,
+                                        ),
+                                      ),
+                                      trailing: Icon(
+                                        Icons.chevron_right_rounded,
+                                        color: pal.textTertiary,
+                                      ),
+                                      onTap: () => _openConversation(
+                                        m.conversationId,
+                                      ),
+                                    );
+                                  },
+                                ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
             ),
           ],
         ),
@@ -117,29 +352,32 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
             TextButton(
-              onPressed: () {},
+              onPressed: _recent.isEmpty ? null : () => setState(_recent.clear),
               child: const Text('Clear'),
             ),
           ],
         ),
         const SizedBox(height: Sp.x2),
-        Wrap(
-          spacing: Sp.x2,
-          runSpacing: Sp.x2,
-          children: [
-            for (final term in _recent)
-              ActionChip(
-                avatar: const Icon(Icons.history_rounded, size: 16),
-                label: Text(term),
-                backgroundColor: pal.chip,
-                side: BorderSide(color: pal.line),
-                onPressed: () {
-                  _controller.text = term;
-                  _search(term);
-                },
-              ),
-          ],
-        ),
+        if (_recent.isEmpty)
+          Text(
+            'No recent searches',
+            style: text.bodyMedium?.copyWith(color: pal.textSecondary),
+          )
+        else
+          Wrap(
+            spacing: Sp.x2,
+            runSpacing: Sp.x2,
+            children: [
+              for (final term in _recent)
+                ActionChip(
+                  avatar: const Icon(Icons.history_rounded, size: 16),
+                  label: Text(term),
+                  backgroundColor: pal.chip,
+                  side: BorderSide(color: pal.line),
+                  onPressed: () => _useRecent(term),
+                ),
+            ],
+          ),
         const SizedBox(height: Sp.x6),
         Text('Browse', style: text.titleMedium),
         const SizedBox(height: Sp.x2),
@@ -147,141 +385,60 @@ class _SearchScreenState extends State<SearchScreen> {
           icon: Icons.chat_bubble_outline_rounded,
           title: 'Chats',
           subtitle: 'Search by name or group',
-          onTap: () {},
+          onTap: () => setState(() => _filter = 1),
         ),
         _BrowseRow(
           icon: Icons.people_outline_rounded,
           title: 'Contacts',
           subtitle: 'Find people you know',
-          onTap: () {},
+          onTap: () => setState(() => _filter = 2),
         ),
         _BrowseRow(
           icon: Icons.image_outlined,
           title: 'Media',
           subtitle: 'Photos, videos, documents',
-          onTap: () {},
+          onTap: () => _feedback(
+            'Type a keyword to search media shared in your chats.',
+          ),
         ),
       ],
     );
   }
+}
 
-  Widget _results(
-    BuildContext context,
-    EthioPalette pal,
-    TextTheme text,
-    String q,
-  ) {
-    final contacts = _contacts
-        .where((c) => c.$1.toLowerCase().contains(q))
-        .toList(growable: false);
-    final messages = _messages
-        .where((m) =>
-            m.$1.toLowerCase().contains(q) || m.$2.toLowerCase().contains(q))
-        .toList(growable: false);
+class _NoResults extends StatelessWidget {
+  const _NoResults({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
 
-    final showContacts = _filter == 0 || _filter == 2;
-    final showMessages = _filter == 0 || _filter == 3;
-    final empty =
-        (!showContacts || contacts.isEmpty) && (!showMessages || messages.isEmpty);
+  final IconData icon;
+  final String title;
+  final String subtitle;
 
-    return ListView(
-      padding: Sp.screen.copyWith(top: Sp.x2, bottom: Sp.x8),
-      children: [
-        SizedBox(
-          height: 44,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: _filters.length,
-            separatorBuilder: (_, __) => const SizedBox(width: Sp.x2),
-            itemBuilder: (context, i) {
-              final selected = i == _filter;
-              return ChoiceChip(
-                label: Text(_filters[i]),
-                selected: selected,
-                showCheckmark: false,
-                backgroundColor: pal.chip,
-                selectedColor: EthioColors.gold,
-                side: BorderSide(color: selected ? Colors.transparent : pal.line),
-                labelStyle: text.labelMedium?.copyWith(
-                  color: selected ? EthioColors.black : null,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                ),
-                onSelected: (_) => setState(() => _filter = i),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: Sp.x4),
-        if (empty)
-          Padding(
-            padding: const EdgeInsets.only(top: Sp.x10),
-            child: Column(
-              children: [
-                Icon(Icons.search_off_rounded, size: 44, color: pal.textTertiary),
-                const SizedBox(height: Sp.x3),
-                Text('No results for “$_query”', style: text.titleMedium),
-                const SizedBox(height: Sp.x1),
-                Text(
-                  'Try a different name or keyword.',
-                  style: text.bodyMedium?.copyWith(color: pal.textSecondary),
-                ),
-              ],
-            ),
-          ),
-        if (showContacts && contacts.isNotEmpty) ...[
-          Text('Contacts', style: text.titleMedium),
-          const SizedBox(height: Sp.x2),
-          _Group(
-            children: [
-              for (final c in contacts)
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: Sp.x4,
-                    vertical: Sp.x1,
-                  ),
-                  leading: EthioAvatar(name: c.$1, size: 44),
-                  title: Text(c.$1, style: text.titleMedium),
-                  subtitle: Text(
-                    c.$2,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: text.labelSmall?.copyWith(color: pal.textSecondary),
-                  ),
-                  onTap: () => Navigator.pop(context),
-                ),
-            ],
-          ),
-          const SizedBox(height: Sp.x4),
-        ],
-        if (showMessages && messages.isNotEmpty) ...[
-          Text('Messages', style: text.titleMedium),
-          const SizedBox(height: Sp.x2),
-          _Group(
-            children: [
-              for (final m in messages)
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: Sp.x4,
-                    vertical: Sp.x1,
-                  ),
-                  leading: EthioAvatar(name: m.$1, size: 44),
-                  title: Text(m.$1, style: text.titleMedium),
-                  subtitle: Text(
-                    m.$2,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: text.bodySmall?.copyWith(color: pal.textSecondary),
-                  ),
-                  trailing: Icon(
-                    Icons.chevron_right_rounded,
-                    color: pal.textTertiary,
-                  ),
-                  onTap: () => Navigator.pop(context),
-                ),
-            ],
+  @override
+  Widget build(BuildContext context) {
+    final pal = EthioPalette.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: Sp.x10),
+      child: Column(
+        children: [
+          Icon(icon, size: 44, color: pal.textTertiary),
+          const SizedBox(height: Sp.x3),
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: Sp.x1),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: pal.textSecondary),
           ),
         ],
-      ],
+      ),
     );
   }
 }

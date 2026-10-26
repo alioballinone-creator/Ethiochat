@@ -1,31 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/design.dart';
+import '../../../chats/application/chat_providers.dart';
+import '../../../contacts/domain/entities/contact_entity.dart';
 
 /// New group — search, multi-select contacts and name the group.
-class NewGroupScreen extends StatefulWidget {
+class NewGroupScreen extends ConsumerStatefulWidget {
   const NewGroupScreen({super.key});
 
   @override
-  State<NewGroupScreen> createState() => _NewGroupScreenState();
+  ConsumerState<NewGroupScreen> createState() => _NewGroupScreenState();
 }
 
-class _NewGroupScreenState extends State<NewGroupScreen> {
+class _NewGroupScreenState extends ConsumerState<NewGroupScreen> {
   final _name = TextEditingController();
   final _selected = <String>{};
   String _query = '';
-
-  static const _contacts = [
-    'Abebe Kebede',
-    'Tigist Alemayehu',
-    'Dawit Bekele',
-    'Hanna Girma',
-    'Samuel Tesfaye',
-    'Marta Assefa',
-    'Yonas Alemu',
-    'Selam Bekele',
-  ];
+  bool _creating = false;
 
   @override
   void dispose() {
@@ -39,14 +32,41 @@ class _NewGroupScreenState extends State<NewGroupScreen> {
     });
   }
 
+  Future<void> _create() async {
+    if (_selected.isEmpty || _creating) return;
+    setState(() => _creating = true);
+    final result = await ref.read(chatRepositoryProvider).createGroup(
+          _name.text.trim(),
+          _selected.toList(growable: false),
+        );
+    if (!mounted) return;
+    setState(() => _creating = false);
+    final conversation = result.valueOrNull;
+    if (conversation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text(result.failureOrNull?.message ?? 'Could not create group'),
+        ),
+      );
+      return;
+    }
+    context.go('/chats/${conversation.id}');
+  }
+
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
     final text = Theme.of(context).textTheme;
+    ref.watch(demoSeedProvider);
+    final contactsAsync = ref.watch(contactsProvider);
+    final contacts = contactsAsync.valueOrNull ?? const <ContactEntity>[];
     final q = _query.trim().toLowerCase();
     final filtered = q.isEmpty
-        ? _contacts
-        : _contacts.where((c) => c.toLowerCase().contains(q)).toList(growable: false);
+        ? contacts
+        : contacts
+            .where((c) => c.displayName.toLowerCase().contains(q))
+            .toList(growable: false);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -55,19 +75,17 @@ class _NewGroupScreenState extends State<NewGroupScreen> {
         title: Text('New group', style: text.headlineMedium),
         actions: [
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: Sp.x2),
-            child: EthioButton(
-              label: 'Create',
-              size: EthioButtonSize.small,
-              expand: false,
-              onPressed: _selected.isEmpty
-                  ? null
-                  : () {
-                      context.go('/chats/1');
-                    },
+            padding: const EdgeInsets.only(right: Sp.x4),
+            child: SizedBox(
+              width: 96,
+              child: EthioButton(
+                label: _creating ? 'Creating…' : 'Create',
+                size: EthioButtonSize.small,
+                expand: false,
+                onPressed: _selected.isEmpty || _creating ? null : _create,
+              ),
             ),
           ),
-          const SizedBox(width: Sp.x4),
         ],
       ),
       body: SafeArea(
@@ -152,43 +170,53 @@ class _NewGroupScreenState extends State<NewGroupScreen> {
             ),
             const SizedBox(height: Sp.x3),
             Expanded(
-              child: ListView.builder(
-                padding: Sp.screen.copyWith(bottom: Sp.x8),
-                itemCount: filtered.length,
-                itemBuilder: (context, i) {
-                  final name = filtered[i];
-                  final checked = _selected.contains(name);
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: Sp.x1,
-                      vertical: Sp.x1,
+              child: contactsAsync.isLoading && contacts.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.builder(
+                      padding: Sp.screen.copyWith(bottom: Sp.x8),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, i) {
+                        final contact = filtered[i];
+                        final checked = _selected.contains(contact.displayName);
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: Sp.x1,
+                            vertical: Sp.x1,
+                          ),
+                          onTap: () => _toggle(contact.displayName),
+                          leading: EthioAvatar(
+                            name: contact.displayName,
+                            imageUrl: contact.avatarUrl,
+                            size: 48,
+                          ),
+                          title: Text(
+                            contact.displayName,
+                            style: text.titleMedium,
+                          ),
+                          trailing: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              gradient:
+                                  checked ? EthioColors.goldGradient : null,
+                              color: checked ? null : pal.chip,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: checked ? Colors.transparent : pal.line,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: checked
+                                ? const Icon(
+                                    Icons.check_rounded,
+                                    size: 16,
+                                    color: EthioColors.black,
+                                  )
+                                : null,
+                          ),
+                        );
+                      },
                     ),
-                    onTap: () => _toggle(name),
-                    leading: EthioAvatar(name: name, size: 48),
-                    title: Text(name, style: text.titleMedium),
-                    trailing: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        gradient: checked ? EthioColors.goldGradient : null,
-                        color: checked ? null : pal.chip,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: checked ? Colors.transparent : pal.line,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: checked
-                          ? const Icon(
-                              Icons.check_rounded,
-                              size: 16,
-                              color: EthioColors.black,
-                            )
-                          : null,
-                    ),
-                  );
-                },
-              ),
             ),
           ],
         ),

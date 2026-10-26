@@ -31,7 +31,8 @@ class Messages extends Table {
   DateTimeColumn get createdAt => dateTime()();
   IntColumn get status => integer().withDefault(const Constant(0))();
   BoolColumn get deletedForMe => boolean().withDefault(const Constant(false))();
-  BoolColumn get deletedEveryone => boolean().withDefault(const Constant(false))();
+  BoolColumn get deletedEveryone =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
