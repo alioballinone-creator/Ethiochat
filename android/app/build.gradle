@@ -25,7 +25,7 @@ if (flutterVersionName == null) {
 android {
     namespace "com.ethiochat.myapp"
     compileSdk 34
-    ndkVersion "25.1.8937393"
+    ndkVersion flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -38,8 +38,8 @@ android {
 
     defaultConfig {
         applicationId "com.ethiochat.myapp"
-        minSdk 21
-        targetSdk 34
+        minSdkVersion flutter.minSdkVersion
+        targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
         multiDexEnabled true
@@ -47,7 +47,7 @@ android {
 
     signingConfigs {
         release {
-            if (System.getenv("KEYSTORE_FILE")) {
+            if (System.getenv("KEYSTORE_FILE") != null) {
                 storeFile file(System.getenv("KEYSTORE_FILE"))
                 storePassword System.getenv("KEYSTORE_PASSWORD")
                 keyAlias System.getenv("KEY_ALIAS")
@@ -58,8 +58,10 @@ android {
 
     buildTypes {
         release {
-            if (System.getenv("KEYSTORE_FILE")) {
+            if (System.getenv("KEYSTORE_FILE") != null) {
                 signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
             }
             minifyEnabled true
             shrinkResources true
