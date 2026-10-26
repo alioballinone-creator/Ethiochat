@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:ethiochat/core/db/app_database.dart';
 import 'package:ethiochat/core/design/ethio_theme.dart';
 import 'package:ethiochat/core/design/widgets/chat_list_tile.dart';
+import 'package:ethiochat/core/design/widgets/ethio_bottom_nav.dart';
 import 'package:ethiochat/core/providers/app_providers.dart';
 import 'package:ethiochat/core/router/app_router.dart';
 import 'package:ethiochat/features/chat/presentation/screens/chat_list_screen.dart';
@@ -16,6 +17,22 @@ void main() {
   late AppDatabase db;
   late GoRouter router;
   late ProviderContainer container;
+
+  ThemeData testTheme() {
+    final base = buildEthioTheme(Brightness.light);
+    return base.copyWith(
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: NoTransitionsBuilder(),
+          TargetPlatform.iOS: NoTransitionsBuilder(),
+          TargetPlatform.macOS: NoTransitionsBuilder(),
+          TargetPlatform.windows: NoTransitionsBuilder(),
+          TargetPlatform.linux: NoTransitionsBuilder(),
+          TargetPlatform.fuchsia: NoTransitionsBuilder(),
+        },
+      ),
+    );
+  }
 
   /// Advances a bounded amount of time. An indeterminate spinner or a blinking
   /// caret must fail the assertion below, not hang the whole test job.
@@ -66,7 +83,7 @@ void main() {
         container: container,
         child: MaterialApp.router(
           debugShowCheckedModeBanner: false,
-          theme: buildEthioTheme(Brightness.light),
+          theme: testTheme(),
           routerConfig: router,
         ),
       ),
@@ -95,11 +112,29 @@ void main() {
     final mq = MediaQuery.of(screenContext);
     final column =
         find.ancestor(of: chatList, matching: find.byType(Column)).first;
+    final columns = find
+        .ancestor(of: chatList, matching: find.byType(Column))
+        .evaluate()
+        .map((e) {
+      final box = e.renderObject! as RenderBox;
+      return box.size.toString();
+    }).toList();
+    final nav = find.byType(EthioBottomNav);
+    final safeArea = find
+        .descendant(
+          of: find.byType(ChatListScreen),
+          matching: find.byType(SafeArea),
+        )
+        .first;
     final refresh = find.ancestor(
       of: chatList,
       matching: find.byType(RefreshIndicator),
     );
     debugPrint(
+      'CHATLIST LAYOUT nav=${tester.getRect(nav)} '
+      'scaffold=${tester.getRect(find.byType(Scaffold).first)} '
+      'safeArea=${tester.getRect(safeArea)} columns=$columns '
+      'filterRect=${tester.getRect(listViews.first)} '
       'CHATLIST TEST sameContainer='
       '${identical(ProviderScope.containerOf(screenContext), container)} '
       'tiles=${find.byType(ChatListTile).evaluate().length} '
