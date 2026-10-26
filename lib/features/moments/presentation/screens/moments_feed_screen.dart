@@ -253,7 +253,7 @@ class _PhotoGrid extends StatelessWidget {
                 ),
               ),
               child: index == shown - 1 && count > 9
-                  ? const Center(child: Text('+${count - 9}'))
+                  ? Center(child: Text('+${count - 9}'))
                   : null,
             ),
           ),
