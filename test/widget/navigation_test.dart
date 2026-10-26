@@ -82,6 +82,15 @@ void main() {
     final seeded = await db.select(db.conversations).get();
     await tester.pump();
     final listViews = find.byType(ListView);
+    final chatList = listViews.last;
+    final scrollable = tester.state<ScrollableState>(
+      find.descendant(of: chatList, matching: find.byType(Scrollable)).first,
+    );
+    final tileRects =
+        find.byType(ChatListTile, skipOffstage: false).evaluate().map((e) {
+      final box = e.renderObject! as RenderBox;
+      return '${box.localToGlobal(Offset.zero)} ${box.size}';
+    }).toList();
     debugPrint(
       'CHATLIST TEST sameContainer='
       '${identical(ProviderScope.containerOf(tester.element(find.byType(ChatListScreen))), container)} '
@@ -91,7 +100,12 @@ void main() {
       'listViews=${listViews.evaluate().length} '
       'listViewsAll=${find.byType(ListView, skipOffstage: false).evaluate().length} '
       'spinners=${find.byType(CircularProgressIndicator).evaluate().length} '
-      'size=${tester.getSize(find.byType(ChatListScreen))}',
+      'size=${tester.getSize(find.byType(ChatListScreen))} '
+      'listRect=${tester.getRect(chatList)} '
+      'pixels=${scrollable.position.pixels} '
+      'max=${scrollable.position.maxScrollExtent} '
+      'viewport=${scrollable.position.viewportDimension} '
+      'tileRects=$tileRects',
     );
     final visibleText = tester
         .widgetList<Text>(find.byType(Text))
