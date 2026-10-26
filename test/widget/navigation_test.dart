@@ -3,6 +3,7 @@ import 'package:ethiochat/core/db/app_database.dart';
 import 'package:ethiochat/core/design/ethio_theme.dart';
 import 'package:ethiochat/core/providers/app_providers.dart';
 import 'package:ethiochat/core/router/app_router.dart';
+import 'package:ethiochat/features/chats/application/chat_providers.dart';
 import 'package:ethiochat/features/chats/data/repositories/chat_repository_impl.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,7 @@ import 'package:go_router/go_router.dart';
 void main() {
   late AppDatabase db;
   late GoRouter router;
+  late ProviderContainer container;
 
   /// Advances a bounded amount of time. An indeterminate spinner or a blinking
   /// caret must fail the assertion below, not hang the whole test job.
@@ -44,13 +46,21 @@ void main() {
     await ChatRepositoryImpl(db).seedDemoData();
     router = AppRouter.createRouter(initialLocation: at);
     addTearDown(router.dispose);
-    // Run before router.dispose/db.close in the LIFO teardown order so Drift
-    // stream cancellations are flushed while the database is still open.
+    container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        // The test seeds before the first frame so the UI never races seeding.
+        demoSeedProvider.overrideWith((ref) => Future<void>.value()),
+      ],
+    );
+    addTearDown(container.dispose);
+    // Run before container.dispose/router.dispose/db.close in the LIFO
+    // teardown order so stream cancellations are flushed while the DB is open.
     addTearDown(() => disposeApp(tester));
 
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [appDatabaseProvider.overrideWithValue(db)],
+      UncontrolledProviderScope(
+        container: container,
         child: MaterialApp.router(
           debugShowCheckedModeBanner: false,
           theme: buildEthioTheme(Brightness.light),
@@ -76,7 +86,9 @@ void main() {
       find.text('Abebe Kebede'),
       findsOneWidget,
       reason: 'stored=${seeded.map((s) => s.title).toList()} '
-          'visible=$visibleText',
+          'visible=$visibleText '
+          'seed=${container.read(demoSeedProvider)} '
+          'summaries=${container.read(conversationSummariesProvider)}',
     );
 
     await tester.tap(find.text('Contacts'));
