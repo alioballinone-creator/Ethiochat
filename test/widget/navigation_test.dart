@@ -23,12 +23,12 @@ void main() {
     return base.copyWith(
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.android: NoTransitionsBuilder(),
-          TargetPlatform.iOS: NoTransitionsBuilder(),
-          TargetPlatform.macOS: NoTransitionsBuilder(),
-          TargetPlatform.windows: NoTransitionsBuilder(),
-          TargetPlatform.linux: NoTransitionsBuilder(),
-          TargetPlatform.fuchsia: NoTransitionsBuilder(),
+          TargetPlatform.android: _NoTransitionsBuilder(),
+          TargetPlatform.iOS: _NoTransitionsBuilder(),
+          TargetPlatform.macOS: _NoTransitionsBuilder(),
+          TargetPlatform.windows: _NoTransitionsBuilder(),
+          TargetPlatform.linux: _NoTransitionsBuilder(),
+          TargetPlatform.fuchsia: _NoTransitionsBuilder(),
         },
       ),
     );
@@ -301,4 +301,18 @@ void main() {
     expect(group.type, 'group');
     await disposeApp(tester);
   });
+}
+
+class _NoTransitionsBuilder extends PageTransitionsBuilder {
+  const _NoTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) =>
+      child;
 }
