@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -15,6 +16,9 @@ Future<ByteData> _load(String path) async {
 
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
+  // A blinking caret schedules a frame forever, which would make
+  // `pumpAndSettle` time out whenever a text field has focus.
+  EditableText.debugDeterministicCursor = true;
   SharedPreferences.setMockInitialValues(<String, Object>{});
 
   final poppins = FontLoader('Poppins')
