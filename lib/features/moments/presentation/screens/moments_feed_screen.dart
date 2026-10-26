@@ -330,7 +330,7 @@ class _MomentsFeedScreenState extends State<MomentsFeedScreen> {
               ? ListView(
                   padding: Sp.screen,
                   children: [
-                    const SizedBox(height: Sp.x16),
+                    const SizedBox(height: Sp.x10),
                     Icon(
                       Icons.photo_library_outlined,
                       size: 44,

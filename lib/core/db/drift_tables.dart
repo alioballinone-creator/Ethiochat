@@ -61,6 +61,7 @@ class Outbox extends Table {
   Set<Column<Object>> get primaryKey => {messageId};
 }
 
+@DataClassName('ContactRow')
 class ContactsLocal extends Table {
   TextColumn get id => text()();
   TextColumn get displayName => text().nullable()();

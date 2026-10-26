@@ -578,7 +578,7 @@ class ChatRepositoryImpl implements ChatRepository {
     );
   }
 
-  ContactEntity _toContact(Contact row) {
+  ContactEntity _toContact(ContactRow row) {
     return ContactEntity(
       id: row.id,
       displayName: row.displayName ?? 'Contact',
