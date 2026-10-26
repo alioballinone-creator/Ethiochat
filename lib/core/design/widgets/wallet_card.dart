@@ -31,21 +31,30 @@ class WalletCard extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Text('Available balance', style: Theme.of(context).textTheme.labelMedium!.copyWith(color: ink.withOpacity(.8))),
-          const Spacer(),
+          Expanded(
+            child: Text('Available balance', maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium!.copyWith(color: ink.withOpacity(.8))),
+          ),
           IconButton(
             onPressed: onToggleHidden, visualDensity: VisualDensity.compact,
             icon: Icon(hidden ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: ink, size: 20),
             tooltip: hidden ? 'Show balance' : 'Hide balance',
           ),
         ]),
-        Text(hidden ? 'ETB ••••••' : _amount,
-            style: const TextStyle(fontFamily: 'Poppins', fontSize: 34, fontWeight: FontWeight.w700, color: ink, letterSpacing: -.5,
-                fontFeatures: [FontFeature.tabularFigures()])),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(hidden ? 'ETB ••••••' : _amount,
+              maxLines: 1,
+              style: const TextStyle(fontFamily: 'Poppins', fontSize: 34, fontWeight: FontWeight.w700, color: ink, letterSpacing: -.5,
+                  fontFeatures: [FontFeature.tabularFigures()])),
+        ),
         const SizedBox(height: 22),
         Row(children: [
-          Text('Ethio ID · $ethioId', style: Theme.of(context).textTheme.labelMedium!.copyWith(color: ink)),
-          const Spacer(),
+          Expanded(
+            child: Text('Ethio ID · $ethioId', maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium!.copyWith(color: ink)),
+          ),
           if (verified) ...[
             const Icon(Icons.verified_user_outlined, size: 16, color: ink),
             const SizedBox(width: 5),

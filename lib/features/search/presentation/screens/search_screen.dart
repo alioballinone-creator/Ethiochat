@@ -108,8 +108,14 @@ class _SearchScreenState extends State<SearchScreen> {
       children: [
         Row(
           children: [
-            Text('Recent searches', style: text.titleMedium),
-            const Spacer(),
+            Expanded(
+              child: Text(
+                'Recent searches',
+                style: text.titleMedium,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             TextButton(
               onPressed: () {},
               child: const Text('Clear'),

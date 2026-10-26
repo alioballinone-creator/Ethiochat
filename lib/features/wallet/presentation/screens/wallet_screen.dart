@@ -32,19 +32,42 @@ class WalletScreen extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: Sp.x3),
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 3,
-              childAspectRatio: 1.1,
-              children: const [
-                _QuickAction(icon: Icons.send_rounded, label: 'Send'),
-                _QuickAction(icon: Icons.call_received_rounded, label: 'Receive'),
-                _QuickAction(icon: Icons.qr_code_scanner_rounded, label: 'Scan'),
-                _QuickAction(icon: Icons.add_circle_outline_rounded, label: 'Top up'),
-                _QuickAction(icon: Icons.receipt_long_outlined, label: 'Bills'),
-                _QuickAction(icon: Icons.card_giftcard_outlined, label: 'Red packet'),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                const columns = 3;
+                final tileWidth =
+                    (constraints.maxWidth - Sp.x2 * (columns - 1)) / columns;
+                return Wrap(
+                  spacing: Sp.x2,
+                  runSpacing: Sp.x4,
+                  children: const [
+                    _QuickAction(
+                      icon: Icons.send_rounded,
+                      label: 'Send',
+                    ),
+                    _QuickAction(
+                      icon: Icons.call_received_rounded,
+                      label: 'Receive',
+                    ),
+                    _QuickAction(
+                      icon: Icons.qr_code_scanner_rounded,
+                      label: 'Scan',
+                    ),
+                    _QuickAction(
+                      icon: Icons.add_circle_outline_rounded,
+                      label: 'Top up',
+                    ),
+                    _QuickAction(
+                      icon: Icons.receipt_long_outlined,
+                      label: 'Bills',
+                    ),
+                    _QuickAction(
+                      icon: Icons.card_giftcard_outlined,
+                      label: 'Red packet',
+                    ),
+                  ].map((action) => SizedBox(width: tileWidth, child: action)).toList(),
+                );
+              },
             ),
             const SizedBox(height: Sp.x6),
             Text(
@@ -85,7 +108,7 @@ class _QuickAction extends StatelessWidget {
     final pal = EthioPalette.of(context);
     
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 56,
@@ -127,12 +150,18 @@ class _ActivityItem extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
-          Text(
-            amount,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: isPositive ? EthioColors.success : Theme.of(context).colorScheme.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
+          const SizedBox(width: Sp.x2),
+          Flexible(
+            child: Text(
+              amount,
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: isPositive
+                        ? EthioColors.success
+                        : Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
           ),
         ],
       ),
