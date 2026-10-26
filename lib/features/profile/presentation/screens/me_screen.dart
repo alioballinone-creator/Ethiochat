@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../core/config/feature_flags.dart';
 import '../../../../core/design/design.dart';
 
 class MeScreen extends StatelessWidget {
@@ -56,11 +59,33 @@ class MeScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: Sp.x4),
-            _MeItem(icon: Icons.account_balance_wallet_outlined, title: 'Wallet'),
-            _MeItem(icon: Icons.favorite_border_rounded, title: 'Favorites'),
-            _MeItem(icon: Icons.card_giftcard_outlined, title: 'Red packets'),
-            _MeItem(icon: Icons.shield_outlined, title: 'Privacy and security'),
-            _MeItem(icon: Icons.settings_outlined, title: 'Settings'),
+            if (FeatureFlags.wallet) ...[
+              _MeItem(
+                icon: Icons.account_balance_wallet_outlined,
+                title: 'Wallet',
+                onTap: () => context.push('/wallet'),
+              ),
+              _MeItem(
+                icon: Icons.card_giftcard_outlined,
+                title: 'Red packets',
+                onTap: () => context.push('/wallet'),
+              ),
+            ],
+            _MeItem(
+              icon: Icons.favorite_border_rounded,
+              title: 'Favorites',
+              onTap: () {},
+            ),
+            _MeItem(
+              icon: Icons.shield_outlined,
+              title: 'Privacy and security',
+              onTap: () {},
+            ),
+            _MeItem(
+              icon: Icons.settings_outlined,
+              title: 'Settings',
+              onTap: () => context.push('/me/settings'),
+            ),
           ],
         ),
       ),
@@ -77,10 +102,11 @@ class MeScreen extends StatelessWidget {
 }
 
 class _MeItem extends StatelessWidget {
-  const _MeItem({required this.icon, required this.title});
+  const _MeItem({required this.icon, required this.title, this.onTap});
 
   final IconData icon;
   final String title;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -94,6 +120,7 @@ class _MeItem extends StatelessWidget {
         border: Border.all(color: pal.line),
       ),
       child: ListTile(
+        onTap: onTap,
         leading: Container(
           width: 40,
           height: 40,

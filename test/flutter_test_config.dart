@@ -1,22 +1,31 @@
 import 'dart:async';
-import 'package:flutter/services.dart';
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
+
+/// Loads the real brand fonts for every test so golden images and text layout
+/// match the app. Fonts are read from disk because font assets declared under
+/// `fonts:` in pubspec.yaml are not served by the test asset bundle.
+Future<ByteData> _load(String path) async {
+  final bytes = await File(path).readAsBytes();
+  return ByteData.sublistView(bytes);
+}
 
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
-  
-  // Load fonts for golden tests
-  final fontLoader = FontLoader('Poppins')
-    ..addFont(rootBundle.load('assets/fonts/Poppins-Regular.ttf'))
-    ..addFont(rootBundle.load('assets/fonts/Poppins-Medium.ttf'))
-    ..addFont(rootBundle.load('assets/fonts/Poppins-SemiBold.ttf'))
-    ..addFont(rootBundle.load('assets/fonts/Poppins-Bold.ttf'));
-  await fontLoader.load();
-  
-  final notoLoader = FontLoader('NotoSansEthiopic')
-    ..addFont(rootBundle.load('assets/fonts/NotoSansEthiopic.ttf'))
-    ..addFont(rootBundle.load('assets/fonts/NotoSansEthiopic-Bold.ttf'));
-  await notoLoader.load();
-  
+
+  final poppins = FontLoader('Poppins')
+    ..addFont(_load('assets/fonts/Poppins-Regular.ttf'))
+    ..addFont(_load('assets/fonts/Poppins-Medium.ttf'))
+    ..addFont(_load('assets/fonts/Poppins-SemiBold.ttf'))
+    ..addFont(_load('assets/fonts/Poppins-Bold.ttf'));
+  await poppins.load();
+
+  final noto = FontLoader('NotoSansEthiopic')
+    ..addFont(_load('assets/fonts/NotoSansEthiopic.ttf'))
+    ..addFont(_load('assets/fonts/NotoSansEthiopic-Bold.ttf'));
+  await noto.load();
+
   await testMain();
 }

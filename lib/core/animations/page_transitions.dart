@@ -24,25 +24,16 @@ class SlidePageRoute<T> extends PageRouteBuilder<T> {
           transitionDuration: const Duration(milliseconds: 300),
           reverseTransitionDuration: const Duration(milliseconds: 250),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            Offset begin;
-            switch (direction) {
-              case AxisDirection.up:
-                begin = const Offset(0, 1);
-                break;
-              case AxisDirection.down:
-                begin = const Offset(0, -1);
-                break;
-              case AxisDirection.right:
-                begin = const Offset(-1, 0);
-                break;
-              case AxisDirection.left:
-              default:
-                begin = const Offset(1, 0);
-                break;
-            }
+            final begin = switch (direction) {
+              AxisDirection.up => const Offset(0, 1),
+              AxisDirection.down => const Offset(0, -1),
+              AxisDirection.right => const Offset(-1, 0),
+              AxisDirection.left => const Offset(1, 0),
+            };
             const end = Offset.zero;
             const curve = Curves.easeInOutCubic;
-            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+            final tween = Tween(begin: begin, end: end)
+                .chain(CurveTween(curve: curve));
             return SlideTransition(
               position: animation.drive(tween),
               child: child,

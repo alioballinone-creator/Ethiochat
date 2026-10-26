@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/welcome_screen.dart';
@@ -11,6 +10,7 @@ import '../../features/contacts/presentation/screens/contacts_screen.dart';
 import '../../features/discover/presentation/screens/discover_screen.dart';
 import '../../features/profile/presentation/screens/me_screen.dart';
 import '../../features/wallet/presentation/screens/wallet_screen.dart';
+import '../config/feature_flags.dart';
 import '../../features/calls/presentation/screens/call_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 
@@ -79,14 +79,14 @@ class AppRouter {
           path: me,
           builder: (context, state) => const MeScreen(),
         ),
-        GoRoute(
-          path: wallet,
-          builder: (context, state) => const WalletScreen(),
-        ),
+        if (FeatureFlags.wallet)
+          GoRoute(
+            path: wallet,
+            builder: (context, state) => const WalletScreen(),
+          ),
         GoRoute(
           path: call,
           builder: (context, state) {
-            final callId = state.pathParameters['id'] ?? '';
             final isVideo = state.uri.queryParameters['video'] == 'true';
             final isIncoming = state.uri.queryParameters['incoming'] == 'true';
             return CallScreen(isVideo: isVideo, isIncoming: isIncoming);

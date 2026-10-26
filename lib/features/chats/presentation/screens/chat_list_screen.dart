@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:ethiochat/core/theme/app_spacing.dart';
 import 'package:ethiochat/l10n/app_localizations.dart';
 
 class ChatListScreen extends StatelessWidget {

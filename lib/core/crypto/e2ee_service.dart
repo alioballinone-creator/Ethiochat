@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 /// E2EE service interface for X3DH + Double Ratchet.
 /// Design only in Phase 2; uses vetted patterns. Keys stored in secure storage.
 /// messages.body can hold ciphertext.

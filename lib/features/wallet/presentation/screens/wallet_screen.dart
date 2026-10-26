@@ -117,8 +117,6 @@ class _ActivityItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pal = EthioPalette.of(context);
-    
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Sp.x2),
       child: Row(

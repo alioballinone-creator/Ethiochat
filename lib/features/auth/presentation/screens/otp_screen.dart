@@ -22,7 +22,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
   void _verify() async {
     setState(() => _loading = true);
-    await Future.delayed(const Duration(seconds: 1));
+    await Future<void>.delayed(const Duration(seconds: 1));
     if (mounted) {
       setState(() => _loading = false);
       context.go('/auth/profile');

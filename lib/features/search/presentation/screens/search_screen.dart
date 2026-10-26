@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:ethiochat/core/theme/app_spacing.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});

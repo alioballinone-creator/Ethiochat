@@ -8,7 +8,6 @@ class WelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,

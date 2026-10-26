@@ -4,7 +4,6 @@ import 'dart:math';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:drift/drift.dart';
-import 'package:uuid/uuid.dart';
 
 import 'package:ethiochat/core/db/app_database.dart';
 import 'package:ethiochat/core/logging/app_logger.dart';

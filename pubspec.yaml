@@ -33,6 +33,7 @@ dependencies:
   supabase_flutter: ^2.6.0
 
   # Platform & UX
+  flutter_svg: ^2.0.10
   connectivity_plus: ^6.0.3
   cached_network_image: ^3.4.0
   flutter_local_notifications: ^17.2.2
