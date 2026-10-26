@@ -123,8 +123,12 @@ void main() {
     expect(find.text('Appearance'), findsOneWidget);
     expect(find.text('Language'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Appearance'));
+    await tester.pump();
     await tester.tap(find.text('Appearance'));
     await settle(tester);
+    await tester.ensureVisible(find.text('Dark'));
+    await tester.pump();
     await tester.tap(find.text('Dark'));
     await settle(tester);
     expect(find.text('Dark'), findsOneWidget);
