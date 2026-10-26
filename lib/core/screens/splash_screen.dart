@@ -30,10 +30,7 @@ class _SplashScreenState extends State<SplashScreen> {
           children: [
             const EthioMark(size: 100),
             const SizedBox(height: Sp.x4),
-            EthioWordmark(
-              size: 28,
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
+            EthioWordmark(size: 28),
             const SizedBox(height: Sp.x2),
             Text(
               'Your world, one app.',

@@ -25,7 +25,7 @@ class WalletScreen extends StatelessWidget {
         child: ListView(
           padding: Sp.screen,
           children: [
-            const WalletCard(balance: 1250.50),
+            const WalletCard(balanceMinor: 125050, ethioId: 'EC-123456'),
             const SizedBox(height: Sp.x6),
             Text(
               'Quick actions',

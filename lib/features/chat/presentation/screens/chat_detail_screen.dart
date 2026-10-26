@@ -68,14 +68,14 @@ class ChatDetailScreen extends StatelessWidget {
                 const SizedBox(height: Sp.x4),
                 const MessageBubble(
                   text: 'Hello! How are you?',
-                  isMe: false,
+                  isMine: false,
                   time: '14:30',
                   status: MessageStatus.read,
                 ),
                 const SizedBox(height: Sp.x2),
                 const MessageBubble(
                   text: 'I am fine, thanks!',
-                  isMe: true,
+                  isMine: true,
                   time: '14:32',
                   status: MessageStatus.read,
                 ),

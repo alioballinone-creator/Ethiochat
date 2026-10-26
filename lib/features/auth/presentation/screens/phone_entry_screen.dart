@@ -75,7 +75,7 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
                   Expanded(
                     child: EthioTextField(
                       controller: _controller,
-                      hintText: '91 234 5678',
+                      hint: '91 234 5678',
                       keyboardType: TextInputType.phone,
                       onChanged: (_) => setState(() {}),
                     ),
