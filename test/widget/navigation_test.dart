@@ -81,11 +81,17 @@ void main() {
     expect(find.text('Chats'), findsWidgets);
     final seeded = await db.select(db.conversations).get();
     await tester.pump();
+    final listViews = find.byType(ListView);
     debugPrint(
       'CHATLIST TEST sameContainer='
       '${identical(ProviderScope.containerOf(tester.element(find.byType(ChatListScreen))), container)} '
       'tiles=${find.byType(ChatListTile).evaluate().length} '
-      'spinners=${find.byType(CircularProgressIndicator).evaluate().length}',
+      'tilesAll=${find.byType(ChatListTile, skipOffstage: false).evaluate().length} '
+      'abebeAll=${find.text('Abebe Kebede', skipOffstage: false).evaluate().length} '
+      'listViews=${listViews.evaluate().length} '
+      'listViewsAll=${find.byType(ListView, skipOffstage: false).evaluate().length} '
+      'spinners=${find.byType(CircularProgressIndicator).evaluate().length} '
+      'size=${tester.getSize(find.byType(ChatListScreen))}',
     );
     final visibleText = tester
         .widgetList<Text>(find.byType(Text))
