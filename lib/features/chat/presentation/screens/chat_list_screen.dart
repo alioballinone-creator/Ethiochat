@@ -189,6 +189,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     final chats = _visible(all);
     final loading =
         seed.isLoading && all.isEmpty || summaries.isLoading && all.isEmpty;
+    debugPrint(
+      'CHATLIST all=${all.length} chats=${chats.length} loading=$loading '
+      'seed=${seed.runtimeType}/${seed.isLoading} '
+      'summaries=${summaries.runtimeType}/${summaries.isLoading}',
+    );
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,

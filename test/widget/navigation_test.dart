@@ -1,8 +1,10 @@
 import 'package:drift/native.dart';
 import 'package:ethiochat/core/db/app_database.dart';
 import 'package:ethiochat/core/design/ethio_theme.dart';
+import 'package:ethiochat/core/design/widgets/chat_list_tile.dart';
 import 'package:ethiochat/core/providers/app_providers.dart';
 import 'package:ethiochat/core/router/app_router.dart';
+import 'package:ethiochat/features/chat/presentation/screens/chat_list_screen.dart';
 import 'package:ethiochat/features/chats/application/chat_providers.dart';
 import 'package:ethiochat/features/chats/data/repositories/chat_repository_impl.dart';
 import 'package:flutter/material.dart';
@@ -79,6 +81,12 @@ void main() {
     expect(find.text('Chats'), findsWidgets);
     final seeded = await db.select(db.conversations).get();
     await tester.pump();
+    debugPrint(
+      'CHATLIST TEST sameContainer='
+      '${identical(ProviderScope.containerOf(tester.element(find.byType(ChatListScreen))), container)} '
+      'tiles=${find.byType(ChatListTile).evaluate().length} '
+      'spinners=${find.byType(CircularProgressIndicator).evaluate().length}',
+    );
     final visibleText = tester
         .widgetList<Text>(find.byType(Text))
         .map((text) => text.data)
