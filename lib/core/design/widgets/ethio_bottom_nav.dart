@@ -33,8 +33,8 @@ class EthioBottomNav extends StatelessWidget {
       decoration: BoxDecoration(color: pal.navBackground, border: Border(top: BorderSide(color: pal.line))),
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          height: 70,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: Sp.x2),
           child: Row(children: [
             for (var i = 0; i < items.length; i++)
               Expanded(
@@ -66,8 +66,8 @@ class EthioBottomNav extends StatelessWidget {
                           ),
                       ]),
                       const SizedBox(height: 3),
-                      Text(items[i].label, style: TextStyle(
-                          fontSize: 11, fontFamily: 'Poppins',
+                      Text(items[i].label, maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11, fontFamily: 'Poppins',
                           fontWeight: i == index ? FontWeight.w600 : FontWeight.w500,
                           color: i == index ? on : pal.textTertiary)),
                     ]),
