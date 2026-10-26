@@ -13,6 +13,14 @@ void main() {
   late AppDatabase db;
   late GoRouter router;
 
+  /// Advances a bounded amount of time. An indeterminate spinner or a blinking
+  /// caret must fail the assertion below, not hang the whole test job.
+  Future<void> settle(WidgetTester tester) async {
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+  }
+
   Future<void> pumpApp(WidgetTester tester, {String at = '/chats'}) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
@@ -35,7 +43,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
   }
 
   testWidgets('bottom navigation reaches every main tab', (tester) async {
@@ -57,35 +65,35 @@ void main() {
     );
 
     await tester.tap(find.text('Contacts'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Search contacts'), findsOneWidget);
     // The list is scrollable; the first alphabetical contact is visible.
     expect(find.text('Abebe Kebede'), findsOneWidget);
 
     await tester.tap(find.text('Discover'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Mini Programs'), findsOneWidget);
     expect(find.text('Moments'), findsOneWidget);
 
     await tester.tap(find.text('Me'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Ethio ID'), findsNothing);
     expect(find.textContaining('Ethio ID:'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);
 
     await tester.tap(find.text('Settings'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Appearance'), findsOneWidget);
     expect(find.text('Language'), findsOneWidget);
 
     await tester.tap(find.text('Appearance'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.text('Dark'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Dark'), findsOneWidget);
 
     router.go('/chats');
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Abebe Kebede'), findsOneWidget);
   });
 
@@ -94,7 +102,7 @@ void main() {
     await pumpApp(tester);
 
     await tester.tap(find.text('Abebe Kebede'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Message'), findsOneWidget);
     expect(find.text('See you tomorrow'), findsOneWidget);
@@ -102,7 +110,7 @@ void main() {
     await tester.enterText(find.byType(TextField).first, 'Hello from test');
     await tester.pump();
     await tester.tap(find.byTooltip('Send'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Hello from test'), findsOneWidget);
 
@@ -113,16 +121,16 @@ void main() {
 
     // Header opens chat info; mute persists to the database.
     await tester.tap(find.text('Abebe Kebede').first);
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Chat info'), findsOneWidget);
 
     await tester.tap(find.text('Mute notifications'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     final conversation = await repo.watchConversation('1').first;
     expect(conversation?.mutedUntil, isNotNull);
 
     await tester.pageBack();
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     // Video call opens and the end button returns to the chat.
     await tester.tap(find.byTooltip('Video call'));
@@ -139,12 +147,12 @@ void main() {
     await pumpApp(tester);
 
     await tester.tap(find.byTooltip('Search'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Search'), findsWidgets);
 
     await tester.enterText(find.byType(TextField).first, 'invoice');
     await tester.pump(const Duration(milliseconds: 400));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.textContaining('invoice'), findsWidgets);
     expect(find.text('Did you get the invoice?'), findsOneWidget);
@@ -156,7 +164,7 @@ void main() {
 
     expect(find.text('New chat'), findsWidgets);
     await tester.tap(find.text('Hanna Girma'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Message'), findsOneWidget);
     expect(find.text('Hanna Girma'), findsWidgets);
@@ -176,7 +184,7 @@ void main() {
     await tester.enterText(find.byType(TextField).first, 'Football team');
     await tester.pump();
     await tester.tap(find.text('Create'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Football team'), findsWidgets);
     final repo = ChatRepositoryImpl(db);

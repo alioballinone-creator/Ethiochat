@@ -123,9 +123,8 @@ void main() {
               // Drift schedules a zero-duration timer when a query stream is
               // cancelled; pump a few frames so it cannot outlive the test.
               await tester.pumpWidget(const SizedBox.shrink());
-              await tester.pump();
-              await tester.pump();
-              await tester.pump();
+              await tester.pump(const Duration(milliseconds: 1));
+              await tester.pump(const Duration(milliseconds: 1));
               expect(tester.takeException(), isNull);
             });
           }
