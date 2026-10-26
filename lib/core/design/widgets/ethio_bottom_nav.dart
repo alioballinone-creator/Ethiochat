@@ -70,6 +70,7 @@ class EthioBottomNav extends StatelessWidget {
                       onTap(i);
                     },
                     child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Stack(clipBehavior: Clip.none, children: [
