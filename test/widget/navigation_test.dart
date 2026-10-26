@@ -19,6 +19,18 @@ void main() {
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
+    // Drift schedules stream work on the real event loop. Give that work a
+    // chance to run, then pump its result into the widget tree.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+
+  Future<void> disposeApp(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump(const Duration(milliseconds: 1));
   }
 
   Future<void> pumpApp(WidgetTester tester, {String at = '/chats'}) async {
@@ -32,6 +44,9 @@ void main() {
     await ChatRepositoryImpl(db).seedDemoData();
     router = AppRouter.createRouter(initialLocation: at);
     addTearDown(router.dispose);
+    // Run before router.dispose/db.close in the LIFO teardown order so Drift
+    // stream cancellations are flushed while the database is still open.
+    addTearDown(() => disposeApp(tester));
 
     await tester.pumpWidget(
       ProviderScope(
@@ -51,7 +66,7 @@ void main() {
 
     // Chats is the start tab and is seeded from the local database.
     expect(find.text('Chats'), findsWidgets);
-    final seeded = await ChatRepositoryImpl(db).watchSummaries().first;
+    final seeded = await db.select(db.conversations).get();
     final visibleText = tester
         .widgetList<Text>(find.byType(Text))
         .map((text) => text.data)
@@ -114,10 +129,11 @@ void main() {
 
     expect(find.text('Hello from test'), findsOneWidget);
 
-    final repo = ChatRepositoryImpl(db);
-    final messages = await repo.watchMessages('1').first;
-    expect(messages.last.body, 'Hello from test');
-    expect(messages.last.senderId, 'me');
+    final messages = await db.select(db.messages).get();
+    final sent = messages.where((m) => m.conversationId == '1').toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    expect(sent.last.body, 'Hello from test');
+    expect(sent.last.senderId, 'me');
 
     // Header opens chat info; mute persists to the database.
     await tester.tap(find.text('Abebe Kebede').first);
@@ -126,8 +142,10 @@ void main() {
 
     await tester.tap(find.text('Mute notifications'));
     await settle(tester);
-    final conversation = await repo.watchConversation('1').first;
-    expect(conversation?.mutedUntil, isNotNull);
+    final conversation = await (db.select(db.conversations)
+          ..where((c) => c.id.equals('1')))
+        .getSingle();
+    expect(conversation.mutedUntil, isNotNull);
 
     await tester.pageBack();
     await settle(tester);
@@ -169,8 +187,7 @@ void main() {
     expect(find.text('Message'), findsOneWidget);
     expect(find.text('Hanna Girma'), findsWidgets);
 
-    final repo = ChatRepositoryImpl(db);
-    final summaries = await repo.watchSummaries().first;
+    final summaries = await db.select(db.conversations).get();
     final hanna = summaries.where((s) => s.title == 'Hanna Girma');
     expect(hanna, hasLength(1));
   });
@@ -187,9 +204,8 @@ void main() {
     await settle(tester);
 
     expect(find.text('Football team'), findsWidgets);
-    final repo = ChatRepositoryImpl(db);
-    final summaries = await repo.watchSummaries().first;
+    final summaries = await db.select(db.conversations).get();
     final group = summaries.firstWhere((s) => s.title == 'Football team');
-    expect(group.type.name, 'group');
+    expect(group.type, 'group');
   });
 }
