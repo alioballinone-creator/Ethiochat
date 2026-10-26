@@ -77,6 +77,8 @@ flutter:
   generate: true
   assets:
     - assets/
+    - assets/brand/
+    - assets/mockups/
   fonts:
     - family: Inter
       fonts:
@@ -84,3 +86,13 @@ flutter:
     - family: NotoSansEthiopic
       fonts:
         - asset: assets/fonts/NotoSansEthiopic.ttf
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
