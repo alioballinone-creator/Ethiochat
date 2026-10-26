@@ -24,7 +24,7 @@ class EthioAvatar extends StatelessWidget {
       width: size, height: size, alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [tone, tone.withOpacity(.8)]),
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [tone, tone.withValues(alpha: .8)]),
         image: imageUrl != null ? DecorationImage(image: NetworkImage(imageUrl!), fit: BoxFit.cover) : null,
       ),
       child: imageUrl == null

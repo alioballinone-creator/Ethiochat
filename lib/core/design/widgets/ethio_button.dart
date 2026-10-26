@@ -42,7 +42,7 @@ class EthioButton extends StatelessWidget {
         fg = EthioColors.black;
         deco = BoxDecoration(
           gradient: EthioColors.goldGradient, borderRadius: Rad.r14,
-          boxShadow: [BoxShadow(color: EthioColors.goldDeep.withOpacity(isDark ? .35 : .45), blurRadius: 18, offset: const Offset(0, 8), spreadRadius: -8)],
+          boxShadow: [BoxShadow(color: EthioColors.goldDeep.withValues(alpha: isDark ? .35 : .45), blurRadius: 18, offset: const Offset(0, 8), spreadRadius: -8)],
         );
       case EthioButtonKind.secondary:
         fg = Theme.of(context).colorScheme.onSurface;

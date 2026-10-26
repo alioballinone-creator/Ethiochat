@@ -28,7 +28,6 @@ class EthioChatApp extends ConsumerWidget {
       darkTheme: buildEthioTheme(Brightness.dark),
       themeMode: ThemeMode.system,
       routerConfig: router,
-      debugShowCheckedModeBanner: false,
     );
   }
 }

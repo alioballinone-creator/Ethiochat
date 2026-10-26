@@ -1,4 +1,3 @@
-import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import '../ethio_colors.dart';
 import '../ethio_spacing.dart';
@@ -27,13 +26,13 @@ class WalletCard extends StatelessWidget {
         borderRadius: Rad.r24,
         gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
             colors: [Color(0xFFF7E09A), EthioColors.gold, Color(0xFFA9780B)], stops: [0, .4, 1]),
-        boxShadow: [BoxShadow(color: EthioColors.goldDeep.withOpacity(.55), blurRadius: 30, offset: const Offset(0, 18), spreadRadius: -16)],
+        boxShadow: [BoxShadow(color: EthioColors.goldDeep.withValues(alpha: .55), blurRadius: 30, offset: const Offset(0, 18), spreadRadius: -16)],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(
             child: Text('Available balance', maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelMedium!.copyWith(color: ink.withOpacity(.8))),
+                style: Theme.of(context).textTheme.labelMedium!.copyWith(color: ink.withValues(alpha: .8))),
           ),
           IconButton(
             onPressed: onToggleHidden, visualDensity: VisualDensity.compact,

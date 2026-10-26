@@ -217,7 +217,7 @@ class _PhotoGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shown = count.clamp(1, 9).toInt();
+    final shown = count.clamp(1, 9);
 
     return LayoutBuilder(
       builder: (context, constraints) {

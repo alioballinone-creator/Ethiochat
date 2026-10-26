@@ -91,7 +91,7 @@ class _NewGroupScreenState extends State<NewGroupScreen> {
                           Stack(
                             clipBehavior: Clip.none,
                             children: [
-                              EthioAvatar(name: name, size: 52),
+                              EthioAvatar(name: name),
                               Positioned(
                                 right: -2,
                                 top: -2,

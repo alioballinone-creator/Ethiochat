@@ -15,7 +15,6 @@ class EthioAppTheme {
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
         seedColor: primaryColor,
-        brightness: Brightness.light,
         primary: primaryColor,
         secondary: secondaryColor,
         error: errorColor,

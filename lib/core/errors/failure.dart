@@ -6,7 +6,7 @@ sealed class Failure implements Exception {
   final Object? cause;
 
   @override
-  String toString() => '$runtimeType($code): $message';
+  String toString() => 'Failure($code): $message';
 }
 
 final class NetworkFailure extends Failure {

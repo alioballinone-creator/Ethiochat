@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 List<int> splitRedPacket(int totalMinor, int count, Random rng) {
   if (count <= 0) return [];
   if (count == 1) return [totalMinor];
-  final minMinor = 100; // 1 birr
+  const minMinor = 100; // 1 birr
   final results = <int>[];
   var remaining = totalMinor;
   var remainingCount = count;

@@ -31,10 +31,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
   @override
   void dispose() {
-    for (var c in _controllers) {
+    for (final c in _controllers) {
       c.dispose();
     }
-    for (var f in _focusNodes) {
+    for (final f in _focusNodes) {
       f.dispose();
     }
     _timer?.cancel();

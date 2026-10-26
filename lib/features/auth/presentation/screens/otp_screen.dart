@@ -20,7 +20,7 @@ class _OtpScreenState extends State<OtpScreen> {
     super.dispose();
   }
 
-  void _verify() async {
+  Future<void> _verify() async {
     setState(() => _loading = true);
     await Future<void>.delayed(const Duration(seconds: 1));
     if (mounted) {

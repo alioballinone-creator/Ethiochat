@@ -67,7 +67,7 @@ class OutboxWorker {
   void _scheduleNext(Duration d) {
     _timer?.cancel();
     if (!_running || _paused) return;
-    _timer = Timer(d, () => _tick());
+    _timer = Timer(d, _tick);
   }
 
   Future<void> _tick() async {

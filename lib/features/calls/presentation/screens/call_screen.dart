@@ -42,7 +42,7 @@ class _CallScreenState extends State<CallScreen> {
             Text(
               widget.isIncoming ? 'Incoming call' : 'Calling...',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: EthioColors.cream.withOpacity(0.7),
+                    color: EthioColors.cream.withValues(alpha: 0.7),
                   ),
             ),
             const Spacer(),

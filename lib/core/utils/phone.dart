@@ -3,7 +3,7 @@ class PhoneUtils {
   static String? normalize(String input) {
     final trimmed = input.trim().replaceAll(RegExp(r'[\s\-\(\)]'), '');
     if (trimmed.isEmpty) return null;
-    String s = trimmed;
+    var s = trimmed;
     if (s.startsWith('00')) s = '+${s.substring(2)}';
     if (s.startsWith('9') && s.length == 9) s = '+251$s';
     if (s.startsWith('07') && s.length == 10) s = '+251${s.substring(1)}';

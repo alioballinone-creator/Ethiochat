@@ -27,7 +27,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   void _send() {
     if (!_hasText) return;
-    setState(() => _composer.clear());
+    setState(_composer.clear);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
         _scroll.animateTo(

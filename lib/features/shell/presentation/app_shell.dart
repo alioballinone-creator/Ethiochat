@@ -18,20 +18,13 @@ class AppShell extends StatelessWidget {
   }
 
   void _onDestinationSelected(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        context.go('/chats');
-        break;
-      case 1:
-        context.go('/contacts');
-        break;
-      case 2:
-        context.go('/discover');
-        break;
-      case 3:
-        context.go('/me');
-        break;
-    }
+    final path = switch (index) {
+      1 => '/contacts',
+      2 => '/discover',
+      3 => '/me',
+      _ => '/chats',
+    };
+    context.go(path);
   }
 
   @override

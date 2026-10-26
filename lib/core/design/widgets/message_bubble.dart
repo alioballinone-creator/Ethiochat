@@ -33,7 +33,7 @@ class MessageBubble extends StatelessWidget {
       bottomRight: Radius.circular(isMine ? (firstInGroup ? 6 : 18) : 18),
     );
     final meta = Row(mainAxisSize: MainAxisSize.min, children: [
-      Text(time, style: TextStyle(fontSize: 11, color: isMine ? textColor.withOpacity(.75) : pal.textTertiary, fontFamily: 'Poppins')),
+      Text(time, style: TextStyle(fontSize: 11, color: isMine ? textColor.withValues(alpha: .75) : pal.textTertiary, fontFamily: 'Poppins')),
       if (isMine) ...[const SizedBox(width: 5), _StatusIcon(status: status, pal: pal)],
     ]);
 
@@ -76,13 +76,13 @@ class _StatusIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (status) {
       case MessageStatus.sending:
-        return Icon(Icons.schedule_rounded, size: 13, color: pal.bubbleSentText.withOpacity(.7));
+        return Icon(Icons.schedule_rounded, size: 13, color: pal.bubbleSentText.withValues(alpha: .7));
       case MessageStatus.failed:
         return const Icon(Icons.error_rounded, size: 15, color: EthioColors.danger);
       case MessageStatus.sent:
-        return CustomPaint(size: const Size(12, 9), painter: _Ticks(pal.tickSent.withOpacity(.6), isDouble: false));
+        return CustomPaint(size: const Size(12, 9), painter: _Ticks(pal.tickSent.withValues(alpha: .6), isDouble: false));
       case MessageStatus.delivered:
-        return CustomPaint(size: const Size(16, 10), painter: _Ticks(pal.bubbleSentText.withOpacity(.6), isDouble: true));
+        return CustomPaint(size: const Size(16, 10), painter: _Ticks(pal.bubbleSentText.withValues(alpha: .6), isDouble: true));
       case MessageStatus.read:
         return CustomPaint(size: const Size(16, 10), painter: _Ticks(pal.tickRead, isDouble: true));
     }

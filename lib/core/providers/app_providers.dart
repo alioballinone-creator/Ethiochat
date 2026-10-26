@@ -6,14 +6,14 @@ import '../network/connectivity_service.dart';
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
-  ref.onDispose(() => db.close());
+  ref.onDispose(db.close);
   return db;
 });
 
 final connectivityServiceProvider = Provider<ConnectivityService>((ref) {
   final service = ConnectivityService(connectivity: Connectivity());
   service.start();
-  ref.onDispose(() => service.dispose());
+  ref.onDispose(service.dispose);
   return service;
 });
 

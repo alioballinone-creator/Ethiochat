@@ -102,13 +102,11 @@ class ChatRepositoryImpl implements ChatRepository {
           id: id,
           conversationId: conversationId,
           senderId: 'me',
-          seq: null,
           type: type,
           body: body,
           media: media,
           replyTo: replyTo,
           createdAt: now,
-          status: MessageStatus.pending,
         ),
       );
     } catch (e) {
