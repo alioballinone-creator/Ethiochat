@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../../core/design/design.dart';
 
 class DiscoverScreen extends StatelessWidget {
@@ -24,14 +26,27 @@ class DiscoverScreen extends StatelessWidget {
               icon: Icons.photo_library_outlined,
               title: 'Moments',
               hasRedDot: true,
+              onTap: () => context.push('/discover/moments'),
             ),
             _DiscoverItem(
               icon: Icons.wifi_tethering_outlined,
               title: 'Channels',
+              onTap: () {},
             ),
             _DiscoverItem(
               icon: Icons.verified_outlined,
               title: 'Official Accounts',
+              onTap: () {},
+            ),
+            _DiscoverItem(
+              icon: Icons.qr_code_scanner_rounded,
+              title: 'Scan',
+              onTap: () {},
+            ),
+            _DiscoverItem(
+              icon: Icons.near_me_outlined,
+              title: 'People nearby',
+              onTap: () {},
             ),
             const SizedBox(height: Sp.x4),
             Text(
@@ -66,10 +81,16 @@ class DiscoverScreen extends StatelessWidget {
 }
 
 class _DiscoverItem extends StatelessWidget {
-  const _DiscoverItem({required this.icon, required this.title, this.hasRedDot = false});
+  const _DiscoverItem({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.hasRedDot = false,
+  });
 
   final IconData icon;
   final String title;
+  final VoidCallback onTap;
   final bool hasRedDot;
 
   @override
@@ -84,6 +105,7 @@ class _DiscoverItem extends StatelessWidget {
         border: Border.all(color: pal.line),
       ),
       child: ListTile(
+        onTap: onTap,
         leading: Container(
           width: 40,
           height: 40,

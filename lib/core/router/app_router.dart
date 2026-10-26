@@ -6,6 +6,9 @@ import '../../features/auth/presentation/screens/otp_verification_screen.dart';
 import '../../features/auth/presentation/screens/profile_setup_screen.dart';
 import '../../features/chat/presentation/screens/chat_list_screen.dart';
 import '../../features/chat/presentation/screens/chat_detail_screen.dart';
+import '../../features/chat/presentation/screens/chat_info_screen.dart';
+import '../../features/chat/presentation/screens/new_chat_screen.dart';
+import '../../features/chat/presentation/screens/new_group_screen.dart';
 import '../../features/contacts/presentation/screens/contacts_screen.dart';
 import '../../features/discover/presentation/screens/discover_screen.dart';
 import '../../features/profile/presentation/screens/me_screen.dart';
@@ -13,6 +16,9 @@ import '../../features/wallet/presentation/screens/wallet_screen.dart';
 import '../config/feature_flags.dart';
 import '../../features/calls/presentation/screens/call_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
+import '../../features/search/presentation/screens/search_screen.dart';
+import '../../features/moments/presentation/screens/moments_feed_screen.dart';
+import '../../features/profile/presentation/screens/my_qr_screen.dart';
 
 class AppRouter {
   static const String splash = '/';
@@ -22,6 +28,12 @@ class AppRouter {
   static const String profileSetup = '/auth/profile';
   static const String chats = '/chats';
   static const String chatDetail = '/chats/:id';
+  static const String chatInfo = '/chats/:id/info';
+  static const String newChat = '/new-chat';
+  static const String newGroup = '/new-group';
+  static const String search = '/search';
+  static const String moments = '/discover/moments';
+  static const String myQr = '/me/qr';
   static const String contacts = '/contacts';
   static const String discover = '/discover';
   static const String me = '/me';
@@ -66,6 +78,31 @@ class AppRouter {
             final chatId = state.pathParameters['id'] ?? '';
             return ChatDetailScreen(chatId: chatId);
           },
+          routes: [
+            GoRoute(
+              path: 'info',
+              builder: (context, state) {
+                final chatId = state.pathParameters['id'] ?? '';
+                return ChatInfoScreen(chatId: chatId);
+              },
+            ),
+          ],
+        ),
+        GoRoute(
+          path: newChat,
+          builder: (context, state) => const NewChatScreen(),
+        ),
+        GoRoute(
+          path: newGroup,
+          builder: (context, state) => const NewGroupScreen(),
+        ),
+        GoRoute(
+          path: search,
+          builder: (context, state) => const SearchScreen(),
+        ),
+        GoRoute(
+          path: moments,
+          builder: (context, state) => const MomentsFeedScreen(),
         ),
         GoRoute(
           path: contacts,
@@ -95,6 +132,10 @@ class AppRouter {
         GoRoute(
           path: settings,
           builder: (context, state) => const SettingsScreen(),
+        ),
+        GoRoute(
+          path: myQr,
+          builder: (context, state) => const MyQrScreen(),
         ),
       ],
     );

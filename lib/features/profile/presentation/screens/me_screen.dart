@@ -25,37 +25,80 @@ class MeScreen extends StatelessWidget {
         child: ListView(
           padding: Sp.screen.copyWith(top: Sp.x4, bottom: 80),
           children: [
-            Container(
-              padding: const EdgeInsets.all(Sp.x4),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
+            Material(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: Rad.r18,
+              child: InkWell(
+                onTap: () => context.push('/me/qr'),
                 borderRadius: Rad.r18,
-                border: Border.all(color: pal.line),
-              ),
-              child: Row(
-                children: [
-                  const EthioAvatar(name: 'Abebe Kebede', size: 64),
-                  const SizedBox(width: Sp.x4),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Abebe Kebede',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: Sp.x1),
-                        Text(
-                          'Ethio ID: EC-123456',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: pal.textSecondary,
-                              ),
-                        ),
-                      ],
-                    ),
+                child: Container(
+                  padding: const EdgeInsets.all(Sp.x4),
+                  decoration: BoxDecoration(
+                    borderRadius: Rad.r18,
+                    border: Border.all(color: pal.line),
                   ),
-                  const Icon(Icons.qr_code_rounded),
-                ],
+                  child: Row(
+                    children: [
+                      const EthioAvatar(name: 'Abebe Kebede', size: 64),
+                      const SizedBox(width: Sp.x4),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Abebe Kebede',
+                              style: Theme.of(context).textTheme.titleLarge,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: Sp.x1),
+                            Text(
+                              'Ethio ID: EC-123456',
+                              style:
+                                  Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: pal.textSecondary,
+                                      ),
+                            ),
+                            const SizedBox(height: Sp.x2),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: Sp.x2,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: pal.chip,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.place_outlined,
+                                    size: 12,
+                                    color: pal.textSecondary,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Flexible(
+                                    child: Text(
+                                      'Addis Ababa',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall
+                                          ?.copyWith(
+                                            color: pal.textSecondary,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.qr_code_rounded),
+                    ],
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: Sp.x4),
