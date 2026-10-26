@@ -91,9 +91,17 @@ void main() {
       final box = e.renderObject! as RenderBox;
       return '${box.localToGlobal(Offset.zero)} ${box.size}';
     }).toList();
+    final screenContext = tester.element(find.byType(ChatListScreen));
+    final mq = MediaQuery.of(screenContext);
+    final column =
+        find.ancestor(of: chatList, matching: find.byType(Column)).first;
+    final refresh = find.ancestor(
+      of: chatList,
+      matching: find.byType(RefreshIndicator),
+    );
     debugPrint(
       'CHATLIST TEST sameContainer='
-      '${identical(ProviderScope.containerOf(tester.element(find.byType(ChatListScreen))), container)} '
+      '${identical(ProviderScope.containerOf(screenContext), container)} '
       'tiles=${find.byType(ChatListTile).evaluate().length} '
       'tilesAll=${find.byType(ChatListTile, skipOffstage: false).evaluate().length} '
       'abebeAll=${find.text('Abebe Kebede', skipOffstage: false).evaluate().length} '
@@ -101,6 +109,9 @@ void main() {
       'listViewsAll=${find.byType(ListView, skipOffstage: false).evaluate().length} '
       'spinners=${find.byType(CircularProgressIndicator).evaluate().length} '
       'size=${tester.getSize(find.byType(ChatListScreen))} '
+      'mqSize=${mq.size} viewInsets=${mq.viewInsets} padding=${mq.padding} '
+      'columnSize=${tester.getSize(column)} '
+      'refreshSize=${refresh.evaluate().isEmpty ? 'none' : tester.getSize(refresh)} '
       'listRect=${tester.getRect(chatList)} '
       'pixels=${scrollable.position.pixels} '
       'max=${scrollable.position.maxScrollExtent} '
