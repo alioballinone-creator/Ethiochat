@@ -43,7 +43,19 @@ void main() {
 
     // Chats is the start tab and is seeded from the local database.
     expect(find.text('Chats'), findsWidgets);
-    expect(find.text('Abebe Kebede'), findsOneWidget);
+    final seeded = await ChatRepositoryImpl(db).watchSummaries().first;
+    final visibleText = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((text) => text.data)
+        .whereType<String>()
+        .toList();
+    expect(
+      find.text('Abebe Kebede'),
+      findsOneWidget,
+      reason: 'route=${router.location} '
+          'stored=${seeded.map((s) => s.title).toList()} '
+          'visible=$visibleText',
+    );
 
     await tester.tap(find.text('Contacts'));
     await tester.pumpAndSettle();

@@ -120,7 +120,11 @@ void main() {
               );
 
               // Dispose the screen so timers and controllers are released.
+              // Drift schedules a zero-duration timer when a query stream is
+              // cancelled; pump a few frames so it cannot outlive the test.
               await tester.pumpWidget(const SizedBox.shrink());
+              await tester.pump();
+              await tester.pump();
               await tester.pump();
               expect(tester.takeException(), isNull);
             });
