@@ -52,8 +52,7 @@ void main() {
     expect(
       find.text('Abebe Kebede'),
       findsOneWidget,
-      reason: 'route=${router.location} '
-          'stored=${seeded.map((s) => s.title).toList()} '
+      reason: 'stored=${seeded.map((s) => s.title).toList()} '
           'visible=$visibleText',
     );
 
