@@ -60,7 +60,7 @@ class SupabaseOutboxTransport {
     }
 
     try {
-      await client.rpc(
+      await client.rpc<dynamic>(
         'send_message',
         params: {
           'p_id': messageId,
