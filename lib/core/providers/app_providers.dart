@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../db/app_database.dart';
-import '../network/connectivity_service.dart';
+import '../../features/chats/data/datasources/chat_sync_controller.dart';
 import '../../features/chats/data/datasources/outbox_worker.dart';
 import '../../features/chats/data/datasources/supabase_outbox_transport.dart';
+import '../config/env.dart';
+import '../db/app_database.dart';
+import '../network/connectivity_service.dart';
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
@@ -23,6 +28,19 @@ final outboxWorkerProvider = Provider<OutboxWorker>((ref) {
   worker.start();
   ref.onDispose(worker.stop);
   return worker;
+});
+
+/// Pulls authenticated conversations/messages and keeps realtime inserts in
+/// sync with the local database. Returns null for credential-free demo builds.
+final chatSyncProvider = Provider<ChatSyncController?>((ref) {
+  if (!Env.hasSupabase) return null;
+  final controller = ChatSyncController(
+    db: ref.watch(appDatabaseProvider),
+    client: Supabase.instance.client,
+  );
+  unawaited(controller.start());
+  ref.onDispose(controller.dispose);
+  return controller;
 });
 
 final connectivityServiceProvider = Provider<ConnectivityService>((ref) {

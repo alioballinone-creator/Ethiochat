@@ -29,8 +29,9 @@ into the local database on first launch.
   requests, search, QR, moments, channels, official accounts, mini programs,
   nearby, scan, calls, report/block, onboarding and the full settings tree.
 - Offline-first Drift schema, outbox/backoff state machine, authenticated
-  Supabase sends with media upload, message status, reply/forward/edit/delete,
-  voice notes, attachments, drafts and local search.
+  Supabase sends with media upload, conversation/message hydration, realtime
+  inserts, message status, reply/forward/edit/delete, voice notes, attachments,
+  drafts and local search.
 - Wallet ledger and wallet screens (send, receive, top-up, bills, history,
   receipts, red packets, PIN) behind `--dart-define=ENABLE_WALLET=true`.
 - Supabase migrations through phase 6: RLS, contact discovery database support,
@@ -63,9 +64,9 @@ migrations and functions are written but cannot be deployed in this environment
 because Supabase project credentials are absent.
 Remaining production work:
 
-- Hydrate conversations and messages from Supabase, subscribe to realtime
-  changes and add delivery/read receipts. Authenticated sends and media uploads
-  are implemented for remote conversation ids.
+- Add delivery/read receipts, remote edit/delete propagation and resumable
+  media uploads. Conversation/message hydration and realtime inserts are now
+  enabled for authenticated accounts.
 - Replace the call UI simulation with LiveKit rooms, CallKit/ConnectionService
   and push ringing.
 - Add FCM delivery, SMS/Telegram OTP fallback and a deployed moderation console.

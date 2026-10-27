@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/env.dart';
 import '../../../core/db/app_database.dart' show GroupMember;
 import '../../../core/providers/app_providers.dart';
 import '../../contacts/domain/entities/contact_entity.dart';
@@ -47,8 +49,11 @@ final groupMembersProvider =
 
 /// Seeds the local database with demo content on first launch.
 /// Idempotent: does nothing once conversations exist.
-final demoSeedProvider = FutureProvider<void>((ref) {
-  return ref.watch(chatRepositoryProvider).seedDemoData();
+final demoSeedProvider = FutureProvider<void>((ref) async {
+  if (Env.hasSupabase && Supabase.instance.client.auth.currentUser != null) {
+    return;
+  }
+  await ref.watch(chatRepositoryProvider).seedDemoData();
 });
 
 final messageSearchProvider =

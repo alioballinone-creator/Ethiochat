@@ -28,8 +28,9 @@ class _EthioChatAppState extends ConsumerState<EthioChatApp> {
 
   @override
   Widget build(BuildContext context) {
-    // Keep the outbox worker alive for the full app lifecycle.
+    // Keep background delivery and remote sync alive for the app lifecycle.
     ref.watch(outboxWorkerProvider);
+    ref.watch(chatSyncProvider);
     final settings = ref.watch(appSettingsProvider);
     final platformBrightness =
         WidgetsBinding.instance.platformDispatcher.platformBrightness;

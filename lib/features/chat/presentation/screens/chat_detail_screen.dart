@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1076,11 +1077,38 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             ),
           );
         }
+        final url = message.media?['url'] as String?;
+        if (url != null && url.isNotEmpty) {
+          return ClipRRect(
+            borderRadius: Rad.r10,
+            child: CachedNetworkImage(
+              imageUrl: url,
+              width: 220,
+              fit: BoxFit.cover,
+              placeholder: (_, __) => Container(
+                width: 220,
+                height: 140,
+                color: Colors.black.withValues(alpha: 0.08),
+                alignment: Alignment.center,
+                child: const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+              errorWidget: (_, __, ___) => _mediaPlaceholder(
+                Icons.broken_image_outlined,
+                'Photo unavailable',
+              ),
+            ),
+          );
+        }
         return _mediaPlaceholder(Icons.image_outlined, 'Photo');
       case entity.MessageType.voice:
         return _VoiceNote(
           duration: message.media?['duration'] as String? ?? '0:12',
           path: message.media?['path'] as String?,
+          url: message.media?['url'] as String?,
           onMissing: () => _feedback('Voice note audio is unavailable.'),
         );
       case entity.MessageType.payment:
@@ -1501,11 +1529,13 @@ class _VoiceNote extends StatefulWidget {
   const _VoiceNote({
     required this.duration,
     required this.path,
+    required this.url,
     required this.onMissing,
   });
 
   final String duration;
   final String? path;
+  final String? url;
   final VoidCallback onMissing;
 
   @override
@@ -1524,7 +1554,13 @@ class _VoiceNoteState extends State<_VoiceNote> {
 
   Future<void> _toggle() async {
     final path = widget.path;
-    if (path == null || !File(path).existsSync()) {
+    final url = widget.url;
+    final Source source;
+    if (path != null && File(path).existsSync()) {
+      source = DeviceFileSource(path);
+    } else if (url != null && url.isNotEmpty) {
+      source = UrlSource(url);
+    } else {
       widget.onMissing();
       return;
     }
@@ -1540,7 +1576,7 @@ class _VoiceNoteState extends State<_VoiceNote> {
           if (mounted) setState(() => _playing = false);
         });
       }
-      await player.play(DeviceFileSource(path));
+      await player.play(source);
       if (mounted) setState(() => _playing = true);
     } catch (_) {
       widget.onMissing();
