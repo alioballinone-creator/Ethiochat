@@ -176,6 +176,19 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     _composerFocus.requestFocus();
   }
 
+  Future<void> _startCall({required bool video}) async {
+    final route = '/call/${widget.chatId}${video ? '?video=true' : ''}';
+    final outcome = await context.push<String>(route);
+    if (!mounted || outcome == null || outcome.isEmpty) return;
+    final result = await ref.read(chatRepositoryProvider).sendMessage(
+          conversationId: widget.chatId,
+          type: entity.MessageType.system,
+          body: outcome,
+        );
+    if (!mounted) return;
+    if (result.failureOrNull case final failure?) _feedback(failure.message);
+  }
+
   String _messagePreview(entity.MessageEntity message) {
     final body = message.body?.trim();
     if (body != null && body.isNotEmpty) return body;
@@ -813,12 +826,12 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           IconButton(
             tooltip: 'Video call',
             icon: const Icon(Icons.videocam_outlined),
-            onPressed: () => context.push('/call/${widget.chatId}?video=true'),
+            onPressed: () => _startCall(video: true),
           ),
           IconButton(
             tooltip: 'Voice call',
             icon: const Icon(Icons.call_outlined),
-            onPressed: () => context.push('/call/${widget.chatId}'),
+            onPressed: () => _startCall(video: false),
           ),
           const SizedBox(width: Sp.x1),
         ],

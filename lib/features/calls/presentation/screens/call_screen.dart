@@ -56,7 +56,14 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
   void _end() {
     _timer?.cancel();
-    if (mounted) context.pop();
+    if (!mounted) return;
+    final mode = widget.isVideo ? 'Video' : 'Voice';
+    final summary = _connected
+        ? '$mode call · $_duration'
+        : widget.isIncoming
+            ? 'Missed $mode call'
+            : 'Cancelled $mode call';
+    context.pop(summary);
   }
 
   void _flipCamera() {
