@@ -54,7 +54,12 @@ class _WalletPinScreenState extends ConsumerState<WalletPinScreen> {
   }
 
   Future<void> _loadPinState() async {
-    final hasPin = await ref.read(walletPinStoreProvider).hasPin();
+    var hasPin = false;
+    try {
+      hasPin = await ref.read(walletPinStoreProvider).hasPin();
+    } catch (_) {
+      // Secure preferences are unavailable in widget tests and some OEM builds.
+    }
     if (!mounted) return;
     setState(() {
       _hasPin = hasPin;

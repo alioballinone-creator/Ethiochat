@@ -20,6 +20,31 @@ import 'package:ethiochat/features/profile/presentation/screens/my_qr_screen.dar
 import 'package:ethiochat/features/search/presentation/screens/search_screen.dart';
 import 'package:ethiochat/features/settings/presentation/screens/settings_screen.dart';
 import 'package:ethiochat/features/wallet/presentation/screens/wallet_screen.dart';
+import 'package:ethiochat/features/chat/presentation/screens/group_info_screen.dart';
+import 'package:ethiochat/features/contacts/presentation/screens/contact_requests_screen.dart';
+import 'package:ethiochat/features/discover/presentation/screens/article_reader_screen.dart';
+import 'package:ethiochat/features/discover/presentation/screens/channel_detail_screen.dart';
+import 'package:ethiochat/features/discover/presentation/screens/channels_screen.dart';
+import 'package:ethiochat/features/discover/presentation/screens/mini_program_screen.dart';
+import 'package:ethiochat/features/discover/presentation/screens/nearby_screen.dart';
+import 'package:ethiochat/features/discover/presentation/screens/official_account_screen.dart';
+import 'package:ethiochat/features/discover/presentation/screens/official_accounts_screen.dart';
+import 'package:ethiochat/features/discover/presentation/screens/scan_screen.dart';
+import 'package:ethiochat/features/onboarding/presentation/screens/tips_screen.dart';
+import 'package:ethiochat/features/profile/presentation/screens/profile_screen.dart';
+import 'package:ethiochat/features/settings/presentation/screens/report_screen.dart';
+import 'package:ethiochat/features/settings/presentation/screens/settings_account_screen.dart';
+import 'package:ethiochat/features/settings/presentation/screens/settings_app_screens.dart';
+import 'package:ethiochat/features/settings/presentation/screens/settings_help_screen.dart';
+import 'package:ethiochat/features/settings/presentation/screens/settings_privacy_screen.dart';
+import 'package:ethiochat/features/wallet/presentation/screens/bills_screen.dart';
+import 'package:ethiochat/features/wallet/presentation/screens/receive_money_screen.dart';
+import 'package:ethiochat/features/wallet/presentation/screens/red_packet_screen.dart';
+import 'package:ethiochat/features/wallet/presentation/screens/send_money_screen.dart';
+import 'package:ethiochat/features/wallet/presentation/screens/top_up_screen.dart';
+import 'package:ethiochat/features/wallet/presentation/screens/transactions_screen.dart';
+import 'package:ethiochat/features/wallet/presentation/screens/wallet_pin_screen.dart';
+import 'package:ethiochat/features/wallet/presentation/screens/wallet_receipt_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -51,6 +76,35 @@ final _screens = <_Screen>[
   _Screen('search', () => const SearchScreen()),
   _Screen('settings', () => const SettingsScreen()),
   _Screen('wallet', () => const WalletScreen()),
+  _Screen('group-info', () => const GroupInfoScreen(chatId: '4')),
+  _Screen('contact-requests', () => const ContactRequestsScreen()),
+  _Screen('channels', () => const ChannelsScreen()),
+  _Screen('channel-detail', () => const ChannelDetailScreen(channelId: '')),
+  _Screen('official-accounts', () => const OfficialAccountsScreen()),
+  _Screen('official-account', () => const OfficialAccountScreen(accountId: '')),
+  _Screen('article-reader',
+      () => const ArticleReaderScreen(accountId: '', articleIndex: 0)),
+  _Screen('mini-program', () => const MiniProgramScreen(programId: '')),
+  _Screen('nearby', () => const NearbyScreen()),
+  _Screen('scan', () => const ScanScreen()),
+  _Screen('tips', () => const TipsScreen()),
+  _Screen('profile', () => const ProfileScreen()),
+  _Screen('report', () => const ReportScreen(targetName: 'Abebe Kebede')),
+  _Screen('account-security', () => const AccountSecurityScreen()),
+  _Screen('notifications', () => const NotificationSettingsScreen()),
+  _Screen('chat-backup', () => const ChatBackupScreen()),
+  _Screen('help', () => const HelpScreen()),
+  _Screen('about', () => const AboutScreen()),
+  _Screen('privacy', () => const PrivacySettingsScreen()),
+  _Screen('blocked-users', () => const BlockedUsersScreen()),
+  _Screen('wallet-bills', () => const BillsScreen()),
+  _Screen('wallet-receive', () => const ReceiveMoneyScreen()),
+  _Screen('wallet-redpacket', () => const RedPacketScreen()),
+  _Screen('wallet-send', () => const SendMoneyScreen()),
+  _Screen('wallet-topup', () => const TopUpScreen()),
+  _Screen('wallet-transactions', () => const TransactionsScreen()),
+  _Screen('wallet-pin', () => const WalletPinScreen()),
+  _Screen('wallet-receipt', () => const WalletReceiptScreen()),
   _Screen('call', () => const CallScreen(isVideo: false, isIncoming: true)),
 ];
 
