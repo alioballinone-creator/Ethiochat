@@ -754,8 +754,15 @@ BEGIN
     RAISE EXCEPTION 'Idempotency key is required' USING ERRCODE = '22023';
   END IF;
 
-  SELECT id INTO v_txn FROM public.transactions WHERE idempotency_key = p_idempotency_key;
+  SELECT id INTO v_txn FROM public.transactions
+  WHERE idempotency_key = p_idempotency_key AND user_id = v_me;
   IF v_txn IS NOT NULL THEN RETURN v_txn; END IF;
+  IF EXISTS (SELECT 1 FROM public.transactions WHERE idempotency_key = p_idempotency_key) THEN
+    RAISE EXCEPTION 'Idempotency key already belongs to another transfer' USING ERRCODE = '23505';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = p_recipient) THEN
+    RAISE EXCEPTION 'Recipient not found' USING ERRCODE = 'P0002';
+  END IF;
 
   INSERT INTO public.wallets (user_id) VALUES (v_me), (p_recipient)
   ON CONFLICT (user_id) DO NOTHING;
@@ -772,7 +779,12 @@ BEGIN
     RAISE EXCEPTION 'Your wallet is not active' USING ERRCODE = '42501';
   END IF;
 
-  SELECT public.wallet_balance() INTO v_balance;
+  SELECT coalesce(sum(
+    CASE WHEN direction = 'credit' THEN amount_minor ELSE -amount_minor END
+  ), 0)::BIGINT
+  INTO v_balance
+  FROM public.ledger_entries
+  WHERE account = v_me::text;
   IF v_balance < p_amount_minor THEN
     RAISE EXCEPTION 'Insufficient balance' USING ERRCODE = '22003';
   END IF;
@@ -818,8 +830,8 @@ BEGIN
   IF p_sender IS NOT NULL AND coalesce(auth.role(), '') <> 'service_role' THEN
     RAISE EXCEPTION 'Service role required' USING ERRCODE = '42501';
   END IF;
-  IF p_total_minor <= 0 OR p_count <= 0 OR p_total_minor < p_count THEN
-    RAISE EXCEPTION 'Invalid red packet amount or count' USING ERRCODE = '22023';
+  IF p_total_minor <= 0 OR p_count <= 0 OR p_total_minor < p_count * 100 THEN
+    RAISE EXCEPTION 'Each share must be at least 1 ETB' USING ERRCODE = '22023';
   END IF;
   IF p_mode NOT IN ('random', 'equal') THEN
     RAISE EXCEPTION 'Invalid mode' USING ERRCODE = '22023';
@@ -839,7 +851,12 @@ BEGIN
 
   INSERT INTO public.wallets (user_id) VALUES (v_me) ON CONFLICT (user_id) DO NOTHING;
   PERFORM 1 FROM public.wallets WHERE user_id = v_me FOR UPDATE;
-  SELECT public.wallet_balance() INTO v_balance;
+  SELECT coalesce(sum(
+    CASE WHEN direction = 'credit' THEN amount_minor ELSE -amount_minor END
+  ), 0)::BIGINT
+  INTO v_balance
+  FROM public.ledger_entries
+  WHERE account = v_me::text;
   IF v_balance < p_total_minor THEN
     RAISE EXCEPTION 'Insufficient balance' USING ERRCODE = '22003';
   END IF;
@@ -917,9 +934,9 @@ BEGIN
   IF v_packet.mode = 'equal' THEN
     v_amount := v_remaining / v_slots;
   ELSE
-    v_amount := floor(random() * (v_remaining - v_slots + 1))::bigint + 1;
+    v_amount := floor(random() * (v_remaining - v_slots * 100 + 1))::bigint + 100;
     IF v_slots > 1 THEN
-      v_amount := least(v_amount, v_remaining - (v_slots - 1));
+      v_amount := least(v_amount, v_remaining - (v_slots - 1) * 100);
     END IF;
   END IF;
   IF v_slots = 1 THEN v_amount := v_remaining; END IF;
@@ -1070,6 +1087,10 @@ CREATE POLICY media_insert_member ON storage.objects
 -- ---------------------------------------------------------------------------
 -- Integrity guards
 -- ---------------------------------------------------------------------------
+ALTER TABLE public.redpackets
+  DROP CONSTRAINT IF EXISTS redpackets_minimum_share;
+ALTER TABLE public.redpackets
+  ADD CONSTRAINT redpackets_minimum_share CHECK (total_minor >= count * 100) NOT VALID;
 ALTER TABLE public.transactions
   DROP CONSTRAINT IF EXISTS transactions_amount_positive;
 ALTER TABLE public.transactions

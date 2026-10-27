@@ -168,6 +168,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: ListView(
           padding: Sp.screen.copyWith(top: Sp.x2, bottom: Sp.x8),
           children: [
+            const EthioSectionLabel('App'),
+            EthioSectionCard(
+              children: [
+                EthioNavRow(
+                  icon: Icons.dark_mode_outlined,
+                  title: 'Appearance',
+                  subtitle: appearance,
+                  onTap: _pickAppearance,
+                ),
+                EthioNavRow(
+                  icon: Icons.language_rounded,
+                  title: 'Language',
+                  subtitle: language,
+                  onTap: _pickLanguage,
+                ),
+                EthioNavRow(
+                  icon: Icons.tips_and_updates_outlined,
+                  title: 'Tips and tricks',
+                  subtitle: 'Get the most out of EthioChat',
+                  onTap: () => context.push('/onboarding/tips'),
+                  last: true,
+                ),
+              ],
+            ),
             const EthioSectionLabel('Account'),
             EthioSectionCard(
               children: [
@@ -240,30 +264,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: 'Data saver',
                   subtitle: settings.dataSaver ? 'On' : 'Off',
                   onTap: () => context.push('/me/settings/data-saver'),
-                  last: true,
-                ),
-              ],
-            ),
-            const EthioSectionLabel('App'),
-            EthioSectionCard(
-              children: [
-                EthioNavRow(
-                  icon: Icons.dark_mode_outlined,
-                  title: 'Appearance',
-                  subtitle: appearance,
-                  onTap: _pickAppearance,
-                ),
-                EthioNavRow(
-                  icon: Icons.language_rounded,
-                  title: 'Language',
-                  subtitle: language,
-                  onTap: _pickLanguage,
-                ),
-                EthioNavRow(
-                  icon: Icons.tips_and_updates_outlined,
-                  title: 'Tips and tricks',
-                  subtitle: 'Get the most out of EthioChat',
-                  onTap: () => context.push('/onboarding/tips'),
                   last: true,
                 ),
               ],
