@@ -28,3 +28,19 @@
 ## Phase 5
 - Marketplace and nearby features with privacy controls.
 - Growth features implemented with consent.
+
+## Later implementation decisions
+- Wallet ships hidden behind `--dart-define=ENABLE_WALLET=true` until the
+  backend is deployed and provider sandbox tests pass. The local ledger remains
+  the UI source of truth in demo mode.
+- Wallet mutations are Edge-Function-only. The SQL RPCs require an explicit
+  service-role caller and sender/claimer id, so a compromised client cannot
+  mint ledger entries even if it calls PostgREST directly.
+- PINs use bcrypt cost 12 through `pgcrypto`; Argon2id is deferred until a
+  supported deployment path exists. This is documented in `SECURITY.md`.
+- `record` is pinned to `^6.2.1`; version 7 requires Flutter 3.44 while CI uses
+  3.35.4, and the 5.x line selected an incompatible `record_linux`.
+- Framework localisations fall back to English for locales Flutter does not
+  ship. App content copy remains English until the ARB files are translated.
+- Android `FLAG_SECURE` is applied through a native method channel only while a
+  wallet/PIN screen is mounted, using a reference count to survive nested routes.

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/design.dart';
+import '../../../../core/platform/secure_screen.dart';
 import '../../../../core/utils/money_format.dart';
 import '../../../profile/application/profile_controller.dart';
 import '../../application/wallet_providers.dart';
@@ -21,167 +22,170 @@ class WalletScreen extends ConsumerWidget {
     final entries =
         ref.watch(walletEntriesProvider).valueOrNull ?? const <WalletEntry>[];
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
+    return SecureScreenScope(
+      child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        leading: IconButton(
-          tooltip: 'Back',
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(
-          'Wallet',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Wallet PIN',
-            icon: const Icon(Icons.lock_outline_rounded),
-            onPressed: () => context.push('/wallet/pin'),
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          leading: IconButton(
+            tooltip: 'Back',
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: () => context.pop(),
           ),
-          IconButton(
-            tooltip: 'All transactions',
-            icon: const Icon(Icons.receipt_long_outlined),
-            onPressed: () => context.push('/wallet/transactions'),
+          title: Text(
+            'Wallet',
+            style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(width: Sp.x1),
-        ],
-      ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          color: EthioColors.gold,
-          onRefresh: () async {
-            ref.invalidate(walletSeedProvider);
-            await ref.read(walletSeedProvider.future);
-          },
-          child: ListView(
-            padding: Sp.screen.copyWith(top: Sp.x2, bottom: Sp.x8),
-            children: [
-              WalletCard(balanceMinor: balance, ethioId: profile.ethioId),
-              const SizedBox(height: Sp.x6),
-              Text(
-                'Quick actions',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: Sp.x3),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  const columns = 3;
-                  final tileWidth =
-                      (constraints.maxWidth - Sp.x2 * (columns - 1)) / columns;
-                  final actions = <_WalletAction>[
-                    _WalletAction(
-                      icon: Icons.send_rounded,
-                      label: 'Send',
-                      onTap: () => context.push('/wallet/send'),
-                    ),
-                    _WalletAction(
-                      icon: Icons.call_received_rounded,
-                      label: 'Receive',
-                      onTap: () => context.push('/wallet/receive'),
-                    ),
-                    _WalletAction(
-                      icon: Icons.qr_code_scanner_rounded,
-                      label: 'Scan',
-                      onTap: () => context.push('/scan?pay=true'),
-                    ),
-                    _WalletAction(
-                      icon: Icons.add_circle_outline_rounded,
-                      label: 'Top up',
-                      onTap: () => context.push('/wallet/top-up'),
-                    ),
-                    _WalletAction(
-                      icon: Icons.receipt_long_outlined,
-                      label: 'Bills',
-                      onTap: () => context.push('/wallet/bills'),
-                    ),
-                    _WalletAction(
-                      icon: Icons.card_giftcard_outlined,
-                      label: 'Red packet',
-                      onTap: () => context.push('/wallet/red-packet'),
-                    ),
-                  ];
-                  return Wrap(
-                    spacing: Sp.x2,
-                    runSpacing: Sp.x4,
-                    children: [
-                      for (final action in actions)
-                        SizedBox(width: tileWidth, child: action),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: Sp.x6),
-              Row(
-                children: [
-                  Text(
-                    'Recent activity',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () => context.push('/wallet/transactions'),
-                    child: const Text('See all'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: Sp.x1),
-              if (seed.isLoading && entries.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(Sp.x6),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (entries.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(Sp.x5),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: Rad.r18,
-                    border: Border.all(color: pal.line),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.account_balance_wallet_outlined,
-                        size: 36,
-                        color: pal.textTertiary,
-                      ),
-                      const SizedBox(height: Sp.x2),
-                      Text(
-                        'No wallet activity yet',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: Sp.x1),
-                      Text(
-                        'Top up or receive money to get started.',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: pal.textSecondary),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: Rad.r18,
-                    border: Border.all(color: pal.line),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < entries.length; i++) ...[
-                        _ActivityItem(entry: entries[i]),
-                        if (i != entries.length - 1)
-                          Divider(height: 1, color: pal.line),
-                      ],
-                    ],
-                  ),
+          actions: [
+            IconButton(
+              tooltip: 'Wallet PIN',
+              icon: const Icon(Icons.lock_outline_rounded),
+              onPressed: () => context.push('/wallet/pin'),
+            ),
+            IconButton(
+              tooltip: 'All transactions',
+              icon: const Icon(Icons.receipt_long_outlined),
+              onPressed: () => context.push('/wallet/transactions'),
+            ),
+            const SizedBox(width: Sp.x1),
+          ],
+        ),
+        body: SafeArea(
+          child: RefreshIndicator(
+            color: EthioColors.gold,
+            onRefresh: () async {
+              ref.invalidate(walletSeedProvider);
+              await ref.read(walletSeedProvider.future);
+            },
+            child: ListView(
+              padding: Sp.screen.copyWith(top: Sp.x2, bottom: Sp.x8),
+              children: [
+                WalletCard(balanceMinor: balance, ethioId: profile.ethioId),
+                const SizedBox(height: Sp.x6),
+                Text(
+                  'Quick actions',
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
-            ],
+                const SizedBox(height: Sp.x3),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    const columns = 3;
+                    final tileWidth =
+                        (constraints.maxWidth - Sp.x2 * (columns - 1)) /
+                            columns;
+                    final actions = <_WalletAction>[
+                      _WalletAction(
+                        icon: Icons.send_rounded,
+                        label: 'Send',
+                        onTap: () => context.push('/wallet/send'),
+                      ),
+                      _WalletAction(
+                        icon: Icons.call_received_rounded,
+                        label: 'Receive',
+                        onTap: () => context.push('/wallet/receive'),
+                      ),
+                      _WalletAction(
+                        icon: Icons.qr_code_scanner_rounded,
+                        label: 'Scan',
+                        onTap: () => context.push('/scan?pay=true'),
+                      ),
+                      _WalletAction(
+                        icon: Icons.add_circle_outline_rounded,
+                        label: 'Top up',
+                        onTap: () => context.push('/wallet/top-up'),
+                      ),
+                      _WalletAction(
+                        icon: Icons.receipt_long_outlined,
+                        label: 'Bills',
+                        onTap: () => context.push('/wallet/bills'),
+                      ),
+                      _WalletAction(
+                        icon: Icons.card_giftcard_outlined,
+                        label: 'Red packet',
+                        onTap: () => context.push('/wallet/red-packet'),
+                      ),
+                    ];
+                    return Wrap(
+                      spacing: Sp.x2,
+                      runSpacing: Sp.x4,
+                      children: [
+                        for (final action in actions)
+                          SizedBox(width: tileWidth, child: action),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: Sp.x6),
+                Row(
+                  children: [
+                    Text(
+                      'Recent activity',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => context.push('/wallet/transactions'),
+                      child: const Text('See all'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: Sp.x1),
+                if (seed.isLoading && entries.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(Sp.x6),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (entries.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(Sp.x5),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: Rad.r18,
+                      border: Border.all(color: pal.line),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.account_balance_wallet_outlined,
+                          size: 36,
+                          color: pal.textTertiary,
+                        ),
+                        const SizedBox(height: Sp.x2),
+                        Text(
+                          'No wallet activity yet',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: Sp.x1),
+                        Text(
+                          'Top up or receive money to get started.',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: pal.textSecondary),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: Rad.r18,
+                      border: Border.all(color: pal.line),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < entries.length; i++) ...[
+                          _ActivityItem(entry: entries[i]),
+                          if (i != entries.length - 1)
+                            Divider(height: 1, color: pal.line),
+                        ],
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

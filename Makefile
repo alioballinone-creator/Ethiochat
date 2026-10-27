@@ -1,4 +1,4 @@
-.PHONY: dev test analyze format build-apk clean gen
+.PHONY: dev test analyze format build-apk clean gen supabase-test functions-serve
 
 gen:
 	dart run build_runner build --delete-conflicting-outputs
@@ -23,3 +23,9 @@ clean:
 
 dev:
 	flutter run
+
+supabase-test:
+	supabase test db
+
+functions-serve:
+	supabase functions serve --env-file .env

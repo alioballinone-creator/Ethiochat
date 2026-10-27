@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/design.dart';
+import '../../../../core/platform/secure_screen.dart';
 import '../../application/wallet_providers.dart';
 import '../../domain/entities/wallet_entry.dart';
 
@@ -196,102 +197,105 @@ class _WalletPinScreenState extends ConsumerState<WalletPinScreen> {
     final pal = EthioPalette.of(context);
     final text = Theme.of(context).textTheme;
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
+    return SecureScreenScope(
+      child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        leading: IconButton(
-          tooltip: 'Close',
-          icon: const Icon(Icons.close_rounded),
-          onPressed: () => context.pop(),
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          leading: IconButton(
+            tooltip: 'Close',
+            icon: const Icon(Icons.close_rounded),
+            onPressed: () => context.pop(),
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: _checkingPin
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  const SizedBox(height: Sp.x4),
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: pal.chip,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.lock_outline_rounded, size: 30),
-                  ),
-                  const SizedBox(height: Sp.x4),
-                  Text(_title,
-                      style: text.titleLarge, textAlign: TextAlign.center),
-                  const SizedBox(height: Sp.x1),
-                  Padding(
-                    padding: Sp.screen,
-                    child: Text(
-                      _hint,
-                      style: text.bodySmall?.copyWith(
-                        color: pal.textSecondary,
+        body: SafeArea(
+          child: _checkingPin
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
+                  children: [
+                    const SizedBox(height: Sp.x4),
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: pal.chip,
+                        shape: BoxShape.circle,
                       ),
-                      textAlign: TextAlign.center,
+                      child: const Icon(Icons.lock_outline_rounded, size: 30),
                     ),
-                  ),
-                  const SizedBox(height: Sp.x5),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      for (var i = 0; i < 6; i++)
-                        AnimatedContainer(
-                          duration: Dur.fast,
-                          margin: const EdgeInsets.symmetric(horizontal: Sp.x1),
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: i < _pin.length
-                                ? EthioColors.goldDeep
-                                : pal.chip,
-                            border: Border.all(color: pal.line),
-                          ),
-                        ),
-                    ],
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: Sp.x3),
-                    Text(
-                      _error!,
-                      style:
-                          text.bodySmall?.copyWith(color: EthioColors.danger),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                  const Spacer(),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 340),
-                    child: GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 3,
-                      childAspectRatio: 1.4,
+                    const SizedBox(height: Sp.x4),
+                    Text(_title,
+                        style: text.titleLarge, textAlign: TextAlign.center),
+                    const SizedBox(height: Sp.x1),
+                    Padding(
                       padding: Sp.screen,
-                      children: [
-                        for (var n = 1; n <= 9; n++)
-                          _PinKey(
-                            label: '$n',
-                            onTap: () => _onDigit('$n'),
-                          ),
-                        const SizedBox.shrink(),
-                        _PinKey(label: '0', onTap: () => _onDigit('0')),
-                        _PinKey(
-                          icon: Icons.backspace_outlined,
-                          onTap: _backspace,
-                          semanticLabel: 'Delete',
+                      child: Text(
+                        _hint,
+                        style: text.bodySmall?.copyWith(
+                          color: pal.textSecondary,
                         ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: Sp.x5),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (var i = 0; i < 6; i++)
+                          AnimatedContainer(
+                            duration: Dur.fast,
+                            margin:
+                                const EdgeInsets.symmetric(horizontal: Sp.x1),
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: i < _pin.length
+                                  ? EthioColors.goldDeep
+                                  : pal.chip,
+                              border: Border.all(color: pal.line),
+                            ),
+                          ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: Sp.x6),
-                ],
-              ),
+                    if (_error != null) ...[
+                      const SizedBox(height: Sp.x3),
+                      Text(
+                        _error!,
+                        style:
+                            text.bodySmall?.copyWith(color: EthioColors.danger),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                    const Spacer(),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 340),
+                      child: GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 3,
+                        childAspectRatio: 1.4,
+                        padding: Sp.screen,
+                        children: [
+                          for (var n = 1; n <= 9; n++)
+                            _PinKey(
+                              label: '$n',
+                              onTap: () => _onDigit('$n'),
+                            ),
+                          const SizedBox.shrink(),
+                          _PinKey(label: '0', onTap: () => _onDigit('0')),
+                          _PinKey(
+                            icon: Icons.backspace_outlined,
+                            onTap: _backspace,
+                            semanticLabel: 'Delete',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: Sp.x6),
+                  ],
+                ),
+        ),
       ),
     );
   }
