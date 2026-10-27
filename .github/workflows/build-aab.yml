@@ -20,6 +20,14 @@ jobs:
         run: flutter pub get
       - name: Generate code
         run: dart run build_runner build --delete-conflicting-outputs || true
+      - name: Fix Gradle wrapper
+        run: |
+          cd android
+          rm -f gradle/wrapper/gradle-wrapper.jar gradlew gradlew.bat
+          curl -L -o gradle/wrapper/gradle-wrapper.jar https://github.com/gradle/gradle/raw/v7.6.4/gradle/wrapper/gradle-wrapper.jar
+          curl -L -o gradlew https://github.com/gradle/gradle/raw/v7.6.4/gradlew
+          curl -L -o gradlew.bat https://github.com/gradle/gradle/raw/v7.6.4/gradlew.bat
+          chmod +x gradlew
       - name: Decode keystore
         run: |
           if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
