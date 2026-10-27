@@ -217,6 +217,34 @@ void main() {
     expect(chat.lastMessageAt, isNull);
   });
 
+  test('moments persist, toggle likes and cascade comments', () async {
+    var moments = await repo.watchMoments().first;
+    expect(moments, hasLength(3));
+
+    expect((await repo.createMoment('Hello moments')).isSuccess, isTrue);
+    moments = await repo.watchMoments().first;
+    expect(moments, hasLength(4));
+    final created = moments.first;
+    expect(created.authorId, 'me');
+    expect(created.body, 'Hello moments');
+
+    expect((await repo.toggleMomentLike(created.id)).isSuccess, isTrue);
+    expect(await repo.watchLikedMomentIds().first, contains(created.id));
+    moments = await repo.watchMoments().first;
+    expect(moments.first.likeCount, 1);
+
+    expect((await repo.addMomentComment(created.id, 'Nice')).isSuccess, isTrue);
+    final comments = await repo.momentComments(created.id);
+    expect(comments, hasLength(1));
+    expect(comments.single.body, 'Nice');
+    moments = await repo.watchMoments().first;
+    expect(moments.first.commentCount, 1);
+
+    expect((await repo.deleteMoment(created.id)).isSuccess, isTrue);
+    expect(await repo.watchMoments().first, hasLength(3));
+    expect(await repo.momentComments(created.id), isEmpty);
+  });
+
   test('exportData contains local account data without secrets', () async {
     final data = await repo.exportData();
 

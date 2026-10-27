@@ -1,36 +1,62 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/db/app_database.dart';
 import '../../../../core/design/design.dart';
+import '../../../chats/application/chat_providers.dart';
 
 /// 11 — Moments feed.
 ///
 /// Post cards from mutual friends: author, time, text, photo grid, likes and
 /// comments. Likes and comments update immediately; new posts appear at the
 /// top of the feed.
-class MomentsFeedScreen extends StatefulWidget {
+class MomentsFeedScreen extends ConsumerStatefulWidget {
   const MomentsFeedScreen({super.key});
 
   @override
-  State<MomentsFeedScreen> createState() => _MomentsFeedScreenState();
+  ConsumerState<MomentsFeedScreen> createState() => _MomentsFeedScreenState();
 }
 
-class _MomentsFeedScreenState extends State<MomentsFeedScreen> {
-  late final List<_MomentPost> _posts = List<_MomentPost>.of(_seedPosts);
-  final Set<_MomentPost> _liked = <_MomentPost>{};
-  final Map<_MomentPost, List<String>> _comments =
-      <_MomentPost, List<String>>{};
+class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
+  List<MomentRow> _rows = const [];
+  Set<String> _likedIds = const {};
+  final Set<String> _hiddenIds = <String>{};
+  final Map<String, List<String>> _newComments = <String, List<String>>{};
+  StreamSubscription<List<MomentRow>>? _momentsSub;
+  StreamSubscription<Set<String>>? _likesSub;
 
-  void _toggleLike(_MomentPost post) {
-    setState(() {
-      if (_liked.remove(post)) {
-        post.likes--;
-      } else {
-        _liked.add(post);
-        post.likes++;
-      }
+  @override
+  void initState() {
+    super.initState();
+    final repo = ref.read(chatRepositoryProvider);
+    _momentsSub = repo.watchMoments().listen((rows) {
+      if (mounted) setState(() => _rows = rows);
     });
+    _likesSub = repo.watchLikedMomentIds().listen((ids) {
+      if (mounted) setState(() => _likedIds = ids);
+    });
+  }
+
+  @override
+  void dispose() {
+    _momentsSub?.cancel();
+    _likesSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _toggleLike(_MomentPost post) async {
+    final result =
+        await ref.read(chatRepositoryProvider).toggleMomentLike(post.id);
+    if (!mounted) return;
+    if (result.failureOrNull case final failure?) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failure.message)),
+      );
+    }
   }
 
   Future<void> _comment(_MomentPost post) async {
@@ -41,7 +67,7 @@ class _MomentsFeedScreenState extends State<MomentsFeedScreen> {
       showDragHandle: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (sheetContext) {
-        final comments = _comments.putIfAbsent(post, () => <String>[]);
+        final comments = _newComments.putIfAbsent(post.id, () => <String>[]);
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
@@ -110,15 +136,23 @@ class _MomentsFeedScreenState extends State<MomentsFeedScreen> {
                             Icons.send_rounded,
                             color: EthioColors.goldDeep,
                           ),
-                          onPressed: () {
+                          onPressed: () async {
                             final text = controller.text.trim();
                             if (text.isEmpty) return;
-                            setSheetState(() {
-                              comments.add(text);
-                              post.comments++;
-                            });
+                            final result = await ref
+                                .read(chatRepositoryProvider)
+                                .addMomentComment(post.id, text);
+                            if (result.failureOrNull case final failure?) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(failure.message)),
+                                );
+                              }
+                              return;
+                            }
+                            if (!sheetContext.mounted) return;
+                            setSheetState(() => comments.add(text));
                             controller.clear();
-                            setState(() {});
                           },
                         ),
                       ],
@@ -220,17 +254,13 @@ class _MomentsFeedScreenState extends State<MomentsFeedScreen> {
       return;
     }
     controller.dispose();
-    setState(() {
-      _posts.insert(
-        0,
-        _MomentPost(
-          author: 'You',
-          time: 'Just now',
-          text: created,
-          isMine: true,
-        ),
+    final result = await ref.read(chatRepositoryProvider).createMoment(created);
+    final failure = result.failureOrNull;
+    if (mounted && failure != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failure.message)),
       );
-    });
+    }
   }
 
   void _more(_MomentPost post) {
@@ -258,7 +288,7 @@ class _MomentsFeedScreenState extends State<MomentsFeedScreen> {
               title: const Text('Hide this moment'),
               onTap: () {
                 Navigator.pop(sheetContext);
-                setState(() => _posts.remove(post));
+                setState(() => _hiddenIds.add(post.id));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                       content: Text('Moment hidden from your feed.')),
@@ -275,9 +305,17 @@ class _MomentsFeedScreenState extends State<MomentsFeedScreen> {
                   'Delete moment',
                   style: TextStyle(color: EthioColors.danger),
                 ),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(sheetContext);
-                  setState(() => _posts.remove(post));
+                  final result = await ref
+                      .read(chatRepositoryProvider)
+                      .deleteMoment(post.id);
+                  if (!mounted) return;
+                  if (result.failureOrNull case final failure?) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(failure.message)),
+                    );
+                  }
                 },
               ),
             const SizedBox(height: Sp.x2),
@@ -289,6 +327,19 @@ class _MomentsFeedScreenState extends State<MomentsFeedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final posts = [
+      for (final row in _rows)
+        if (!_hiddenIds.contains(row.id))
+          _MomentPost(
+            id: row.id,
+            author: row.authorName,
+            time: _timeAgo(row.createdAt),
+            text: row.body?.trim().isNotEmpty == true ? row.body! : 'Photo',
+            likes: row.likeCount,
+            comments: row.commentCount,
+            isMine: row.authorId == 'me',
+          ),
+    ];
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -326,7 +377,7 @@ class _MomentsFeedScreenState extends State<MomentsFeedScreen> {
             await Future<void>.delayed(const Duration(milliseconds: 500));
             if (mounted) setState(() {});
           },
-          child: _posts.isEmpty
+          child: posts.isEmpty
               ? ListView(
                   padding: Sp.screen,
                   children: [
@@ -363,13 +414,13 @@ class _MomentsFeedScreenState extends State<MomentsFeedScreen> {
                 )
               : ListView.separated(
                   padding: Sp.screen.copyWith(top: Sp.x4, bottom: Sp.x8),
-                  itemCount: _posts.length,
+                  itemCount: posts.length,
                   separatorBuilder: (_, __) => const SizedBox(height: Sp.x4),
                   itemBuilder: (context, index) {
-                    final post = _posts[index];
+                    final post = posts[index];
                     return _MomentCard(
                       post: post,
-                      liked: _liked.contains(post),
+                      liked: _likedIds.contains(post.id),
                       onLike: () => _toggleLike(post),
                       onComment: () => _comment(post),
                       onShare: () => _share(post),
@@ -385,6 +436,7 @@ class _MomentsFeedScreenState extends State<MomentsFeedScreen> {
 
 class _MomentPost {
   _MomentPost({
+    required this.id,
     required this.author,
     required this.time,
     required this.text,
@@ -395,6 +447,7 @@ class _MomentPost {
     this.isMine = false,
   });
 
+  final String id;
   final String author;
   final String time;
   final String text;
@@ -405,33 +458,14 @@ class _MomentPost {
   final bool isMine;
 }
 
-final _seedPosts = <_MomentPost>[
-  _MomentPost(
-    author: 'Tigist Alemayehu',
-    time: '12 min ago',
-    text: 'Morning coffee with the best view in Addis. ☕️',
-    photos: 3,
-    likes: 18,
-    comments: 4,
-    location: 'Entoto, Addis Ababa',
-  ),
-  _MomentPost(
-    author: 'Abebe Kebede',
-    time: '2 hours ago',
-    text: 'Finally tried the new injera place near Bole. Highly recommended.',
-    photos: 2,
-    likes: 9,
-    comments: 1,
-    location: 'Bole, Addis Ababa',
-  ),
-  _MomentPost(
-    author: 'EthioChat Team',
-    time: 'Yesterday',
-    text: 'Tips & tricks: hold the mic to record, slide up to lock. 🎙️',
-    likes: 42,
-    comments: 7,
-  ),
-];
+String _timeAgo(DateTime time) {
+  final diff = DateTime.now().difference(time);
+  if (diff.inMinutes < 1) return 'Just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+  if (diff.inHours < 24) return '${diff.inHours} hr ago';
+  if (diff.inDays == 1) return 'Yesterday';
+  return '${diff.inDays} days ago';
+}
 
 class _MomentCard extends StatelessWidget {
   const _MomentCard({

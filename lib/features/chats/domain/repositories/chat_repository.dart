@@ -1,4 +1,5 @@
-import '../../../../core/db/app_database.dart' show GroupMember;
+import '../../../../core/db/app_database.dart'
+    show GroupMember, MomentCommentRow, MomentRow;
 import '../../../../core/errors/result.dart';
 import '../../../contacts/domain/entities/contact_entity.dart';
 import '../entities/conversation_entity.dart';
@@ -80,4 +81,12 @@ abstract class ChatRepository {
   Future<Map<String, dynamic>> exportData();
   Future<Result<void>> deleteAllData();
   Future<void> seedDemoData();
+
+  Stream<List<MomentRow>> watchMoments();
+  Stream<Set<String>> watchLikedMomentIds();
+  Future<Result<void>> createMoment(String body, {String visibility});
+  Future<Result<void>> toggleMomentLike(String momentId);
+  Future<List<MomentCommentRow>> momentComments(String momentId);
+  Future<Result<void>> addMomentComment(String momentId, String body);
+  Future<Result<void>> deleteMoment(String momentId);
 }

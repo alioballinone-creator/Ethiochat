@@ -20,13 +20,16 @@ part 'app_database.g.dart';
     LedgerEntries,
     GroupMembers,
     Reports,
+    MomentsLocal,
+    MomentLikes,
+    MomentComments,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -52,6 +55,14 @@ class AppDatabase extends _$AppDatabase {
             CREATE INDEX IF NOT EXISTS idx_group_members_conversation
             ON group_members(conversation_id, joined_at);
           ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS idx_moments_created
+            ON moments_local(created_at DESC);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS idx_moment_comments_moment
+            ON moment_comments(moment_id, created_at);
+          ''');
         },
         onUpgrade: (Migrator m, int from, int to) async {
           if (from < 2) {
@@ -72,6 +83,19 @@ class AppDatabase extends _$AppDatabase {
             await customStatement('''
               CREATE INDEX IF NOT EXISTS idx_group_members_conversation
               ON group_members(conversation_id, joined_at);
+            ''');
+          }
+          if (from < 4) {
+            await m.createTable(momentsLocal);
+            await m.createTable(momentLikes);
+            await m.createTable(momentComments);
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS idx_moments_created
+              ON moments_local(created_at DESC);
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS idx_moment_comments_moment
+              ON moment_comments(moment_id, created_at);
             ''');
           }
         },
@@ -212,6 +236,9 @@ class AppDatabase extends _$AppDatabase {
       await delete(conversations).go();
       await delete(contactsLocal).go();
       await delete(reports).go();
+      await delete(momentComments).go();
+      await delete(momentLikes).go();
+      await delete(momentsLocal).go();
       await delete(walletTransactions).go();
       await delete(ledgerEntries).go();
     });

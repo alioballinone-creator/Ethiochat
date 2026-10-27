@@ -116,14 +116,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 (c.phoneE164 ?? '').contains(q))
             .toList(growable: false);
     final matchingMessages = messageResults;
+    final matchingFiles = messageResults
+        .where((m) => m.type == entity.MessageType.file)
+        .toList(growable: false);
     final showChats = _filter == 0 || _filter == 1;
     final showContacts = _filter == 0 || _filter == 2;
     final showMessages = _filter == 0 || _filter == 3;
-    final showFiles = _filter == 4;
+    final showFiles = _filter == 0 || _filter == 4;
     final empty = q.isNotEmpty &&
         (!showChats || matchingChats.isEmpty) &&
         (!showContacts || matchingContacts.isEmpty) &&
-        (!showMessages || matchingMessages.isEmpty);
+        (!showMessages || matchingMessages.isEmpty) &&
+        (!showFiles || matchingFiles.isEmpty);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -198,14 +202,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           ),
                         ),
                         const SizedBox(height: Sp.x4),
-                        if (showFiles)
+                        if (_filter == 4 && matchingFiles.isEmpty)
                           _NoResults(
                             icon: Icons.folder_open_outlined,
-                            title: 'No files indexed yet',
+                            title: 'No matching files',
                             subtitle:
                                 'Documents shared in chats will appear here.',
-                          )
-                        else if (empty)
+                          ),
+                        if (empty)
                           _NoResults(
                             icon: Icons.search_off_rounded,
                             title: 'No results for “$_query”',
@@ -320,6 +324,38 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                       ),
                                     );
                                   },
+                                ),
+                            ],
+                          ),
+                        ],
+                        if (showFiles && matchingFiles.isNotEmpty) ...[
+                          Text('Files', style: text.titleMedium),
+                          const SizedBox(height: Sp.x2),
+                          _Group(
+                            children: [
+                              for (final file in matchingFiles)
+                                ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: Sp.x4,
+                                    vertical: Sp.x1,
+                                  ),
+                                  leading: const Icon(
+                                    Icons.insert_drive_file_outlined,
+                                  ),
+                                  title: Text(
+                                    file.body ?? 'Document',
+                                    style: text.titleMedium,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  subtitle: Text(
+                                    'Shared in a chat',
+                                    style: text.labelSmall?.copyWith(
+                                      color: pal.textSecondary,
+                                    ),
+                                  ),
+                                  onTap: () =>
+                                      _openConversation(file.conversationId),
                                 ),
                             ],
                           ),

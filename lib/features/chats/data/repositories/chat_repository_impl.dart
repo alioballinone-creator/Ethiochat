@@ -744,6 +744,9 @@ class ChatRepositoryImpl implements ChatRepository {
     final messageRows = await db.select(db.messages).get();
     final contactRows = await db.select(db.contactsLocal).get();
     final reportRows = await db.select(db.reports).get();
+    final momentRows = await db.select(db.momentsLocal).get();
+    final momentCommentRows = await db.select(db.momentComments).get();
+    final momentLikeRows = await db.select(db.momentLikes).get();
     final walletRows = await db.select(db.walletTransactions).get();
     final ledgerRows = await db.select(db.ledgerEntries).get();
     return {
@@ -794,6 +797,35 @@ class ChatRepositoryImpl implements ChatRepository {
             'createdAt': row.createdAt.toUtc().toIso8601String(),
           },
       ],
+      'moments': [
+        for (final row in momentRows)
+          {
+            'id': row.id,
+            'authorId': row.authorId,
+            'authorName': row.authorName,
+            'body': row.body,
+            'media': row.mediaJson,
+            'visibility': row.visibility,
+            'createdAt': row.createdAt.toUtc().toIso8601String(),
+          },
+      ],
+      'momentComments': [
+        for (final row in momentCommentRows)
+          {
+            'id': row.id,
+            'momentId': row.momentId,
+            'authorName': row.authorName,
+            'body': row.body,
+            'createdAt': row.createdAt.toUtc().toIso8601String(),
+          },
+      ],
+      'momentLikes': [
+        for (final row in momentLikeRows)
+          {
+            'momentId': row.momentId,
+            'userId': row.userId,
+          },
+      ],
       'walletTransactions': [
         for (final row in walletRows)
           {
@@ -830,7 +862,197 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
+  Stream<List<MomentRow>> watchMoments() {
+    return (db.select(db.momentsLocal)
+          ..orderBy([(m) => OrderingTerm.desc(m.createdAt)]))
+        .watch();
+  }
+
+  @override
+  Stream<Set<String>> watchLikedMomentIds() {
+    return (db.select(db.momentLikes)..where((l) => l.userId.equals('me')))
+        .watch()
+        .map((rows) => rows.map((row) => row.momentId).toSet());
+  }
+
+  @override
+  Future<Result<void>> createMoment(
+    String body, {
+    String visibility = 'friends',
+  }) async {
+    final text = body.trim();
+    if (text.isEmpty) {
+      return const Result.failure(
+        ValidationFailure('Write something before posting.'),
+      );
+    }
+    try {
+      await db.into(db.momentsLocal).insert(
+            MomentsLocalCompanion.insert(
+              id: _uuid.v4(),
+              authorId: 'me',
+              authorName: 'You',
+              body: Value(text),
+              visibility: Value(visibility),
+            ),
+          );
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> toggleMomentLike(String momentId) async {
+    try {
+      await db.transaction(() async {
+        final existing = await (db.select(db.momentLikes)
+              ..where((l) => l.momentId.equals(momentId))
+              ..where((l) => l.userId.equals('me')))
+            .getSingleOrNull();
+        final moment = await (db.select(db.momentsLocal)
+              ..where((m) => m.id.equals(momentId)))
+            .getSingleOrNull();
+        if (moment == null) {
+          throw const NotFoundFailure('Moment not found.');
+        }
+        if (existing == null) {
+          await db.into(db.momentLikes).insert(
+                MomentLikesCompanion.insert(
+                  momentId: momentId,
+                  userId: 'me',
+                ),
+              );
+          await (db.update(db.momentsLocal)
+                ..where((m) => m.id.equals(momentId)))
+              .write(MomentsLocalCompanion(
+            likeCount: Value(moment.likeCount + 1),
+          ));
+        } else {
+          await (db.delete(db.momentLikes)
+                ..where((l) => l.momentId.equals(momentId))
+                ..where((l) => l.userId.equals('me')))
+              .go();
+          await (db.update(db.momentsLocal)
+                ..where((m) => m.id.equals(momentId)))
+              .write(MomentsLocalCompanion(
+            likeCount: Value((moment.likeCount - 1).clamp(0, 1 << 31).toInt()),
+          ));
+        }
+      });
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<List<MomentCommentRow>> momentComments(String momentId) {
+    return (db.select(db.momentComments)
+          ..where((c) => c.momentId.equals(momentId))
+          ..orderBy([(c) => OrderingTerm.asc(c.createdAt)]))
+        .get();
+  }
+
+  @override
+  Future<Result<void>> addMomentComment(String momentId, String body) async {
+    final text = body.trim();
+    if (text.isEmpty) {
+      return const Result.failure(
+        ValidationFailure('Write a comment first.'),
+      );
+    }
+    try {
+      await db.transaction(() async {
+        final moment = await (db.select(db.momentsLocal)
+              ..where((m) => m.id.equals(momentId)))
+            .getSingleOrNull();
+        if (moment == null) {
+          throw const NotFoundFailure('Moment not found.');
+        }
+        await db.into(db.momentComments).insert(
+              MomentCommentsCompanion.insert(
+                id: _uuid.v4(),
+                momentId: momentId,
+                authorId: 'me',
+                authorName: 'You',
+                body: text,
+              ),
+            );
+        await (db.update(db.momentsLocal)..where((m) => m.id.equals(momentId)))
+            .write(MomentsLocalCompanion(
+          commentCount: Value(moment.commentCount + 1),
+        ));
+      });
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> deleteMoment(String momentId) async {
+    try {
+      await db.transaction(() async {
+        await (db.delete(db.momentComments)
+              ..where((c) => c.momentId.equals(momentId)))
+            .go();
+        await (db.delete(db.momentLikes)
+              ..where((l) => l.momentId.equals(momentId)))
+            .go();
+        await (db.delete(db.momentsLocal)..where((m) => m.id.equals(momentId)))
+            .go();
+      });
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  Future<void> _seedDemoMomentsIfEmpty() async {
+    final existing = await db.select(db.momentsLocal).get();
+    if (existing.isNotEmpty) return;
+    final now = DateTime.now();
+    await db.batch((batch) {
+      batch.insertAll(db.momentsLocal, [
+        MomentsLocalCompanion.insert(
+          id: 'moment-1',
+          authorId: 'u2',
+          authorName: 'Tigist Alemayehu',
+          body: const Value('Morning coffee with the best view in Addis. ☕️'),
+          likeCount: const Value(18),
+          commentCount: const Value(4),
+          createdAt: Value(now.subtract(const Duration(minutes: 12))),
+        ),
+        MomentsLocalCompanion.insert(
+          id: 'moment-2',
+          authorId: 'u1',
+          authorName: 'Abebe Kebede',
+          body: const Value(
+            'Finally tried the new injera place near Bole. Highly recommended.',
+          ),
+          likeCount: const Value(9),
+          commentCount: const Value(1),
+          createdAt: Value(now.subtract(const Duration(hours: 2))),
+        ),
+        MomentsLocalCompanion.insert(
+          id: 'moment-3',
+          authorId: 'team',
+          authorName: 'EthioChat Team',
+          body: const Value(
+            'Tips & tricks: hold the mic to record, slide up to lock. 🎙️',
+          ),
+          likeCount: const Value(42),
+          commentCount: const Value(7),
+          createdAt: Value(now.subtract(const Duration(days: 1))),
+        ),
+      ]);
+    });
+  }
+
+  @override
   Future<void> seedDemoData() async {
+    await _seedDemoMomentsIfEmpty();
     if (await db.conversationCount() > 0) return;
     // Contacts survive deleting every chat; keep the demo feed from returning.
     final existingContacts = await db.select(db.contactsLocal).get();

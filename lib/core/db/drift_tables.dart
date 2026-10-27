@@ -133,3 +133,45 @@ class Reports extends Table {
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
+
+/// Locally cached moments. Comments and likes cascade with the post.
+@DataClassName('MomentRow')
+class MomentsLocal extends Table {
+  TextColumn get id => text()();
+  TextColumn get authorId => text()();
+  TextColumn get authorName => text()();
+  TextColumn get body => text().nullable()();
+  TextColumn get mediaJson => text().nullable()();
+  TextColumn get visibility => text().withDefault(const Constant('friends'))();
+  IntColumn get likeCount => integer().withDefault(const Constant(0))();
+  IntColumn get commentCount => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+@DataClassName('MomentLikeRow')
+class MomentLikes extends Table {
+  TextColumn get momentId =>
+      text().references(MomentsLocal, #id, onDelete: KeyAction.cascade)();
+  TextColumn get userId => text()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {momentId, userId};
+}
+
+@DataClassName('MomentCommentRow')
+class MomentComments extends Table {
+  TextColumn get id => text()();
+  TextColumn get momentId =>
+      text().references(MomentsLocal, #id, onDelete: KeyAction.cascade)();
+  TextColumn get authorId => text()();
+  TextColumn get authorName => text()();
+  TextColumn get body => text()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
