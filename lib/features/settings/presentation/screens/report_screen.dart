@@ -60,7 +60,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       note: _note.text.trim().isEmpty ? null : _note.text.trim(),
     );
     if (!mounted) return;
-    if (report.isFailure) {
+    if (!report.isSuccess) {
       setState(() => _busy = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

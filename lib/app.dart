@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -57,8 +58,11 @@ class _EthioChatAppState extends ConsumerState<EthioChatApp> {
       locale: settings.locale,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
+        _FallbackMaterialLocalizationsDelegate(),
         GlobalWidgetsLocalizations.delegate,
+        _FallbackWidgetsLocalizationsDelegate(),
         GlobalCupertinoLocalizations.delegate,
+        _FallbackCupertinoLocalizationsDelegate(),
       ],
       supportedLocales: const [
         Locale('en'),
@@ -70,4 +74,55 @@ class _EthioChatAppState extends ConsumerState<EthioChatApp> {
       routerConfig: _router,
     );
   }
+}
+
+/// Flutter does not ship framework translations for Oromo, Tigrinya or
+/// Somali yet. Keep those locales selectable while falling back to English for
+/// built-in Material and Cupertino strings instead of failing to localize.
+class _FallbackMaterialLocalizationsDelegate
+    extends LocalizationsDelegate<MaterialLocalizations> {
+  const _FallbackMaterialLocalizationsDelegate();
+
+  @override
+  bool isSupported(Locale locale) =>
+      !GlobalMaterialLocalizations.delegate.isSupported(locale);
+
+  @override
+  Future<MaterialLocalizations> load(Locale locale) =>
+      GlobalMaterialLocalizations.delegate.load(const Locale('en'));
+
+  @override
+  bool shouldReload(_FallbackMaterialLocalizationsDelegate old) => false;
+}
+
+class _FallbackWidgetsLocalizationsDelegate
+    extends LocalizationsDelegate<WidgetsLocalizations> {
+  const _FallbackWidgetsLocalizationsDelegate();
+
+  @override
+  bool isSupported(Locale locale) =>
+      !GlobalWidgetsLocalizations.delegate.isSupported(locale);
+
+  @override
+  Future<WidgetsLocalizations> load(Locale locale) =>
+      GlobalWidgetsLocalizations.delegate.load(const Locale('en'));
+
+  @override
+  bool shouldReload(_FallbackWidgetsLocalizationsDelegate old) => false;
+}
+
+class _FallbackCupertinoLocalizationsDelegate
+    extends LocalizationsDelegate<CupertinoLocalizations> {
+  const _FallbackCupertinoLocalizationsDelegate();
+
+  @override
+  bool isSupported(Locale locale) =>
+      !GlobalCupertinoLocalizations.delegate.isSupported(locale);
+
+  @override
+  Future<CupertinoLocalizations> load(Locale locale) =>
+      GlobalCupertinoLocalizations.delegate.load(const Locale('en'));
+
+  @override
+  bool shouldReload(_FallbackCupertinoLocalizationsDelegate old) => false;
 }

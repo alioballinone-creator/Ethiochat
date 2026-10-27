@@ -78,7 +78,7 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
     final result =
         await ref.read(chatRepositoryProvider).setContactBlocked(name, true);
     if (!mounted) return;
-    if (result.isFailure) {
+    if (!result.isSuccess) {
       _feedback(result.failureOrNull?.message ?? 'Could not block contact');
       return;
     }

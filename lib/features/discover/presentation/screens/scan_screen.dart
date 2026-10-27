@@ -72,7 +72,6 @@ class _ScanScreenState extends State<ScanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pal = EthioPalette.of(context);
     final text = Theme.of(context).textTheme;
 
     return Scaffold(
