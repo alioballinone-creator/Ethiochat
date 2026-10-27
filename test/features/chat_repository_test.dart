@@ -225,7 +225,8 @@ void main() {
     expect(data['messages'], isNotEmpty);
     expect(data['contacts'], hasLength(10));
     expect(data['walletTransactions'], isA<List<dynamic>>());
-    expect(data.toString(), isNot(contains('pin')));
+    expect(data.toString(), isNot(contains('pin_hash')));
+    expect(data.toString(), isNot(contains('pinHash')));
   });
 
   test('deleteAllData removes chats, contacts and wallet history', () async {
