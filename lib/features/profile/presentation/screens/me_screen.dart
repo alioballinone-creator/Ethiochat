@@ -160,14 +160,6 @@ class MeScreen extends ConsumerWidget {
           ],
         ),
       ),
-      bottomNavigationBar: EthioBottomNav(
-        index: 3,
-        onTap: (i) {
-          if (i == 0) context.go('/chats');
-          if (i == 1) context.go('/contacts');
-          if (i == 2) context.go('/discover');
-        },
-      ),
     );
   }
 }

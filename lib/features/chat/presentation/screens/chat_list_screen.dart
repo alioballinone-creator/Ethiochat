@@ -326,14 +326,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: EthioBottomNav(
-        index: 0,
-        onTap: (i) {
-          if (i == 1) context.go('/contacts');
-          if (i == 2) context.go('/discover');
-          if (i == 3) context.go('/me');
-        },
-      ),
     );
   }
 }

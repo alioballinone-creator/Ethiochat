@@ -13,7 +13,9 @@ class MessageBubble extends StatelessWidget {
     this.child,
     this.status = MessageStatus.sent,
     this.firstInGroup = true,
+    this.header,
     this.onRetry,
+    this.onLongPress,
   }) : assert(text != null || child != null);
 
   final bool isMine, firstInGroup;
@@ -21,7 +23,9 @@ class MessageBubble extends StatelessWidget {
   final Widget? child; // voice note, payment card, image, etc.
   final String time;
   final MessageStatus status;
+  final Widget? header;
   final VoidCallback? onRetry;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +65,10 @@ class MessageBubble extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (header != null) ...[
+              header!,
+              const SizedBox(height: 6),
+            ],
             if (text != null)
               Align(
                   alignment: Alignment.centerLeft,
@@ -83,6 +91,7 @@ class MessageBubble extends StatelessWidget {
         alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
         child: GestureDetector(
             onTap: status == MessageStatus.failed ? onRetry : null,
+            onLongPress: onLongPress,
             child: bubble),
       ),
     );

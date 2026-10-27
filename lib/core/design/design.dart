@@ -7,6 +7,7 @@ export 'widgets/ethio_avatar.dart';
 export 'widgets/ethio_bottom_nav.dart';
 export 'widgets/ethio_button.dart';
 export 'widgets/ethio_logo.dart';
+export 'widgets/ethio_section_card.dart';
 export 'widgets/ethio_text_field.dart';
 export 'widgets/message_bubble.dart';
 export 'widgets/wallet_card.dart';

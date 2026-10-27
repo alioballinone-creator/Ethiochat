@@ -94,6 +94,20 @@ class ProfileController extends StateNotifier<UserProfile> {
       // Keep the in-memory value even when persistence fails.
     }
   }
+
+  Future<void> clear() async {
+    state = const UserProfile();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_nameKey);
+      await prefs.remove(_bioKey);
+      await prefs.remove(_phoneKey);
+      await prefs.remove(_avatarKey);
+      await prefs.remove(_ethioIdKey);
+    } catch (_) {
+      // The in-memory session is still cleared.
+    }
+  }
 }
 
 final userProfileProvider =

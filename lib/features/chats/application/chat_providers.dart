@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/db/app_database.dart' show GroupMember;
 import '../../../core/providers/app_providers.dart';
 import '../../contacts/domain/entities/contact_entity.dart';
 import '../data/repositories/chat_repository_impl.dart';
@@ -36,6 +37,13 @@ final messagesProvider =
 final contactsProvider = StreamProvider.autoDispose<List<ContactEntity>>((ref) {
   return ref.watch(chatRepositoryProvider).watchContacts();
 });
+
+final groupMembersProvider =
+    StreamProvider.autoDispose.family<List<GroupMember>, String>(
+  (ref, conversationId) {
+    return ref.watch(chatRepositoryProvider).watchGroupMembers(conversationId);
+  },
+);
 
 /// Seeds the local database with demo content on first launch.
 /// Idempotent: does nothing once conversations exist.

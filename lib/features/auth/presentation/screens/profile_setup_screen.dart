@@ -11,7 +11,9 @@ import '../../../profile/application/profile_controller.dart';
 /// Avatar, display name and an optional bio. Everything scrolls, the primary
 /// action stays above the keyboard via [SafeArea] + [ListView].
 class ProfileSetupScreen extends ConsumerStatefulWidget {
-  const ProfileSetupScreen({super.key});
+  const ProfileSetupScreen({super.key, this.isEditing = false});
+
+  final bool isEditing;
 
   @override
   ConsumerState<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
@@ -71,6 +73,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           avatarPath: _avatarPath,
         );
     if (!mounted) return;
+    if (widget.isEditing) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated.')),
+      );
+      context.pop();
+      return;
+    }
     context.go('/chats');
   }
 
@@ -93,7 +102,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        title: Text('Your profile', style: text.headlineMedium),
+        title: Text(
+          widget.isEditing ? 'Edit profile' : 'Your profile',
+          style: text.headlineMedium,
+        ),
       ),
       body: SafeArea(
         child: ListView(
@@ -186,7 +198,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             ),
             const SizedBox(height: Sp.x6),
             EthioButton(
-              label: _saving ? 'Saving…' : 'Continue',
+              label: _saving
+                  ? 'Saving…'
+                  : widget.isEditing
+                      ? 'Save changes'
+                      : 'Continue',
               onPressed: _valid && !_saving ? _save : null,
             ),
           ],

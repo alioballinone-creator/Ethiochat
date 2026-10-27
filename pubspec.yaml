@@ -34,10 +34,15 @@ dependencies:
 
   # Platform & UX
   flutter_svg: ^2.0.10
+  qr_flutter: ^4.1.0
   connectivity_plus: ^6.0.3
   cached_network_image: ^3.4.0
   flutter_local_notifications: ^17.2.2
   image_picker: ^1.1.2
+  file_picker: ^8.1.6
+  record: ^5.1.2
+  audioplayers: ^6.1.0
+  open_filex: ^4.5.0
   image: ^4.2.0
   flutter_blurhash: ^0.8.2
   permission_handler: ^11.3.1

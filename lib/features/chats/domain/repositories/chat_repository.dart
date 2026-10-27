@@ -1,3 +1,4 @@
+import '../../../../core/db/app_database.dart' show GroupMember;
 import '../../../../core/errors/result.dart';
 import '../../../contacts/domain/entities/contact_entity.dart';
 import '../entities/conversation_entity.dart';
@@ -29,6 +30,11 @@ abstract class ChatRepository {
 
   Future<Result<void>> markRead(String conversationId, int lastReadSeq);
   Future<Result<void>> retryFailed(String messageId);
+  Future<Result<void>> deleteMessage(String messageId);
+  Future<Result<MessageEntity>> forwardMessage(
+    String messageId,
+    String targetConversationId,
+  );
   Future<Result<void>> setPinned(String conversationId, bool pinned);
   Future<Result<void>> setMuted(String conversationId, bool muted);
   Future<Result<void>> setArchived(String conversationId, bool archived);
@@ -38,6 +44,34 @@ abstract class ChatRepository {
   Future<Result<ContactEntity>> addContact({
     required String displayName,
     String? phoneE164,
+  });
+
+  Stream<List<GroupMember>> watchGroupMembers(String conversationId);
+
+  Future<Result<void>> addGroupMember(
+    String conversationId,
+    String displayName, {
+    bool admin = false,
+  });
+
+  Future<Result<void>> removeGroupMember(
+    String conversationId,
+    String memberId,
+  );
+
+  Future<Result<void>> setGroupMemberRole(
+    String conversationId,
+    String memberId,
+    bool admin,
+  );
+
+  Future<Result<void>> setContactBlocked(String displayName, bool blocked);
+
+  Future<Result<void>> saveReport({
+    required String targetId,
+    required String targetName,
+    required String reason,
+    String? note,
   });
 
   Future<Result<List<MessageEntity>>> searchMessages(String query);

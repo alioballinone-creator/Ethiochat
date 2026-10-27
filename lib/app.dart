@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/design/design.dart';
+import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/settings/app_settings.dart';
 
@@ -26,6 +27,8 @@ class _EthioChatAppState extends ConsumerState<EthioChatApp> {
 
   @override
   Widget build(BuildContext context) {
+    // Keep the outbox worker alive for the full app lifecycle.
+    ref.watch(outboxWorkerProvider);
     final settings = ref.watch(appSettingsProvider);
     final platformBrightness =
         WidgetsBinding.instance.platformDispatcher.platformBrightness;
@@ -57,7 +60,13 @@ class _EthioChatAppState extends ConsumerState<EthioChatApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [Locale('en'), Locale('am')],
+      supportedLocales: const [
+        Locale('en'),
+        Locale('am'),
+        Locale('om'),
+        Locale('ti'),
+        Locale('so'),
+      ],
       routerConfig: _router,
     );
   }

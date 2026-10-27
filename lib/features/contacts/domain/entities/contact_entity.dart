@@ -6,6 +6,7 @@ class ContactEntity {
     this.phoneE164,
     this.ethioId,
     this.avatarUrl,
+    this.isBlocked = false,
   });
 
   final String id;
@@ -13,6 +14,7 @@ class ContactEntity {
   final String? phoneE164;
   final String? ethioId;
   final String? avatarUrl;
+  final bool isBlocked;
 
   String get initial =>
       displayName.trim().isEmpty ? '?' : displayName.trim()[0].toUpperCase();

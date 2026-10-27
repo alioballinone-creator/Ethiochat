@@ -81,16 +81,33 @@ class WelcomeScreen extends ConsumerWidget {
                   ),
                   _LanguageChip(
                     label: 'Afaan Oromoo',
-                    onTap: () =>
-                        _setLanguage(context, ref, 'Afaan Oromoo', null),
+                    selected: settings.locale.languageCode == 'om',
+                    onTap: () => _setLanguage(
+                      context,
+                      ref,
+                      'Afaan Oromoo',
+                      const Locale('om'),
+                    ),
                   ),
                   _LanguageChip(
                     label: 'ትግርኛ',
-                    onTap: () => _setLanguage(context, ref, 'ትግርኛ', null),
+                    selected: settings.locale.languageCode == 'ti',
+                    onTap: () => _setLanguage(
+                      context,
+                      ref,
+                      'ትግርኛ',
+                      const Locale('ti'),
+                    ),
                   ),
                   _LanguageChip(
                     label: 'Soomaali',
-                    onTap: () => _setLanguage(context, ref, 'Soomaali', null),
+                    selected: settings.locale.languageCode == 'so',
+                    onTap: () => _setLanguage(
+                      context,
+                      ref,
+                      'Soomaali',
+                      const Locale('so'),
+                    ),
                   ),
                 ],
               ),

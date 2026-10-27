@@ -16,13 +16,17 @@ part 'app_database.g.dart';
     MessageReceipts,
     Outbox,
     ContactsLocal,
+    WalletTransactions,
+    LedgerEntries,
+    GroupMembers,
+    Reports,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -36,8 +40,41 @@ class AppDatabase extends _$AppDatabase {
             CREATE INDEX IF NOT EXISTS idx_outbox_next_retry
             ON outbox(next_retry_at);
           ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS idx_wallet_created
+            ON wallet_transactions(created_at DESC);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS idx_ledger_account
+            ON ledger_entries(account, created_at);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS idx_group_members_conversation
+            ON group_members(conversation_id, joined_at);
+          ''');
         },
-        onUpgrade: (Migrator m, int from, int to) async {},
+        onUpgrade: (Migrator m, int from, int to) async {
+          if (from < 2) {
+            await m.createTable(walletTransactions);
+            await m.createTable(ledgerEntries);
+            await m.createTable(reports);
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS idx_wallet_created
+              ON wallet_transactions(created_at DESC);
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS idx_ledger_account
+              ON ledger_entries(account, created_at);
+            ''');
+          }
+          if (from < 3) {
+            await m.createTable(groupMembers);
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS idx_group_members_conversation
+              ON group_members(conversation_id, joined_at);
+            ''');
+          }
+        },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON;');
           await customStatement('PRAGMA journal_mode = WAL;');

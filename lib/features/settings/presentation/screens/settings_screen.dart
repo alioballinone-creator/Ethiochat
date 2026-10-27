@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/config/feature_flags.dart';
 import '../../../../core/design/design.dart';
 import '../../../../core/settings/app_settings.dart';
+import '../../../profile/application/profile_controller.dart';
 
 /// Settings — grouped cards on the cream wallpaper.
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -15,12 +16,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  bool _messageNotifications = true;
-  bool _groupNotifications = true;
-  bool _readReceipts = true;
-  bool _showLastSeen = true;
-  bool _mediaAutoDownload = false;
-
   Future<void> _pickAppearance() async {
     final settings = ref.read(appSettingsProvider);
     final choice = await showModalBottomSheet<ThemeMode>(
@@ -59,6 +54,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _pickLanguage() async {
     final settings = ref.read(appSettingsProvider);
+    const languages = [
+      (Locale('en'), 'English'),
+      (Locale('am'), 'አማርኛ — Amharic'),
+      (Locale('om'), 'Afaan Oromoo'),
+      (Locale('so'), 'Soomaali'),
+      (Locale('ti'), 'ትግርኛ — Tigrinya'),
+    ];
     final choice = await showModalBottomSheet<Locale>(
       context: context,
       showDragHandle: true,
@@ -67,30 +69,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              title: const Text('English'),
-              trailing: settings.locale.languageCode == 'en'
-                  ? const Icon(Icons.check_rounded, color: EthioColors.goldDeep)
-                  : null,
-              onTap: () => Navigator.pop(sheetContext, const Locale('en')),
-            ),
-            ListTile(
-              title: const Text('አማርኛ — Amharic'),
-              trailing: settings.locale.languageCode == 'am'
-                  ? const Icon(Icons.check_rounded, color: EthioColors.goldDeep)
-                  : null,
-              onTap: () => Navigator.pop(sheetContext, const Locale('am')),
-            ),
-            for (final coming in const [
-              'Afaan Oromoo',
-              'Soomaali',
-              'ትግርኛ — Tigrinya',
-            ])
-              ListTile(
-                enabled: false,
-                title: Text(coming),
-                trailing: const Text('Soon'),
+            Padding(
+              padding: const EdgeInsets.all(Sp.x4),
+              child: Text(
+                'Choose language',
+                style: Theme.of(context).textTheme.titleLarge,
               ),
+            ),
+            for (final language in languages)
+              ListTile(
+                title: Text(language.$2),
+                trailing:
+                    settings.locale.languageCode == language.$1.languageCode
+                        ? const Icon(
+                            Icons.check_rounded,
+                            color: EthioColors.goldDeep,
+                          )
+                        : null,
+                onTap: () => Navigator.pop(sheetContext, language.$1),
+              ),
+            Padding(
+              padding: Sp.screen.copyWith(top: Sp.x2),
+              child: Text(
+                'Some content is not translated yet. Menus and system dialogs '
+                'use the selected language.',
+                style: Theme.of(context)
+                    .textTheme
+                    .labelSmall
+                    ?.copyWith(color: EthioPalette.of(context).textSecondary),
+              ),
+            ),
             const SizedBox(height: Sp.x2),
           ],
         ),
@@ -126,30 +134,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
+    await ref.read(userProfileProvider.notifier).clear();
+    if (!mounted) return;
     context.go('/welcome');
-  }
-
-  void _showAbout() {
-    showAboutDialog(
-      context: context,
-      applicationName: 'EthioChat',
-      applicationVersion: '0.1.0',
-      applicationLegalese: 'Made in Addis Ababa 🇪🇹\n'
-          'Local-first messaging for Ethiopia and the Horn of Africa.',
-      children: [
-        const SizedBox(height: Sp.x2),
-        const Text(
-          'Chats are stored on your device with Drift and queued for delivery '
-          'when you are back online.',
-        ),
-      ],
-    );
-  }
-
-  void _feedback(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -162,7 +149,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ThemeMode.dark => 'Dark',
       ThemeMode.system => 'Follows your system',
     };
-    final language = settings.locale.languageCode == 'am' ? 'አማርኛ' : 'English';
+    final language = switch (settings.locale.languageCode) {
+      'am' => 'አማርኛ',
+      'om' => 'Afaan Oromoo',
+      'so' => 'Soomaali',
+      'ti' => 'ትግርኛ',
+      _ => 'English',
+    };
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -175,113 +168,120 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: ListView(
           padding: Sp.screen.copyWith(top: Sp.x2, bottom: Sp.x8),
           children: [
-            _SectionLabel('Account'),
-            _Card(
+            const EthioSectionLabel('Account'),
+            EthioSectionCard(
               children: [
-                _NavRow(
+                EthioNavRow(
                   icon: Icons.person_outline_rounded,
                   title: 'Profile',
                   subtitle: 'Name, photo, about',
-                  onTap: () => context.push('/auth/profile'),
+                  onTap: () => context.push('/me/profile'),
                 ),
-                _NavRow(
+                EthioNavRow(
                   icon: Icons.qr_code_rounded,
                   title: 'My QR code',
                   subtitle: 'Let friends add you',
                   onTap: () => context.push('/me/qr'),
                 ),
-                _NavRow(
+                EthioNavRow(
                   icon: Icons.verified_user_outlined,
+                  title: 'Account and security',
+                  subtitle: 'Two-step verification and devices',
+                  onTap: () => context.push('/me/settings/account'),
+                ),
+                EthioNavRow(
+                  icon: Icons.privacy_tip_outlined,
                   title: 'Privacy and security',
                   subtitle: 'Blocked contacts, read receipts',
-                  onTap: () => _feedback(
-                    'Read receipts and last seen are below. Chat-level controls '
-                    'live in Chat info.',
-                  ),
-                  last: !FeatureFlags.wallet,
+                  onTap: () => context.push('/me/settings/privacy'),
                 ),
                 if (FeatureFlags.wallet)
-                  _NavRow(
+                  EthioNavRow(
                     icon: Icons.account_balance_wallet_outlined,
                     title: 'Wallet and payments',
                     subtitle: 'PIN, linked accounts',
                     onTap: () => context.push('/wallet'),
-                    last: true,
                   ),
+                EthioNavRow(
+                  icon: Icons.block_outlined,
+                  title: 'Blocked users',
+                  subtitle: 'Review people you blocked',
+                  onTap: () => context.push('/me/settings/privacy/blocked'),
+                  last: true,
+                ),
               ],
             ),
-            _SectionLabel('Notifications'),
-            _Card(
+            const EthioSectionLabel('Notifications and storage'),
+            EthioSectionCard(
               children: [
-                _SwitchRow(
+                EthioNavRow(
                   icon: Icons.notifications_none_rounded,
-                  title: 'Message notifications',
-                  value: _messageNotifications,
-                  onChanged: (v) => setState(() => _messageNotifications = v),
+                  title: 'Notifications',
+                  subtitle:
+                      settings.messageNotifications ? 'On for messages' : 'Off',
+                  onTap: () => context.push('/me/settings/notifications'),
                 ),
-                _SwitchRow(
-                  icon: Icons.groups_outlined,
-                  title: 'Group notifications',
-                  value: _groupNotifications,
-                  onChanged: (v) => setState(() => _groupNotifications = v),
+                EthioNavRow(
+                  icon: Icons.cloud_upload_outlined,
+                  title: 'Chat backup',
+                  subtitle: settings.backupEnabled
+                      ? 'Daily automatic backup'
+                      : 'Backup is off',
+                  onTap: () => context.push('/me/settings/backup'),
                 ),
-                _SwitchRow(
-                  icon: Icons.download_outlined,
-                  title: 'Auto-download media',
-                  subtitle: 'Wi-Fi only by default',
-                  value: _mediaAutoDownload,
-                  onChanged: (v) => setState(() => _mediaAutoDownload = v),
+                EthioNavRow(
+                  icon: Icons.storage_outlined,
+                  title: 'Storage manager',
+                  subtitle: 'Media, cache and local data',
+                  onTap: () => context.push('/me/settings/storage'),
+                ),
+                EthioNavRow(
+                  icon: Icons.data_saver_on_rounded,
+                  title: 'Data saver',
+                  subtitle: settings.dataSaver ? 'On' : 'Off',
+                  onTap: () => context.push('/me/settings/data-saver'),
                   last: true,
                 ),
               ],
             ),
-            _SectionLabel('Privacy'),
-            _Card(
+            const EthioSectionLabel('App'),
+            EthioSectionCard(
               children: [
-                _SwitchRow(
-                  icon: Icons.done_all_rounded,
-                  title: 'Read receipts',
-                  value: _readReceipts,
-                  onChanged: (v) => setState(() => _readReceipts = v),
-                ),
-                _SwitchRow(
-                  icon: Icons.visibility_outlined,
-                  title: 'Show last seen',
-                  value: _showLastSeen,
-                  onChanged: (v) => setState(() => _showLastSeen = v),
-                  last: true,
-                ),
-              ],
-            ),
-            _SectionLabel('App'),
-            _Card(
-              children: [
-                _NavRow(
+                EthioNavRow(
                   icon: Icons.dark_mode_outlined,
                   title: 'Appearance',
                   subtitle: appearance,
                   onTap: _pickAppearance,
                 ),
-                _NavRow(
+                EthioNavRow(
                   icon: Icons.language_rounded,
                   title: 'Language',
                   subtitle: language,
                   onTap: _pickLanguage,
                 ),
-                _NavRow(
-                  icon: Icons.storage_outlined,
-                  title: 'Storage and data',
-                  subtitle: 'Chats stored on this device',
-                  onTap: () => _feedback(
-                    'Media is cached on device. Database size grows with your '
-                    'chat history.',
-                  ),
+                EthioNavRow(
+                  icon: Icons.tips_and_updates_outlined,
+                  title: 'Tips and tricks',
+                  subtitle: 'Get the most out of EthioChat',
+                  onTap: () => context.push('/onboarding/tips'),
+                  last: true,
                 ),
-                _NavRow(
+              ],
+            ),
+            const EthioSectionLabel('Support'),
+            EthioSectionCard(
+              children: [
+                EthioNavRow(
+                  icon: Icons.help_outline_rounded,
+                  title: 'Help and support',
+                  subtitle: 'FAQs and contact',
+                  onTap: () => context.push('/me/settings/help'),
+                ),
+                EthioNavRow(
                   icon: Icons.info_outline_rounded,
                   title: 'About EthioChat',
                   subtitle: 'Version 0.1.0',
-                  onTap: _showAbout,
+                  onTap: () => context.push('/me/settings/about'),
                   last: true,
                 ),
               ],
@@ -303,174 +303,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(Sp.x1, Sp.x4, Sp.x1, Sp.x2),
-      child: Text(
-        text.toUpperCase(),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: EthioPalette.of(context).textTertiary,
-              letterSpacing: 0.8,
-            ),
-      ),
-    );
-  }
-}
-
-class _Card extends StatelessWidget {
-  const _Card({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final pal = EthioPalette.of(context);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: Rad.r18,
-        border: Border.all(color: pal.line),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(children: children),
-    );
-  }
-}
-
-class _NavRow extends StatelessWidget {
-  const _NavRow({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-    this.subtitle,
-    this.last = false,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final VoidCallback onTap;
-  final bool last;
-
-  @override
-  Widget build(BuildContext context) {
-    final pal = EthioPalette.of(context);
-    final text = Theme.of(context).textTheme;
-
-    return Column(
-      children: [
-        ListTile(
-          onTap: onTap,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: Sp.x4,
-            vertical: Sp.x1,
-          ),
-          leading: _IconTile(icon: icon),
-          title: Text(title, style: text.titleMedium),
-          subtitle: subtitle == null
-              ? null
-              : Text(
-                  subtitle!,
-                  style: text.labelSmall?.copyWith(color: pal.textSecondary),
-                ),
-          trailing: Icon(
-            Icons.chevron_right_rounded,
-            color: pal.textTertiary,
-          ),
-        ),
-        if (!last)
-          Divider(
-            height: 1,
-            indent: Sp.x4 + 44 + Sp.x3,
-            endIndent: Sp.x4,
-            color: pal.line,
-          ),
-      ],
-    );
-  }
-}
-
-class _SwitchRow extends StatelessWidget {
-  const _SwitchRow({
-    required this.icon,
-    required this.title,
-    required this.value,
-    required this.onChanged,
-    this.subtitle,
-    this.last = false,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  final bool last;
-
-  @override
-  Widget build(BuildContext context) {
-    final pal = EthioPalette.of(context);
-    final text = Theme.of(context).textTheme;
-
-    return Column(
-      children: [
-        SwitchListTile.adaptive(
-          value: value,
-          onChanged: onChanged,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: Sp.x4,
-            vertical: Sp.x1,
-          ),
-          secondary: _IconTile(icon: icon),
-          title: Text(title, style: text.titleMedium),
-          subtitle: subtitle == null
-              ? null
-              : Text(
-                  subtitle!,
-                  style: text.labelSmall?.copyWith(color: pal.textSecondary),
-                ),
-          activeTrackColor: EthioColors.gold,
-        ),
-        if (!last)
-          Divider(
-            height: 1,
-            indent: Sp.x4 + 44 + Sp.x3,
-            endIndent: Sp.x4,
-            color: pal.line,
-          ),
-      ],
-    );
-  }
-}
-
-class _IconTile extends StatelessWidget {
-  const _IconTile({required this.icon});
-
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final pal = EthioPalette.of(context);
-
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: pal.chip,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Icon(icon, size: 22),
     );
   }
 }

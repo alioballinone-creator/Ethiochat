@@ -379,14 +379,6 @@ class _MomentsFeedScreenState extends State<MomentsFeedScreen> {
                 ),
         ),
       ),
-      bottomNavigationBar: EthioBottomNav(
-        index: 2,
-        onTap: (i) {
-          if (i == 0) context.go('/chats');
-          if (i == 1) context.go('/contacts');
-          if (i == 3) context.go('/me');
-        },
-      ),
     );
   }
 }

@@ -74,3 +74,62 @@ class ContactsLocal extends Table {
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
+
+/// Cached wallet transaction list. The immutable double-entry ledger is the
+/// source of truth for the balance; rows here make the local timeline fast.
+@DataClassName('WalletTransaction')
+class WalletTransactions extends Table {
+  TextColumn get id => text()();
+  TextColumn get userId => text().withDefault(const Constant('me'))();
+  TextColumn get type => text()();
+  TextColumn get status => text().withDefault(const Constant('success'))();
+  IntColumn get amountMinor => integer()();
+  TextColumn get direction => text()();
+  TextColumn get counterparty => text().nullable()();
+  TextColumn get note => text().nullable()();
+  TextColumn get idempotencyKey => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// Local mirror of `public.ledger_entries`; every transaction writes two rows.
+@DataClassName('LedgerEntry')
+class LedgerEntries extends Table {
+  TextColumn get id => text()();
+  TextColumn get txnId => text()();
+  TextColumn get account => text()();
+  TextColumn get direction => text()();
+  IntColumn get amountMinor => integer()();
+  TextColumn get currency => text().withDefault(const Constant('ETB'))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+@DataClassName('GroupMember')
+class GroupMembers extends Table {
+  TextColumn get conversationId => text()();
+  TextColumn get memberId => text()();
+  TextColumn get displayName => text()();
+  TextColumn get role => text().withDefault(const Constant('member'))();
+  DateTimeColumn get joinedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {conversationId, memberId};
+}
+
+@DataClassName('ReportRow')
+class Reports extends Table {
+  TextColumn get id => text()();
+  TextColumn get targetId => text()();
+  TextColumn get targetName => text()();
+  TextColumn get reason => text()();
+  TextColumn get note => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}

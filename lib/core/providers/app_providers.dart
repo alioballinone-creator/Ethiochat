@@ -3,11 +3,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../db/app_database.dart';
 import '../network/connectivity_service.dart';
+import '../../features/chats/data/datasources/outbox_worker.dart';
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
   ref.onDispose(db.close);
   return db;
+});
+
+/// Background send pipeline. Starting it here guarantees queued messages are
+/// retried even when the user never opens the chat list.
+final outboxWorkerProvider = Provider<OutboxWorker>((ref) {
+  final worker = OutboxWorker(
+    db: ref.watch(appDatabaseProvider),
+    connectivity: Connectivity(),
+  );
+  worker.start();
+  ref.onDispose(worker.stop);
+  return worker;
 });
 
 final connectivityServiceProvider = Provider<ConnectivityService>((ref) {

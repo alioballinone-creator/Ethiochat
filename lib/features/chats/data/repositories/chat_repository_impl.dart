@@ -68,6 +68,23 @@ class ChatRepositoryImpl implements ChatRepository {
         .map((rows) => rows.map(_toContact).toList());
   }
 
+  Future<bool> _isBlockedConversation(String conversationId) async {
+    final conversation = await (db.select(db.conversations)
+          ..where((c) => c.id.equals(conversationId)))
+        .getSingleOrNull();
+    if (conversation == null ||
+        conversation.type != ConversationType.direct.name) {
+      return false;
+    }
+    final title = conversation.title?.trim();
+    if (title == null || title.isEmpty) return false;
+    final blocked = await (db.select(db.contactsLocal)
+          ..where((c) => c.displayName.equals(title))
+          ..where((c) => c.isBlocked.equals(true)))
+        .getSingleOrNull();
+    return blocked != null;
+  }
+
   @override
   Future<Result<MessageEntity>> sendMessage({
     required String conversationId,
@@ -77,6 +94,13 @@ class ChatRepositoryImpl implements ChatRepository {
     String? replyTo,
   }) async {
     try {
+      if (await _isBlockedConversation(conversationId)) {
+        return const Result.failure(
+          ValidationFailure(
+            'You blocked this contact. Unblock them in Settings to chat.',
+          ),
+        );
+      }
       final id = _uuid.v4();
       final now = DateTime.now();
       await db.transaction(() async {
@@ -224,6 +248,25 @@ class ChatRepositoryImpl implements ChatRepository {
           messageId: messageId,
           at: now,
         );
+        await db.into(db.groupMembers).insert(
+              GroupMembersCompanion.insert(
+                conversationId: id,
+                memberId: 'me',
+                displayName: 'You',
+                role: const Value('admin'),
+                joinedAt: Value(now),
+              ),
+            );
+        for (final member in memberNames) {
+          await db.into(db.groupMembers).insert(
+                GroupMembersCompanion.insert(
+                  conversationId: id,
+                  memberId: _uuid.v4(),
+                  displayName: member,
+                  joinedAt: Value(now),
+                ),
+              );
+        }
       });
       final row = await (db.select(db.conversations)
             ..where((c) => c.id.equals(id)))
@@ -293,6 +336,119 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
+  Future<Result<void>> deleteMessage(String messageId) async {
+    try {
+      final row = await (db.select(db.messages)
+            ..where((m) => m.id.equals(messageId)))
+          .getSingleOrNull();
+      if (row == null) {
+        return const Result.failure(NotFoundFailure('Message not found.'));
+      }
+      await db.transaction(() async {
+        await (db.update(db.messages)..where((m) => m.id.equals(messageId)))
+            .write(const MessagesCompanion(deletedForMe: Value(true)));
+        final conversation = await (db.select(db.conversations)
+              ..where((c) => c.id.equals(row.conversationId)))
+            .getSingleOrNull();
+        if (conversation?.lastMessageId == messageId) {
+          final remaining = await (db.select(db.messages)
+                ..where((m) => m.conversationId.equals(row.conversationId))
+                ..where((m) => m.deletedForMe.equals(false))
+                ..orderBy([(m) => OrderingTerm.desc(m.createdAt)])
+                ..limit(1))
+              .getSingleOrNull();
+          await (db.update(db.conversations)
+                ..where((c) => c.id.equals(row.conversationId)))
+              .write(
+            ConversationsCompanion(
+              lastMessageId: Value(remaining?.id),
+              lastMessageAt: Value(remaining?.createdAt),
+            ),
+          );
+        }
+      });
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<Result<MessageEntity>> forwardMessage(
+    String messageId,
+    String targetConversationId,
+  ) async {
+    try {
+      final row = await (db.select(db.messages)
+            ..where((m) => m.id.equals(messageId)))
+          .getSingleOrNull();
+      if (row == null) {
+        return const Result.failure(NotFoundFailure('Message not found.'));
+      }
+      if (await _isBlockedConversation(targetConversationId)) {
+        return const Result.failure(
+          ValidationFailure(
+            'You blocked this contact. Unblock them in Settings to chat.',
+          ),
+        );
+      }
+      final id = _uuid.v4();
+      final now = DateTime.now();
+      await db.transaction(() async {
+        await db.into(db.messages).insert(
+              MessagesCompanion.insert(
+                id: id,
+                conversationId: targetConversationId,
+                senderId: 'me',
+                type: row.type,
+                body: Value(row.body),
+                mediaJson: Value(row.mediaJson),
+                createdAt: now,
+                status: const Value(0),
+              ),
+            );
+        await db.updateConversationLastMessage(
+          conversationId: targetConversationId,
+          messageId: id,
+          at: now,
+        );
+        await OutboxWorker.enqueue(
+          db,
+          messageId: id,
+          conversationId: targetConversationId,
+          payload: {
+            'id': id,
+            'conversation_id': targetConversationId,
+            'type': row.type,
+            'body': row.body,
+            'media': row.mediaJson == null ? null : jsonDecode(row.mediaJson!),
+            'created_at': now.toIso8601String(),
+          },
+        );
+      });
+      return Result.success(
+        MessageEntity(
+          id: id,
+          conversationId: targetConversationId,
+          senderId: 'me',
+          type: MessageType.values.firstWhere(
+            (t) => t.name == row.type,
+            orElse: () => MessageType.text,
+          ),
+          body: row.body,
+          media: row.mediaJson == null
+              ? null
+              : jsonDecode(row.mediaJson!) as Map<String, dynamic>,
+          createdAt: now,
+          status: MessageStatus.pending,
+        ),
+      );
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
   Future<Result<void>> clearMessages(String conversationId) async {
     try {
       await db.clearMessages(conversationId);
@@ -336,6 +492,133 @@ class ChatRepositoryImpl implements ChatRepository {
           ethioId: 'EC-${id.substring(0, 6).toUpperCase()}',
         ),
       );
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Stream<List<GroupMember>> watchGroupMembers(String conversationId) {
+    return (db.select(db.groupMembers)
+          ..where((m) => m.conversationId.equals(conversationId))
+          ..orderBy([
+            (m) => OrderingTerm.desc(m.role),
+            (m) => OrderingTerm.asc(m.joinedAt),
+          ]))
+        .watch();
+  }
+
+  @override
+  Future<Result<void>> addGroupMember(
+    String conversationId,
+    String displayName, {
+    bool admin = false,
+  }) async {
+    try {
+      final name = displayName.trim();
+      if (name.isEmpty) {
+        return const Result.failure(
+          ValidationFailure('Enter a member name.'),
+        );
+      }
+      await db.into(db.groupMembers).insert(
+            GroupMembersCompanion.insert(
+              conversationId: conversationId,
+              memberId: _uuid.v4(),
+              displayName: name,
+              role: Value(admin ? 'admin' : 'member'),
+            ),
+          );
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> removeGroupMember(
+    String conversationId,
+    String memberId,
+  ) async {
+    try {
+      await (db.delete(db.groupMembers)
+            ..where((m) => m.conversationId.equals(conversationId))
+            ..where((m) => m.memberId.equals(memberId)))
+          .go();
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> setGroupMemberRole(
+    String conversationId,
+    String memberId,
+    bool admin,
+  ) async {
+    try {
+      await (db.update(db.groupMembers)
+            ..where((m) => m.conversationId.equals(conversationId))
+            ..where((m) => m.memberId.equals(memberId)))
+          .write(
+        GroupMembersCompanion(
+          role: Value(admin ? 'admin' : 'member'),
+        ),
+      );
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> setContactBlocked(
+    String displayName,
+    bool blocked,
+  ) async {
+    try {
+      final name = displayName.trim();
+      final existing = await (db.select(db.contactsLocal)
+            ..where((c) => c.displayName.equals(name)))
+          .getSingleOrNull();
+      if (existing == null) {
+        await db.into(db.contactsLocal).insert(
+              ContactsLocalCompanion.insert(
+                id: _uuid.v4(),
+                displayName: Value(name),
+                isBlocked: Value(blocked),
+              ),
+            );
+      } else {
+        await (db.update(db.contactsLocal)
+              ..where((c) => c.id.equals(existing.id)))
+            .write(ContactsLocalCompanion(isBlocked: Value(blocked)));
+      }
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> saveReport({
+    required String targetId,
+    required String targetName,
+    required String reason,
+    String? note,
+  }) async {
+    try {
+      await db.into(db.reports).insert(
+            ReportsCompanion.insert(
+              id: _uuid.v4(),
+              targetId: targetId,
+              targetName: targetName,
+              reason: reason,
+              note: Value(note),
+            ),
+          );
+      return const Result.success(null);
     } catch (e) {
       return Result.failure(mapError(e));
     }
@@ -486,6 +769,25 @@ class ChatRepositoryImpl implements ChatRepository {
                 localUnread: Value(seeded.unread),
               ),
             );
+        if (seeded.type == 'group') {
+          for (final member in const [
+            ('me', 'You', 'admin'),
+            ('u3', 'Dawit Bekele', 'member'),
+            ('u4', 'Hanna Girma', 'member'),
+            ('u5', 'Samuel Tesfaye', 'member'),
+            ('u6', 'Marta Assefa', 'member'),
+          ]) {
+            await db.into(db.groupMembers).insert(
+                  GroupMembersCompanion.insert(
+                    conversationId: seeded.id,
+                    memberId: member.$1,
+                    displayName: member.$2,
+                    role: Value(member.$3),
+                    joinedAt: Value(now),
+                  ),
+                );
+          }
+        }
         String? lastId;
         DateTime? lastAt;
         var seq = 1;
@@ -585,6 +887,7 @@ class ChatRepositoryImpl implements ChatRepository {
       phoneE164: row.phoneE164,
       ethioId: row.ethioId,
       avatarUrl: row.avatarUrl,
+      isBlocked: row.isBlocked,
     );
   }
 

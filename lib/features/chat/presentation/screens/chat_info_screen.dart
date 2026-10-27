@@ -75,7 +75,14 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
       confirmLabel: 'Block',
     );
     if (!confirmed) return;
-    _feedback('$name blocked');
+    final result =
+        await ref.read(chatRepositoryProvider).setContactBlocked(name, true);
+    if (!mounted) return;
+    if (result.isFailure) {
+      _feedback(result.failureOrNull?.message ?? 'Could not block contact');
+      return;
+    }
+    _feedback('$name blocked. You can unblock them in Settings.');
   }
 
   Future<void> _report(String name) async {
@@ -103,7 +110,17 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
       ),
     );
     if (reason == null) return;
-    _feedback('Reported $name for "$reason". Thank you.');
+    final result = await ref.read(chatRepositoryProvider).saveReport(
+          targetId: widget.chatId,
+          targetName: name,
+          reason: reason,
+        );
+    if (!mounted) return;
+    _feedback(
+      result.isSuccess
+          ? 'Reported $name for "$reason". Thank you.'
+          : result.failureOrNull?.message ?? 'Could not send report.',
+    );
   }
 
   Future<bool> _confirm({
@@ -272,6 +289,14 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                         label: 'Search',
                         onTap: () => context.push('/search'),
                       ),
+                      if (isGroup)
+                        _QuickPill(
+                          icon: Icons.manage_accounts_outlined,
+                          label: 'Group info',
+                          onTap: () => context.push(
+                            '/chats/${widget.chatId}/group',
+                          ),
+                        ),
                     ],
                   ),
                 ],

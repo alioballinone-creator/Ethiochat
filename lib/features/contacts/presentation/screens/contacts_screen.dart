@@ -17,6 +17,26 @@ class ContactsScreen extends ConsumerStatefulWidget {
 
 class _ContactsScreenState extends ConsumerState<ContactsScreen> {
   String _query = '';
+  final _scrollController = ScrollController();
+  final _sectionKeys = <String, GlobalKey>{};
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _jumpTo(String letter) async {
+    final key = _sectionKeys[letter];
+    final target = key?.currentContext;
+    if (target == null) return;
+    await Scrollable.ensureVisible(
+      target,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      alignment: 0.05,
+    );
+  }
 
   Future<void> _openChat(ContactEntity contact) async {
     final result = await ref
@@ -92,42 +112,6 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     phone.dispose();
   }
 
-  Future<void> _showQrOptions() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.qr_code_2_rounded),
-              title: const Text('My QR code'),
-              subtitle: const Text('Let a friend scan you'),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                context.push('/me/qr');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.qr_code_scanner_rounded),
-              title: const Text('Scan a code'),
-              subtitle: const Text('Camera scan is available on a device'),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                _feedback(
-                  'Point the camera at an EthioChat code to add a friend.',
-                );
-              },
-            ),
-            const SizedBox(height: Sp.x2),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _feedback(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -145,7 +129,11 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
 
     final grouped = <String, List<ContactEntity>>{};
     for (final contact in contacts) {
-      if (q.isNotEmpty && !contact.displayName.toLowerCase().contains(q)) {
+      if (contact.isBlocked) continue;
+      if (q.isNotEmpty &&
+          !contact.displayName.toLowerCase().contains(q) &&
+          !(contact.phoneE164 ?? '').toLowerCase().contains(q) &&
+          !(contact.ethioId ?? '').toLowerCase().contains(q)) {
         continue;
       }
       final letter = contact.displayName.isEmpty
@@ -154,6 +142,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
       grouped.putIfAbsent(letter, () => <ContactEntity>[]).add(contact);
     }
     final letters = grouped.keys.toList(growable: false)..sort();
+    for (final letter in letters) {
+      _sectionKeys.putIfAbsent(letter, () => GlobalKey());
+    }
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -192,6 +183,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                   child: contactsAsync.isLoading && contacts.isEmpty
                       ? const Center(child: CircularProgressIndicator())
                       : ListView(
+                          controller: _scrollController,
                           padding:
                               Sp.screen.copyWith(top: Sp.x3, bottom: Sp.x8),
                           children: [
@@ -199,8 +191,8 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                               _ShortcutRow(
                                 icon: Icons.person_add_alt_1_outlined,
                                 title: 'New friends',
-                                subtitle: 'Invite people to EthioChat',
-                                onTap: _addContact,
+                                subtitle: 'Friend requests waiting for you',
+                                onTap: () => context.push('/contacts/requests'),
                               ),
                               _ShortcutRow(
                                 icon: Icons.group_add_outlined,
@@ -212,13 +204,20 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                                 icon: Icons.verified_outlined,
                                 title: 'Official accounts',
                                 subtitle: 'Banks, telecom and news',
-                                onTap: () => context.go('/chats'),
+                                onTap: () => context.push('/discover/official'),
                               ),
                               _ShortcutRow(
                                 icon: Icons.qr_code_scanner_rounded,
                                 title: 'Scan QR',
                                 subtitle: 'Add a friend by code',
-                                onTap: _showQrOptions,
+                                onTap: () => context.push('/scan'),
+                              ),
+                              _ShortcutRow(
+                                icon: Icons.block_outlined,
+                                title: 'Blocked contacts',
+                                subtitle: 'Review people you blocked',
+                                onTap: () => context
+                                    .push('/me/settings/privacy/blocked'),
                               ),
                               const SizedBox(height: Sp.x4),
                             ],
@@ -257,6 +256,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                             else
                               for (final letter in letters) ...[
                                 Padding(
+                                  key: _sectionKeys[letter],
                                   padding: const EdgeInsets.fromLTRB(
                                     Sp.x1,
                                     Sp.x3,
@@ -308,19 +308,14 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                 bottom: 80,
                 child: _IndexRail(
                   letters: letters,
-                  onLetter: (_) => HapticFeedback.selectionClick(),
+                  onLetter: (letter) {
+                    HapticFeedback.selectionClick();
+                    _jumpTo(letter);
+                  },
                 ),
               ),
           ],
         ),
-      ),
-      bottomNavigationBar: EthioBottomNav(
-        index: 1,
-        onTap: (i) {
-          if (i == 0) context.go('/chats');
-          if (i == 2) context.go('/discover');
-          if (i == 3) context.go('/me');
-        },
       ),
     );
   }
