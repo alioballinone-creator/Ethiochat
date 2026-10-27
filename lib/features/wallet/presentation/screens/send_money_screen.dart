@@ -27,7 +27,9 @@ class _SendMoneyScreenState extends ConsumerState<SendMoneyScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_seeded) return;
-    final recipient = GoRouterState.maybeOf(context)?.uri.queryParameters['to'];
+    final recipient = GoRouter.maybeOf(context) == null
+        ? null
+        : GoRouterState.of(context).uri.queryParameters['to'];
     if (recipient != null && recipient.isNotEmpty) {
       _recipient.text = recipient;
     }
