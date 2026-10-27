@@ -31,6 +31,8 @@ abstract class ChatRepository {
   Future<Result<void>> markRead(String conversationId, int lastReadSeq);
   Future<Result<void>> retryFailed(String messageId);
   Future<Result<void>> deleteMessage(String messageId);
+  Future<Result<void>> deleteMessageForEveryone(String messageId);
+  Future<Result<void>> editMessage(String messageId, String body);
   Future<Result<MessageEntity>> forwardMessage(
     String messageId,
     String targetConversationId,
@@ -75,5 +77,7 @@ abstract class ChatRepository {
   });
 
   Future<Result<List<MessageEntity>>> searchMessages(String query);
+  Future<Map<String, dynamic>> exportData();
+  Future<Result<void>> deleteAllData();
   Future<void> seedDemoData();
 }

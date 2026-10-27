@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,6 +9,7 @@ import '../../../../core/design/design.dart';
 import '../../../../core/settings/app_settings.dart';
 import '../../../chats/application/chat_providers.dart';
 import '../../../contacts/domain/entities/contact_entity.dart';
+import '../../../profile/application/profile_controller.dart';
 
 class PrivacySettingsScreen extends ConsumerWidget {
   const PrivacySettingsScreen({super.key});
@@ -54,6 +58,61 @@ class PrivacySettingsScreen extends ConsumerWidget {
       _ => settings.copyWith(groupAddAudience: choice),
     };
     await ref.read(appSettingsProvider.notifier).update(next);
+  }
+
+  Future<void> _exportData(BuildContext context, WidgetRef ref) async {
+    final data = await ref.read(chatRepositoryProvider).exportData();
+    final json = const JsonEncoder.withIndent('  ').convert(data);
+    await Clipboard.setData(ClipboardData(text: json));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Your data export was copied to the clipboard.'),
+      ),
+    );
+  }
+
+  Future<void> _deleteAccount(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete your account?'),
+        content: const Text(
+          'This removes your profile, chats, contacts and wallet history from '
+          'this device. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text(
+              'Delete everything',
+              style: TextStyle(color: EthioColors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final result = await ref.read(chatRepositoryProvider).deleteAllData();
+    if (!context.mounted) return;
+    if (!result.isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.failureOrNull?.message ?? 'Could not delete your data.',
+          ),
+        ),
+      );
+      return;
+    }
+    await ref.read(userProfileProvider.notifier).clear();
+    await ref.read(appSettingsProvider.notifier).reset();
+    if (!context.mounted) return;
+    context.go('/welcome');
   }
 
   @override
@@ -154,6 +213,24 @@ class PrivacySettingsScreen extends ConsumerWidget {
                       ? 'No blocked contacts'
                       : '$blocked blocked ${blocked == 1 ? 'contact' : 'contacts'}',
                   onTap: () => context.push('/me/settings/privacy/blocked'),
+                  last: true,
+                ),
+              ],
+            ),
+            const EthioSectionLabel('Your data'),
+            EthioSectionCard(
+              children: [
+                EthioNavRow(
+                  icon: Icons.download_outlined,
+                  title: 'Export my data',
+                  subtitle: 'Copy a JSON archive to the clipboard',
+                  onTap: () => _exportData(context, ref),
+                ),
+                EthioNavRow(
+                  icon: Icons.delete_forever_outlined,
+                  title: 'Delete my account',
+                  subtitle: 'Remove this account and its local data',
+                  onTap: () => _deleteAccount(context, ref),
                   last: true,
                 ),
               ],

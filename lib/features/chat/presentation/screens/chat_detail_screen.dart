@@ -13,6 +13,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/design/design.dart';
 import '../../../../core/utils/time_format.dart';
@@ -40,14 +41,63 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   entity.MessageEntity? _replyingTo;
   bool _atBottom = true;
   int _unseen = 0;
+  Timer? _draftTimer;
 
   bool get _hasText => _composer.text.trim().isNotEmpty;
+  String get _draftKey => 'chat.draft.${widget.chatId}';
 
   @override
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
     Future<void>.microtask(_bootstrap);
+    Future<void>.microtask(_restoreDraft);
+  }
+
+  Future<void> _restoreDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final draft = prefs.getString(_draftKey);
+      if (!mounted ||
+          draft == null ||
+          draft.isEmpty ||
+          _composer.text.isNotEmpty) {
+        return;
+      }
+      setState(() => _composer.text = draft);
+    } catch (_) {
+      // Drafts are best-effort when storage is unavailable.
+    }
+  }
+
+  void _onComposerChanged() {
+    setState(() {});
+    _draftTimer?.cancel();
+    _draftTimer = Timer(const Duration(milliseconds: 350), _persistDraft);
+  }
+
+  Future<void> _persistDraft() async {
+    final text = _composer.text.trim();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (text.isEmpty) {
+        await prefs.remove(_draftKey);
+      } else {
+        await prefs.setString(_draftKey, text);
+      }
+    } catch (_) {
+      // Drafts are best-effort when storage is unavailable.
+    }
+  }
+
+  Future<void> _clearDraft() async {
+    _draftTimer?.cancel();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_draftKey);
+    } catch (_) {
+      // Drafts are best-effort when storage is unavailable.
+    }
   }
 
   void _onScroll() {
@@ -73,6 +123,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   @override
   void dispose() {
+    _draftTimer?.cancel();
+    _persistDraft();
     _composer.dispose();
     _composerFocus.dispose();
     _scroll.dispose();
@@ -106,6 +158,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       _replyingTo = null;
     });
     _composer.clear();
+    _clearDraft();
     _scrollToBottom();
     final result = await ref.read(chatRepositoryProvider).sendMessage(
           conversationId: widget.chatId,
@@ -326,6 +379,16 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               title: const Text('Forward'),
               onTap: () => Navigator.pop(sheetContext, 'forward'),
             ),
+            if (message.senderId == 'me' &&
+                message.type == entity.MessageType.text &&
+                !message.deletedEveryone &&
+                DateTime.now().difference(message.createdAt) <=
+                    const Duration(minutes: 15))
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('Edit'),
+                onTap: () => Navigator.pop(sheetContext, 'edit'),
+              ),
             if (message.status == entity.MessageStatus.failed)
               ListTile(
                 leading: const Icon(Icons.refresh_rounded),
@@ -338,7 +401,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                 color: EthioColors.danger,
               ),
               title: const Text(
-                'Delete for me',
+                'Delete',
                 style: TextStyle(color: EthioColors.danger),
               ),
               onTap: () => Navigator.pop(sheetContext, 'delete'),
@@ -363,6 +426,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       case 'forward':
         await _forward(message);
         break;
+      case 'edit':
+        await _editMessage(message);
+        break;
       case 'retry':
         final result = await repo.retryFailed(message.id);
         if (result.failureOrNull case final failure?) {
@@ -370,11 +436,91 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         }
         break;
       case 'delete':
-        final result = await repo.deleteMessage(message.id);
-        if (result.failureOrNull case final failure?) {
-          _feedback(failure.message);
-        }
+        await _deleteMessage(message);
         break;
+    }
+  }
+
+  Future<void> _editMessage(entity.MessageEntity message) async {
+    final controller = TextEditingController(text: message.body ?? '');
+    final body = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edit message'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 5,
+          minLines: 1,
+          maxLength: 4096,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(hintText: 'Message'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isNotEmpty) Navigator.pop(dialogContext, text);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (body == null || !mounted) return;
+    final result =
+        await ref.read(chatRepositoryProvider).editMessage(message.id, body);
+    if (result.failureOrNull case final failure?) {
+      _feedback(failure.message);
+    }
+  }
+
+  Future<void> _deleteMessage(entity.MessageEntity message) async {
+    final canDeleteForEveryone = message.senderId == 'me' &&
+        DateTime.now().difference(message.createdAt) <=
+            const Duration(hours: 24);
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: EthioColors.danger,
+              ),
+              title: const Text('Delete for me'),
+              onTap: () => Navigator.pop(sheetContext, 'me'),
+            ),
+            if (canDeleteForEveryone)
+              ListTile(
+                leading: const Icon(
+                  Icons.delete_forever_outlined,
+                  color: EthioColors.danger,
+                ),
+                title: const Text('Delete for everyone'),
+                onTap: () => Navigator.pop(sheetContext, 'everyone'),
+              ),
+            const SizedBox(height: Sp.x2),
+          ],
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    final repo = ref.read(chatRepositoryProvider);
+    final result = choice == 'everyone'
+        ? await repo.deleteMessageForEveryone(message.id)
+        : await repo.deleteMessage(message.id);
+    if (result.failureOrNull case final failure?) {
+      _feedback(failure.message);
     }
   }
 
@@ -447,8 +593,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     try {
       final picked = await ImagePicker().pickImage(
         source: source,
-        imageQuality: 82,
-        maxWidth: 1600,
+        imageQuality: 70,
+        maxWidth: 1280,
       );
       if (picked == null || !mounted) return;
       await _sendAttachment(
@@ -770,7 +916,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             controller: _composer,
             canSend: _hasText,
             sending: _sending,
-            onChanged: () => setState(() {}),
+            onChanged: _onComposerChanged,
             onSend: _sendText,
             onAttach: _showAttachments,
             onEmoji: _showEmojiPicker,
@@ -804,14 +950,18 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         continue;
       }
       final mine = message.senderId == 'me';
+      final deleted = message.deletedEveryone;
       final bubble = MessageBubble(
         isMine: mine,
         time: bubbleTime(message.createdAt),
         status: _status(message.status),
-        text: message.type == entity.MessageType.text
-            ? (message.body ?? '')
-            : null,
-        child: _messageChild(message),
+        text: deleted
+            ? 'This message was deleted'
+            : message.type == entity.MessageType.text
+                ? (message.body ?? '')
+                : null,
+        child: deleted ? null : _messageChild(message),
+        edited: !deleted && message.editedAt != null,
         header: _replyHeader(message, messages),
         onLongPress: () => _messageActions(message, messages),
         onRetry: message.status == entity.MessageStatus.failed

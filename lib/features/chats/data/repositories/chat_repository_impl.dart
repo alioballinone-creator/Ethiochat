@@ -374,6 +374,110 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
+  Future<Result<void>> deleteMessageForEveryone(String messageId) async {
+    try {
+      final row = await (db.select(db.messages)
+            ..where((m) => m.id.equals(messageId)))
+          .getSingleOrNull();
+      if (row == null) {
+        return const Result.failure(NotFoundFailure('Message not found.'));
+      }
+      if (row.senderId != 'me') {
+        return const Result.failure(
+          ValidationFailure('You can only delete your own messages.'),
+        );
+      }
+      if (DateTime.now().difference(row.createdAt) >
+          const Duration(hours: 24)) {
+        return const Result.failure(
+          ValidationFailure(
+              'Messages can only be deleted for everyone for 24 hours.'),
+        );
+      }
+      await db.transaction(() async {
+        await (db.update(db.messages)..where((m) => m.id.equals(messageId)))
+            .write(
+          const MessagesCompanion(
+            deletedEveryone: Value(true),
+            body: Value(null),
+            mediaJson: Value(null),
+          ),
+        );
+        await (db.delete(db.outbox)
+              ..where((o) => o.messageId.equals(messageId)))
+            .go();
+      });
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> editMessage(String messageId, String body) async {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) {
+      return const Result.failure(
+        ValidationFailure('A message cannot be empty.'),
+      );
+    }
+    try {
+      final row = await (db.select(db.messages)
+            ..where((m) => m.id.equals(messageId)))
+          .getSingleOrNull();
+      if (row == null) {
+        return const Result.failure(NotFoundFailure('Message not found.'));
+      }
+      if (row.senderId != 'me') {
+        return const Result.failure(
+          ValidationFailure('You can only edit your own messages.'),
+        );
+      }
+      if (row.deletedForMe || row.deletedEveryone) {
+        return const Result.failure(
+          ValidationFailure('Deleted messages cannot be edited.'),
+        );
+      }
+      if (row.type != 'text') {
+        return const Result.failure(
+          ValidationFailure('Only text messages can be edited.'),
+        );
+      }
+      if (DateTime.now().difference(row.createdAt) >
+          const Duration(minutes: 15)) {
+        return const Result.failure(
+          ValidationFailure('Messages can only be edited for 15 minutes.'),
+        );
+      }
+      final editedAt = DateTime.now();
+      await db.transaction(() async {
+        await (db.update(db.messages)..where((m) => m.id.equals(messageId)))
+            .write(
+          MessagesCompanion(
+            body: Value(trimmed),
+            editedAt: Value(editedAt),
+          ),
+        );
+        final outboxRow = await (db.select(db.outbox)
+              ..where((o) => o.messageId.equals(messageId)))
+            .getSingleOrNull();
+        if (outboxRow != null) {
+          final payload =
+              jsonDecode(outboxRow.payloadJson) as Map<String, dynamic>;
+          payload['body'] = trimmed;
+          payload['edited_at'] = editedAt.toIso8601String();
+          await (db.update(db.outbox)
+                ..where((o) => o.messageId.equals(messageId)))
+              .write(OutboxCompanion(payloadJson: Value(jsonEncode(payload))));
+        }
+      });
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
   Future<Result<MessageEntity>> forwardMessage(
     String messageId,
     String targetConversationId,
@@ -629,6 +733,97 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       final rows = await db.searchMessages(query);
       return Result.success(rows.map(_toMessage).toList());
+    } catch (e) {
+      return Result.failure(mapError(e));
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> exportData() async {
+    final conversationRows = await db.select(db.conversations).get();
+    final messageRows = await db.select(db.messages).get();
+    final contactRows = await db.select(db.contactsLocal).get();
+    final reportRows = await db.select(db.reports).get();
+    final walletRows = await db.select(db.walletTransactions).get();
+    final ledgerRows = await db.select(db.ledgerEntries).get();
+    return {
+      'format': 'ethiochat.export.v1',
+      'exportedAt': DateTime.now().toUtc().toIso8601String(),
+      'conversations': [
+        for (final row in conversationRows)
+          {
+            'id': row.id,
+            'type': row.type,
+            'title': row.title,
+            'lastMessageAt': row.lastMessageAt?.toUtc().toIso8601String(),
+            'pinned': row.pinned,
+            'archived': row.archived,
+          },
+      ],
+      'messages': [
+        for (final row in messageRows)
+          {
+            'id': row.id,
+            'conversationId': row.conversationId,
+            'senderId': row.senderId,
+            'seq': row.seq,
+            'type': row.type,
+            'body': row.body,
+            'media': row.mediaJson,
+            'createdAt': row.createdAt.toUtc().toIso8601String(),
+            'deleted': row.deletedForMe || row.deletedEveryone,
+          },
+      ],
+      'contacts': [
+        for (final row in contactRows)
+          {
+            'id': row.id,
+            'displayName': row.displayName,
+            'phone': row.phoneE164,
+            'ethioId': row.ethioId,
+            'blocked': row.isBlocked,
+          },
+      ],
+      'reports': [
+        for (final row in reportRows)
+          {
+            'id': row.id,
+            'targetName': row.targetName,
+            'reason': row.reason,
+            'note': row.note,
+            'createdAt': row.createdAt.toUtc().toIso8601String(),
+          },
+      ],
+      'walletTransactions': [
+        for (final row in walletRows)
+          {
+            'id': row.id,
+            'type': row.type,
+            'status': row.status,
+            'amountMinor': row.amountMinor,
+            'direction': row.direction,
+            'note': row.note,
+            'createdAt': row.createdAt.toUtc().toIso8601String(),
+          },
+      ],
+      'ledgerEntries': [
+        for (final row in ledgerRows)
+          {
+            'txnId': row.txnId,
+            'account': row.account,
+            'direction': row.direction,
+            'amountMinor': row.amountMinor,
+            'currency': row.currency,
+          },
+      ],
+    };
+  }
+
+  @override
+  Future<Result<void>> deleteAllData() async {
+    try {
+      await db.clearAllData();
+      return const Result.success(null);
     } catch (e) {
       return Result.failure(mapError(e));
     }
@@ -893,6 +1088,7 @@ class ChatRepositoryImpl implements ChatRepository {
 
   String _preview(Message? message) {
     if (message == null) return 'No messages yet';
+    if (message.deletedEveryone) return 'This message was deleted';
     final body = message.body?.trim();
     if (body != null && body.isNotEmpty) return body;
     return switch (message.type) {

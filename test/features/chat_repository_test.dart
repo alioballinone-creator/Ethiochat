@@ -155,6 +155,55 @@ void main() {
     );
   });
 
+  test('editMessage updates recent own text and rejects old messages',
+      () async {
+    final sent = await repo.sendMessage(
+      conversationId: '1',
+      type: MessageType.text,
+      body: 'original',
+    );
+    final id = sent.valueOrNull!.id;
+
+    expect((await repo.editMessage(id, '  updated  ')).isSuccess, isTrue);
+    var messages = await repo.watchMessages('1').first;
+    var row = messages.firstWhere((m) => m.id == id);
+    expect(row.body, 'updated');
+    expect(row.editedAt, isNotNull);
+
+    final old = messages.firstWhere((m) => m.senderId == 'me');
+    final rejected = await repo.editMessage(old.id, 'too late');
+    expect(rejected.isSuccess, isFalse);
+    expect(rejected.failureOrNull?.message, contains('15 minutes'));
+
+    messages = await repo.watchMessages('1').first;
+    row = messages.firstWhere((m) => m.id == id);
+    expect(row.body, 'updated');
+  });
+
+  test('deleteMessageForEveryone clears content and updates the preview',
+      () async {
+    final sent = await repo.sendMessage(
+      conversationId: '1',
+      type: MessageType.text,
+      body: 'secret',
+    );
+    final id = sent.valueOrNull!.id;
+
+    expect((await repo.deleteMessageForEveryone(id)).isSuccess, isTrue);
+    final row =
+        (await repo.watchMessages('1').first).firstWhere((m) => m.id == id);
+    expect(row.deletedEveryone, isTrue);
+    expect(row.body, isNull);
+    final summary =
+        (await repo.watchSummaries().first).firstWhere((s) => s.id == '1');
+    expect(summary.preview, 'This message was deleted');
+
+    final old = (await repo.watchMessages('1').first)
+        .firstWhere((m) => m.senderId != 'me');
+    final rejected = await repo.deleteMessageForEveryone(old.id);
+    expect(rejected.isSuccess, isFalse);
+  });
+
   test('clearMessages removes messages but keeps the conversation', () async {
     expect((await repo.clearMessages('1')).isSuccess, isTrue);
 
@@ -166,6 +215,27 @@ void main() {
         (await repo.watchSummaries().first).firstWhere((s) => s.id == '1');
     expect(chat.preview, 'No messages yet');
     expect(chat.lastMessageAt, isNull);
+  });
+
+  test('exportData contains local account data without secrets', () async {
+    final data = await repo.exportData();
+
+    expect(data['format'], 'ethiochat.export.v1');
+    expect(data['conversations'], hasLength(6));
+    expect(data['messages'], isNotEmpty);
+    expect(data['contacts'], hasLength(10));
+    expect(data['walletTransactions'], isA<List<dynamic>>());
+    expect(data.toString(), isNot(contains('pin')));
+  });
+
+  test('deleteAllData removes chats, contacts and wallet history', () async {
+    expect((await repo.deleteAllData()).isSuccess, isTrue);
+
+    expect(await db.conversationCount(), 0);
+    expect(await db.select(db.messages).get(), isEmpty);
+    expect(await db.select(db.contactsLocal).get(), isEmpty);
+    expect(await db.select(db.walletTransactions).get(), isEmpty);
+    expect(await db.select(db.ledgerEntries).get(), isEmpty);
   });
 
   test('deleteConversation removes the conversation and its messages',

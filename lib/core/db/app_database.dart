@@ -202,6 +202,20 @@ class AppDatabase extends _$AppDatabase {
     await (update(conversations)..where((c) => c.id.equals(conversationId)))
         .write(const ConversationsCompanion(localUnread: Value(0)));
   }
+
+  Future<void> clearAllData() async {
+    await transaction(() async {
+      await delete(messageReceipts).go();
+      await delete(outbox).go();
+      await delete(messages).go();
+      await delete(groupMembers).go();
+      await delete(conversations).go();
+      await delete(contactsLocal).go();
+      await delete(reports).go();
+      await delete(walletTransactions).go();
+      await delete(ledgerEntries).go();
+    });
+  }
 }
 
 LazyDatabase _openConnection() {

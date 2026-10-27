@@ -16,6 +16,7 @@ class MessageBubble extends StatelessWidget {
     this.header,
     this.onRetry,
     this.onLongPress,
+    this.edited = false,
   }) : assert(text != null || child != null);
 
   final bool isMine, firstInGroup;
@@ -26,6 +27,7 @@ class MessageBubble extends StatelessWidget {
   final Widget? header;
   final VoidCallback? onRetry;
   final VoidCallback? onLongPress;
+  final bool edited;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +41,17 @@ class MessageBubble extends StatelessWidget {
       bottomRight: Radius.circular(isMine ? (firstInGroup ? 6 : 18) : 18),
     );
     final meta = Row(mainAxisSize: MainAxisSize.min, children: [
+      if (edited) ...[
+        Text('Edited',
+            style: TextStyle(
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+                color: isMine
+                    ? textColor.withValues(alpha: .75)
+                    : pal.textTertiary,
+                fontFamily: 'Poppins')),
+        const SizedBox(width: 5),
+      ],
       Text(time,
           style: TextStyle(
               fontSize: 11,

@@ -138,6 +138,33 @@ class AppSettingsController extends StateNotifier<AppSettings> {
     await _persist((prefs) => prefs.setString(_localeKey, locale.languageCode));
   }
 
+  Future<void> reset() async {
+    state = const AppSettings();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      for (final key in <String>[
+        _themeKey,
+        _localeKey,
+        _messageNotificationsKey,
+        _groupNotificationsKey,
+        _readReceiptsKey,
+        _showLastSeenKey,
+        _autoDownloadKey,
+        _dataSaverKey,
+        _backupEnabledKey,
+        _backupVideosKey,
+        _twoStepKey,
+        _lastSeenAudienceKey,
+        _photoAudienceKey,
+        _groupAddAudienceKey,
+      ]) {
+        await prefs.remove(key);
+      }
+    } catch (_) {
+      // Defaults are already applied in memory.
+    }
+  }
+
   Future<void> update(AppSettings next) async {
     state = next;
     await _persist((prefs) async {

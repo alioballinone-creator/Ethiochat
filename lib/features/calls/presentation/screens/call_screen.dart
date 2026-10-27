@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/design.dart';
 import '../../../chats/application/chat_providers.dart';
+import '../../../contacts/domain/entities/contact_entity.dart';
 
 class CallScreen extends ConsumerStatefulWidget {
   const CallScreen({
@@ -30,6 +32,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   bool _muted = false;
   bool _speaker = false;
   bool _videoOn = true;
+  bool _frontCamera = true;
 
   @override
   void initState() {
@@ -54,6 +57,70 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   void _end() {
     _timer?.cancel();
     if (mounted) context.pop();
+  }
+
+  void _flipCamera() {
+    setState(() => _frontCamera = !_frontCamera);
+    HapticFeedback.selectionClick();
+  }
+
+  Future<void> _addCallMember() async {
+    final contacts =
+        ref.read(contactsProvider).valueOrNull ?? const <ContactEntity>[];
+    final selected = await showModalBottomSheet<ContactEntity>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Sp.x5, 0, Sp.x5, Sp.x2),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Add someone to this call',
+                  style: Theme.of(sheetContext).textTheme.titleLarge,
+                ),
+              ),
+            ),
+            if (contacts.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(Sp.x6),
+                child: Text('No contacts available yet.'),
+              )
+            else
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final contact in contacts)
+                      ListTile(
+                        leading: EthioAvatar(
+                          name: contact.displayName,
+                          imageUrl: contact.avatarUrl,
+                          size: 40,
+                        ),
+                        title: Text(contact.displayName),
+                        subtitle: Text(
+                          contact.phoneE164 ?? 'EthioChat contact',
+                        ),
+                        onTap: () => Navigator.pop(sheetContext, contact),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text('Invite sent to ${selected.displayName}')),
+      );
   }
 
   @override
@@ -176,11 +243,12 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                           if (_connected)
                             Padding(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: Sp.x8,
+                                horizontal: Sp.x4,
                               ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
+                              child: Wrap(
+                                alignment: WrapAlignment.center,
+                                spacing: Sp.x5,
+                                runSpacing: Sp.x3,
                                 children: [
                                   _CallButton(
                                     icon: _muted
@@ -210,7 +278,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                                     onTap: () =>
                                         setState(() => _speaker = !_speaker),
                                   ),
-                                  if (widget.isVideo)
+                                  if (widget.isVideo) ...[
                                     _CallButton(
                                       icon: _videoOn
                                           ? Icons.videocam_rounded
@@ -226,6 +294,25 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                                       onTap: () =>
                                           setState(() => _videoOn = !_videoOn),
                                     ),
+                                    if (_videoOn)
+                                      _CallButton(
+                                        icon: _frontCamera
+                                            ? Icons.cameraswitch_rounded
+                                            : Icons.camera_rear_rounded,
+                                        label: 'Flip',
+                                        color: Colors.white
+                                            .withValues(alpha: 0.16),
+                                        iconColor: EthioColors.cream,
+                                        onTap: _flipCamera,
+                                      ),
+                                  ],
+                                  _CallButton(
+                                    icon: Icons.person_add_alt_1_rounded,
+                                    label: 'Add',
+                                    color: Colors.white.withValues(alpha: 0.16),
+                                    iconColor: EthioColors.cream,
+                                    onTap: _addCallMember,
+                                  ),
                                 ],
                               ),
                             ),
