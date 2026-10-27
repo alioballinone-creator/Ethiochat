@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../db/app_database.dart';
 import '../network/connectivity_service.dart';
 import '../../features/chats/data/datasources/outbox_worker.dart';
+import '../../features/chats/data/datasources/supabase_outbox_transport.dart';
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
@@ -17,6 +18,7 @@ final outboxWorkerProvider = Provider<OutboxWorker>((ref) {
   final worker = OutboxWorker(
     db: ref.watch(appDatabaseProvider),
     connectivity: Connectivity(),
+    transport: SupabaseOutboxTransport().send,
   );
   worker.start();
   ref.onDispose(worker.stop);

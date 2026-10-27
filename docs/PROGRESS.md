@@ -4,18 +4,19 @@
 - [x] Design system, themes, five UI locales with English fallbacks
 - [x] Supabase migrations through phase 6 and Edge Functions
 - [x] Drift schema, repositories, outbox/backoff and seed data
+- [x] Authenticated Supabase message sends with idempotency and media uploads
 - [x] Supabase phone OTP when configured; deterministic demo OTP otherwise
 - [x] App shell, chats, groups, contacts, search, QR and settings
 - [x] Chat media, voice notes, replies, forwarding, editing and drafts
 - [x] Local moments persistence with likes and comments
 - [x] Wallet ledger, RPCs, PIN flow and screens behind the wallet flag
-- [x] Format, analyze, 400 unit/widget tests and release APK/AAB in CI
+- [x] Format, analyze, full unit/widget suite and release APK/AAB in CI
 - [x] Security, API, Edge Function and pgTAP documentation
 
 ## In progress
-- [ ] Connect conversation/message reads to Supabase sync and realtime
-- [ ] Wire the outbox worker to an authenticated transport and media upload
-- [ ] LiveKit calls, FCM ringing/delivery and call history messages
+- [ ] Hydrate remote conversations/messages and subscribe to realtime changes
+- [ ] Add delivery/read receipts and resumable media uploads
+- [ ] LiveKit calls and FCM ringing/delivery
 - [ ] Full ARB translations, Ethiopian calendar and locale golden tests
 - [ ] Deploy migrations/functions and run pgTAP against a scratch project
 

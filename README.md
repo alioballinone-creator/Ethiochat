@@ -28,8 +28,9 @@ into the local database on first launch.
   (any six digits in demo mode), profile setup, shell navigation, chats, groups, contacts,
   requests, search, QR, moments, channels, official accounts, mini programs,
   nearby, scan, calls, report/block, onboarding and the full settings tree.
-- Offline-first Drift schema, outbox/backoff state machine, message status,
-  reply/forward/edit/delete, voice notes, attachments, drafts and local search.
+- Offline-first Drift schema, outbox/backoff state machine, authenticated
+  Supabase sends with media upload, message status, reply/forward/edit/delete,
+  voice notes, attachments, drafts and local search.
 - Wallet ledger and wallet screens (send, receive, top-up, bills, history,
   receipts, red packets, PIN) behind `--dart-define=ENABLE_WALLET=true`.
 - Supabase migrations through phase 6: RLS, contact discovery database support,
@@ -57,14 +58,14 @@ enabled on every application table.
 ## Status and known gaps
 
 The Flutter CI suite (format, analyze, unit/widget tests, release APK/AAB) is the
-merge gate; all 400 tests and the release APK/AAB passed at `9899e7b`. The
-backend migrations and functions are written but cannot be deployed in this
-environment because Supabase project credentials are absent.
+merge gate; the complete suite and release APK/AAB pass on `main`. The backend
+migrations and functions are written but cannot be deployed in this environment
+because Supabase project credentials are absent.
 Remaining production work:
 
-- Wire the outbox to Supabase realtime/delta sync and authenticated sessions.
-  The current worker deliberately simulates transport when no backend session is
-  configured, so the offline flow is testable without credentials.
+- Hydrate conversations and messages from Supabase, subscribe to realtime
+  changes and add delivery/read receipts. Authenticated sends and media uploads
+  are implemented for remote conversation ids.
 - Replace the call UI simulation with LiveKit rooms, CallKit/ConnectionService
   and push ringing.
 - Add FCM delivery, SMS/Telegram OTP fallback and a deployed moderation console.

@@ -8,15 +8,21 @@ import 'package:drift/drift.dart';
 import 'package:ethiochat/core/db/app_database.dart';
 import 'package:ethiochat/core/logging/app_logger.dart';
 
+typedef OutboxTransport = Future<void> Function(
+  Map<String, dynamic> payload,
+);
+
 /// OutboxWorker implements the send pipeline:
 /// 1. Write to outbox/local as pending (handled by repo)
 /// 2. Pick up pending in FIFO order per conversation
-/// 3. Exponential backoff with jitter, cap 60s
-/// 4. On success mark sent/delivered per realtime/receipts; never silently drop
+/// 3. Upload media and call the Supabase send RPC
+/// 4. Exponential backoff with jitter, cap 60s
+/// 5. On success mark sent; never silently drop a failed message
 class OutboxWorker {
   OutboxWorker({
     required this.db,
     required this.connectivity,
+    this.transport,
     this.baseDelay = const Duration(seconds: 1),
     this.maxDelay = const Duration(seconds: 60),
     this.maxAttempts = 10,
@@ -24,6 +30,7 @@ class OutboxWorker {
 
   final AppDatabase db;
   final Connectivity connectivity;
+  final OutboxTransport? transport;
   final Duration baseDelay;
   final Duration maxDelay;
   final int maxAttempts;
@@ -32,6 +39,7 @@ class OutboxWorker {
   Timer? _timer;
   bool _running = false;
   bool _paused = false;
+  bool _processing = false;
 
   void start() {
     if (_running) return;
@@ -73,26 +81,36 @@ class OutboxWorker {
   Future<void> _tick() async {
     if (!_running || _paused) return;
     try {
+      final processed = await processPending();
+      _scheduleNext(
+        processed
+            ? const Duration(milliseconds: 500)
+            : const Duration(seconds: 5),
+      );
+    } catch (e, st) {
+      AppLogger.error('OutboxWorker tick failed', error: e, stackTrace: st);
+      _scheduleNext(const Duration(seconds: 3));
+    }
+  }
+
+  /// Processes one batch of due rows. Returns whether any row was attempted.
+  Future<bool> processPending() async {
+    if (_processing || _paused) return false;
+    _processing = true;
+    try {
       final now = DateTime.now().millisecondsSinceEpoch;
       final pending = await (db.select(db.outbox)
             ..where((o) => o.nextRetryAt.isSmallerOrEqualValue(now))
             ..orderBy([(o) => OrderingTerm.asc(o.createdAt)])
             ..limit(20))
           .get();
-
-      if (pending.isEmpty) {
-        _scheduleNext(const Duration(seconds: 5));
-        return;
-      }
-
+      if (pending.isEmpty) return false;
       for (final row in pending) {
-        if (!_running) break;
         await _processRow(row);
       }
-      _scheduleNext(const Duration(milliseconds: 500));
-    } catch (e, st) {
-      AppLogger.error('OutboxWorker tick failed', error: e, stackTrace: st);
-      _scheduleNext(const Duration(seconds: 3));
+      return true;
+    } finally {
+      _processing = false;
     }
   }
 
@@ -110,14 +128,10 @@ class OutboxWorker {
     }
 
     try {
-      // Media upload would go here (resumable, chunked). For Phase 1 we focus on
-      // the state machine and backoff; the transport is wired via repo later.
-      // This simulates the pipeline shape.
       final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
       payload['__attempt'] = attempt;
+      if (transport != null) await transport!(payload);
 
-      // Placeholder: in real impl call supabase.insert(message).realtime gives sent/delivered/read.
-      // We mark sent here so the flow is testable deterministically.
       await (db.update(db.messages)..where((m) => m.id.equals(row.messageId)))
           .write(const MessagesCompanion(status: Value(1))); // sent
 
