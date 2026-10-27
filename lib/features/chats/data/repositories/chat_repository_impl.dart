@@ -806,6 +806,7 @@ class ChatRepositoryImpl implements ChatRepository {
             'body': row.body,
             'media': row.mediaJson,
             'visibility': row.visibility,
+            'location': row.location,
             'createdAt': row.createdAt.toUtc().toIso8601String(),
           },
       ],
@@ -1020,6 +1021,7 @@ class ChatRepositoryImpl implements ChatRepository {
           authorId: 'u2',
           authorName: 'Tigist Alemayehu',
           body: const Value('Morning coffee with the best view in Addis. ☕️'),
+          location: const Value('Bole, Addis Ababa'),
           likeCount: const Value(18),
           commentCount: const Value(4),
           createdAt: Value(now.subtract(const Duration(minutes: 12))),
@@ -1031,6 +1033,7 @@ class ChatRepositoryImpl implements ChatRepository {
           body: const Value(
             'Finally tried the new injera place near Bole. Highly recommended.',
           ),
+          location: const Value('Bole, Addis Ababa'),
           likeCount: const Value(9),
           commentCount: const Value(1),
           createdAt: Value(now.subtract(const Duration(hours: 2))),

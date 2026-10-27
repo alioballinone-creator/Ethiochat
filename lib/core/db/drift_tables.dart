@@ -143,6 +143,7 @@ class MomentsLocal extends Table {
   TextColumn get body => text().nullable()();
   TextColumn get mediaJson => text().nullable()();
   TextColumn get visibility => text().withDefault(const Constant('friends'))();
+  TextColumn get location => text().nullable()();
   IntColumn get likeCount => integer().withDefault(const Constant(0))();
   IntColumn get commentCount => integer().withDefault(const Constant(0))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();

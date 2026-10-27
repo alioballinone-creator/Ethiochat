@@ -338,6 +338,8 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
             likes: row.likeCount,
             comments: row.commentCount,
             isMine: row.authorId == 'me',
+            photos: row.mediaJson == null ? 0 : 1,
+            location: row.location,
           ),
     ];
     return Scaffold(

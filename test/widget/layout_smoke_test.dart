@@ -31,7 +31,6 @@ import 'package:ethiochat/features/discover/presentation/screens/official_accoun
 import 'package:ethiochat/features/discover/presentation/screens/official_accounts_screen.dart';
 import 'package:ethiochat/features/discover/presentation/screens/scan_screen.dart';
 import 'package:ethiochat/features/onboarding/presentation/screens/tips_screen.dart';
-import 'package:ethiochat/features/profile/presentation/screens/profile_screen.dart';
 import 'package:ethiochat/features/settings/presentation/screens/report_screen.dart';
 import 'package:ethiochat/features/settings/presentation/screens/settings_account_screen.dart';
 import 'package:ethiochat/features/settings/presentation/screens/settings_app_screens.dart';
@@ -88,7 +87,6 @@ final _screens = <_Screen>[
   _Screen('nearby', () => const NearbyScreen()),
   _Screen('scan', () => const ScanScreen()),
   _Screen('tips', () => const TipsScreen()),
-  _Screen('profile', () => const ProfileScreen()),
   _Screen('report', () => const ReportScreen(targetName: 'Abebe Kebede')),
   _Screen('account-security', () => const AccountSecurityScreen()),
   _Screen('notifications', () => const NotificationSettingsScreen()),
