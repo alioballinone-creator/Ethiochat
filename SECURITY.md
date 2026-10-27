@@ -2,7 +2,9 @@
 
 ## Roles and data access
 - Supabase RLS is enabled on every application table. Clients authenticate with
-  the `authenticated` role; the anon key alone grants no row access.
+  the `authenticated` role; the anon key alone grants no row access. Phone login
+  uses Supabase Auth OTP when the app is built with Supabase credentials; the
+  credential-free demo build accepts any six digits and must not be shipped.
 - Conversations are visible only to members. `send_message` is `SECURITY
   INVOKER` so restrictive message policies and blocking rules are always
   evaluated.
@@ -35,7 +37,9 @@
 - Soft-deleted messages are purged by a daily `pg_cron` job; red packets are
   refunded after expiry.
 - Contact discovery uploads only SHA-256 hashes of normalised phone numbers and
-  returns profile cards, never the matched phone numbers.
+  returns profile cards. Raw phone numbers and stored hashes are never returned.
+  A server pepper, endpoint rate limiting and abuse monitoring are required
+  before production use.
 
 ## Secrets and operations
 - The service-role key exists only as a Supabase Edge Function secret. Never

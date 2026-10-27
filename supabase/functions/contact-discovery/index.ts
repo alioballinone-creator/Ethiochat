@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
 
     const { data, error } = await adminClient()
       .from('profiles')
-      .select('id,ethio_id,display_name,avatar_url,phone_hash')
+      .select('id,ethio_id,display_name,avatar_url')
       .in('phone_hash', hashes)
       .neq('id', user.id)
       .is('deleted_at', null)
@@ -33,7 +33,6 @@ Deno.serve(async (req) => {
         ethioId: row.ethio_id,
         displayName: row.display_name,
         avatarUrl: row.avatar_url,
-        phoneHash: row.phone_hash,
       })),
     });
   } catch (error) {

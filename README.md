@@ -12,8 +12,9 @@ accounts, sync, row-level security, money RPCs and Edge Functions.
    credentials when available.
 3. `flutter pub get && dart run build_runner build --delete-conflicting-outputs`
 4. `make dev` for a connected device, or `flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...`.
-5. Backend: `supabase link --project-ref <ref> && supabase db push` and
-   `supabase functions deploy`.
+5. Backend: `supabase link --project-ref <ref> && supabase db push`, then deploy
+   the authenticated functions normally and `payment-webhook` with
+   `--no-verify-jwt` after setting `PAYMENT_WEBHOOK_SECRET`.
 
 The app opens in demo mode without Supabase credentials. Demo content is seeded
 into the local database on first launch.
@@ -23,7 +24,8 @@ into the local database on first launch.
 - Gold/cream design system, light/dark themes, five UI locales (`en`, `am`,
   `om`, `ti`, `so`). Framework strings fall back to English where Flutter has no
   Material translation.
-- Phone entry, OTP UI, profile setup, shell navigation, chats, groups, contacts,
+- Supabase phone OTP when `SUPABASE_URL`/`SUPABASE_ANON_KEY` are configured
+  (any six digits in demo mode), profile setup, shell navigation, chats, groups, contacts,
   requests, search, QR, moments, channels, official accounts, mini programs,
   nearby, scan, calls, report/block, onboarding and the full settings tree.
 - Offline-first Drift schema, outbox/backoff state machine, message status,
@@ -55,8 +57,9 @@ enabled on every application table.
 ## Status and known gaps
 
 The Flutter CI suite (format, analyze, unit/widget tests, release APK/AAB) is the
-merge gate. The backend migrations and functions are written but cannot be
-deployed in this environment because Supabase project credentials are absent.
+merge gate; all 400 tests and the release APK/AAB passed at `9899e7b`. The
+backend migrations and functions are written but cannot be deployed in this
+environment because Supabase project credentials are absent.
 Remaining production work:
 
 - Wire the outbox to Supabase realtime/delta sync and authenticated sessions.

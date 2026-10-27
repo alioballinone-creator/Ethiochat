@@ -82,8 +82,10 @@ be configured as a provider webhook with signature verification enabled.
 { "hashes": ["sha256-hex", "..."] }
 ```
 
-Accepts at most 500 hashes, returns matching profile cards and never raw phone
-numbers. The client must hash with a server-issued pepper before calling.
+Accepts at most 500 lowercase SHA-256 hashes of E.164 phone numbers (the same
+normalisation used for `profiles.phone_hash`) and returns only matching profile
+cards. Raw phone numbers and stored hashes are never returned. A server-issued
+pepper and endpoint-level rate limiting are required before production use.
 
 ## Required secrets
 

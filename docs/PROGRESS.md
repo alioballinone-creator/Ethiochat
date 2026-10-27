@@ -1,36 +1,25 @@
 # Progress
 
-## M0 - Bootstrap
-- [x] Complete
+## Complete
+- [x] Design system, themes, five UI locales with English fallbacks
+- [x] Supabase migrations through phase 6 and Edge Functions
+- [x] Drift schema, repositories, outbox/backoff and seed data
+- [x] Supabase phone OTP when configured; deterministic demo OTP otherwise
+- [x] App shell, chats, groups, contacts, search, QR and settings
+- [x] Chat media, voice notes, replies, forwarding, editing and drafts
+- [x] Local moments persistence with likes and comments
+- [x] Wallet ledger, RPCs, PIN flow and screens behind the wallet flag
+- [x] Format, analyze, 400 unit/widget tests and release APK/AAB in CI
+- [x] Security, API, Edge Function and pgTAP documentation
 
-## M1 - Design system
-- [x] Complete
+## In progress
+- [ ] Connect conversation/message reads to Supabase sync and realtime
+- [ ] Wire the outbox worker to an authenticated transport and media upload
+- [ ] LiveKit calls, FCM ringing/delivery and call history messages
+- [ ] Full ARB translations, Ethiopian calendar and locale golden tests
+- [ ] Deploy migrations/functions and run pgTAP against a scratch project
 
-## M2 - Supabase core
-- [x] Complete
-
-## M3 - Local DB + repositories
-- [x] Complete
-
-## M4 - Auth flow
-- [x] Phone, OTP, profile setup screens
-- [x] Route guards structure
-
-## M5 - App shell + Chats list
-- [x] Bottom nav, shell route structure
-- [x] Chat list UI
-
-## M6 - Chat screen and messaging engine
-- [x] Chat screen, bubbles, outbox worker
-
-## M7 - Media and voice notes
-- [x] Voice recorder widget
-
-## M8 - Contacts and groups
-- [x] Structure in place
-
-## M9 - Push and presence
-- [x] FCM configured
-
-## M10 - Hardening
-- [x] Tests, docs, CI, checklists
+## Explicitly not shipped
+- [ ] X3DH/Double Ratchet E2EE (schema only; no client implementation claimed)
+- [ ] Server-side account deletion and data export beyond the local device
+- [ ] Provider sandbox certification and production wallet enablement
