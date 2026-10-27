@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../../../core/config/env.dart';
 import '../../../../core/design/design.dart';
 
 class PhoneEntryScreen extends StatefulWidget {
@@ -11,6 +14,7 @@ class PhoneEntryScreen extends StatefulWidget {
 
 class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
   final _controller = TextEditingController();
+  bool _sending = false;
   bool get _isValid {
     final text = _controller.text.replaceAll(RegExp(r'[^0-9]'), '');
     return text.length == 9 && (text.startsWith('9') || text.startsWith('7'));
@@ -20,6 +24,41 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  String get _e164 {
+    final digits = _controller.text.replaceAll(RegExp(r'[^0-9]'), '');
+    return '+251$digits';
+  }
+
+  Future<void> _sendCode() async {
+    if (!_isValid || _sending) return;
+    setState(() => _sending = true);
+    try {
+      if (Env.hasSupabase) {
+        await Supabase.instance.client.auth.signInWithOtp(phone: _e164);
+      }
+      if (!mounted) return;
+      final destination = Uri(
+        path: '/auth/otp',
+        queryParameters: {'phone': _e164},
+      ).toString();
+      context.go(destination);
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not send the code. Check your connection.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
   @override
@@ -84,11 +123,8 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
               ),
               const Spacer(),
               EthioButton(
-                label: 'Send code',
-                onPressed: _isValid
-                    ? () => context.go(
-                        '/auth/otp?phone=+251${_controller.text.replaceAll(RegExp(r'[^0-9]'), '')}')
-                    : null,
+                label: _sending ? 'Sending…' : 'Send code',
+                onPressed: _isValid && !_sending ? _sendCode : null,
               ),
               const SizedBox(height: Sp.x4),
             ],

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/config/env.dart';
 import '../../../../core/design/design.dart';
 import '../../../profile/application/profile_controller.dart';
 
@@ -67,11 +69,14 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   Future<void> _save() async {
     if (!_valid || _saving) return;
     setState(() => _saving = true);
+    final name = _name.text.trim();
+    final bio = _bio.text.trim();
     await ref.read(userProfileProvider.notifier).save(
-          name: _name.text,
-          bio: _bio.text,
+          name: name,
+          bio: bio,
           avatarPath: _avatarPath,
         );
+    await _syncCloudProfile(name: name, bio: bio);
     if (!mounted) return;
     if (widget.isEditing) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -81,6 +86,23 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       return;
     }
     context.go('/chats');
+  }
+
+  Future<void> _syncCloudProfile({
+    required String name,
+    required String bio,
+  }) async {
+    if (!Env.hasSupabase) return;
+    try {
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
+      if (user == null) return;
+      await client
+          .from('profiles')
+          .update({'display_name': name, 'bio': bio}).eq('id', user.id);
+    } catch (_) {
+      // Local profile remains authoritative when the network is unavailable.
+    }
   }
 
   @override

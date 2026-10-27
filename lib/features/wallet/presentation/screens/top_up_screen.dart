@@ -108,18 +108,24 @@ class _TopUpScreenState extends ConsumerState<TopUpScreen> {
             const SizedBox(height: Sp.x2),
             _Card(
               children: [
-                for (var i = 0; i < _providers.length; i++)
-                  RadioListTile<String>(
-                    value: _providers[i],
-                    groupValue: _provider,
-                    onChanged: (value) =>
-                        setState(() => _provider = value ?? _provider),
-                    title: Text(_providers[i]),
-                    secondary: const EthioIconTile(
-                      icon: Icons.payments_outlined,
-                    ),
-                    activeColor: EthioColors.goldDeep,
+                RadioGroup<String>(
+                  groupValue: _provider,
+                  onChanged: (value) =>
+                      setState(() => _provider = value ?? _provider),
+                  child: Column(
+                    children: [
+                      for (final provider in _providers)
+                        RadioListTile<String>(
+                          value: provider,
+                          title: Text(provider),
+                          secondary: const EthioIconTile(
+                            icon: Icons.payments_outlined,
+                          ),
+                          activeColor: EthioColors.goldDeep,
+                        ),
+                    ],
                   ),
+                ),
               ],
             ),
             if (_error != null) ...[

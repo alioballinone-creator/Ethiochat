@@ -86,38 +86,42 @@ class _TipsScreenState extends State<TipsScreen> {
                   onPageChanged: (index) => setState(() => _index = index),
                   itemBuilder: (context, index) {
                     final item = _tips[index];
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 148,
-                          height: 148,
-                          decoration: BoxDecoration(
-                            color: EthioColors.gold.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            item.$1,
-                            size: 68,
-                            color: EthioColors.goldDeep,
-                          ),
+                    return Center(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 148,
+                              height: 148,
+                              decoration: BoxDecoration(
+                                color: EthioColors.gold.withValues(alpha: 0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                item.$1,
+                                size: 68,
+                                color: EthioColors.goldDeep,
+                              ),
+                            ),
+                            const SizedBox(height: Sp.x8),
+                            Text(
+                              item.$2,
+                              textAlign: TextAlign.center,
+                              style: text.headlineMedium,
+                            ),
+                            const SizedBox(height: Sp.x3),
+                            Text(
+                              item.$3,
+                              textAlign: TextAlign.center,
+                              style: text.bodyLarge?.copyWith(
+                                color: pal.textSecondary,
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: Sp.x8),
-                        Text(
-                          item.$2,
-                          textAlign: TextAlign.center,
-                          style: text.headlineMedium,
-                        ),
-                        const SizedBox(height: Sp.x3),
-                        Text(
-                          item.$3,
-                          textAlign: TextAlign.center,
-                          style: text.bodyLarge?.copyWith(
-                            color: pal.textSecondary,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
+                      ),
                     );
                   },
                 ),

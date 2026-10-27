@@ -90,23 +90,31 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
             children: [
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Sp.x2,
-                      vertical: 2,
+                  Expanded(
+                    child: Wrap(
+                      spacing: Sp.x2,
+                      runSpacing: Sp.x1,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Sp.x2,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: pal.chip,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(article.category, style: text.labelSmall),
+                        ),
+                        Text(
+                          article.date,
+                          style: text.labelSmall
+                              ?.copyWith(color: pal.textTertiary),
+                        ),
+                      ],
                     ),
-                    decoration: BoxDecoration(
-                      color: pal.chip,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(article.category, style: text.labelSmall),
                   ),
-                  const SizedBox(width: Sp.x2),
-                  Text(
-                    article.date,
-                    style: text.labelSmall?.copyWith(color: pal.textTertiary),
-                  ),
-                  const Spacer(),
                   IconButton(
                     tooltip: 'Smaller text',
                     onPressed: _fontStep <= -1

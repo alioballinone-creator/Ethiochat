@@ -114,12 +114,18 @@ class _OfficialAccountScreenState extends State<OfficialAccountScreen> {
             ),
             const SizedBox(height: Sp.x5),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Latest updates', style: text.titleMedium),
-                const Spacer(),
-                Text(
-                  '${account.followers} followers',
-                  style: text.labelSmall?.copyWith(color: pal.textSecondary),
+                Expanded(
+                  child: Text('Latest updates', style: text.titleMedium),
+                ),
+                const SizedBox(width: Sp.x2),
+                Flexible(
+                  child: Text(
+                    '${account.followers} followers',
+                    textAlign: TextAlign.end,
+                    style: text.labelSmall?.copyWith(color: pal.textSecondary),
+                  ),
                 ),
               ],
             ),
@@ -145,26 +151,32 @@ class _OfficialAccountScreenState extends State<OfficialAccountScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: Sp.x2,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: pal.chip,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  account.articles[i].category,
-                                  style: text.labelSmall,
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: Sp.x2,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: pal.chip,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    account.articles[i].category,
+                                    style: text.labelSmall,
+                                  ),
                                 ),
                               ),
-                              const Spacer(),
-                              Text(
-                                account.articles[i].date,
-                                style: text.labelSmall?.copyWith(
-                                  color: pal.textTertiary,
+                              const SizedBox(width: Sp.x2),
+                              Flexible(
+                                child: Text(
+                                  account.articles[i].date,
+                                  textAlign: TextAlign.end,
+                                  style: text.labelSmall?.copyWith(
+                                    color: pal.textTertiary,
+                                  ),
                                 ),
                               ),
                             ],

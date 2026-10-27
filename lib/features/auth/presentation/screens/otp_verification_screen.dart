@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
+
+import '../../../../core/config/env.dart';
 import '../../../../core/design/design.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
@@ -17,6 +20,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   int _seconds = 42;
   Timer? _timer;
+  bool _verifying = false;
+  bool _resending = false;
 
   @override
   void initState() {
@@ -40,22 +45,62 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
   bool get _complete => _code.length == 6;
 
-  void _verify() {
-    if (!_complete) return;
-    context.go('/auth/profile');
+  Future<void> _verify() async {
+    if (!_complete || _verifying) return;
+    setState(() => _verifying = true);
+    try {
+      if (Env.hasSupabase) {
+        await Supabase.instance.client.auth.verifyOTP(
+          type: OtpType.sms,
+          phone: widget.phone,
+          token: _code,
+        );
+      }
+      if (!mounted) return;
+      context.go('/auth/profile');
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not verify the code. Please try again.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _verifying = false);
+    }
   }
 
-  void _resend() {
-    setState(() => _seconds = 42);
-    _startTimer();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'A new code was sent to '
-          '${widget.phone.isEmpty ? 'your phone' : widget.phone}.',
+  Future<void> _resend() async {
+    if (_resending) return;
+    setState(() => _resending = true);
+    try {
+      if (Env.hasSupabase) {
+        await Supabase.instance.client.auth.signInWithOtp(phone: widget.phone);
+      }
+      if (!mounted) return;
+      setState(() => _seconds = 42);
+      _startTimer();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'A new code was sent to '
+            '${widget.phone.isEmpty ? 'your phone' : widget.phone}.',
+          ),
         ),
-      ),
-    );
+      );
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } finally {
+      if (mounted) setState(() => _resending = false);
+    }
   }
 
   @override
@@ -143,7 +188,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         }
                         setState(() {});
                         if (_complete) {
-                          _verify();
+                          unawaited(_verify());
                         }
                       },
                     ),
@@ -166,8 +211,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               ),
               const Spacer(),
               EthioButton(
-                label: 'Verify',
-                onPressed: _complete ? _verify : null,
+                label: _verifying ? 'Verifying…' : 'Verify',
+                onPressed: _complete && !_verifying ? _verify : null,
               ),
               const SizedBox(height: Sp.x4),
             ],
