@@ -2,6 +2,10 @@ name: Build AAB
 
 on:
   workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -19,34 +23,177 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
       - name: Generate code
-        run: dart run build_runner build --delete-conflicting-outputs || true
-      - name: Fix Gradle wrapper
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Verify committed Gradle wrapper
         run: |
-          cd android
-          rm -f gradle/wrapper/gradle-wrapper.jar gradlew gradlew.bat
-          curl -L -o gradle/wrapper/gradle-wrapper.jar https://github.com/gradle/gradle/raw/v7.6.4/gradle/wrapper/gradle-wrapper.jar
-          curl -L -o gradlew https://github.com/gradle/gradle/raw/v7.6.4/gradlew
-          curl -L -o gradlew.bat https://github.com/gradle/gradle/raw/v7.6.4/gradlew.bat
-          chmod +x gradlew
-      - name: Decode keystore
+          set -eu
+          test -f android/gradle/wrapper/gradle-wrapper.jar || { echo "::error::Missing committed Gradle wrapper JAR"; exit 1; }
+          test -f android/gradle/wrapper/gradle-wrapper.properties || { echo "::error::Missing Gradle wrapper properties"; exit 1; }
+          test -x android/gradlew || { echo "::error::Missing or non-executable committed Gradle wrapper script"; exit 1; }
+          test -f android/gradlew.bat || { echo "::error::Missing committed Windows Gradle wrapper script"; exit 1; }
+          printf '%s  %s\n' '2db75c40782f5e8ba1fc278a5574bab070adccb2d21ca5a6e5ed840888448046' 'android/gradle/wrapper/gradle-wrapper.jar' | sha256sum --check --status || {
+            echo "::error::Committed Gradle 8.11.1 wrapper JAR is invalid or has an unexpected checksum"
+            exit 1
+          }
+          unzip -tqq android/gradle/wrapper/gradle-wrapper.jar || {
+            echo "::error::Committed Gradle wrapper JAR is not a valid ZIP/JAR archive"
+            exit 1
+          }
+          grep -Fqx 'distributionUrl=https\://services.gradle.org/distributions/gradle-8.11.1-all.zip' android/gradle/wrapper/gradle-wrapper.properties || {
+            echo "::error::Gradle wrapper does not pin the expected 8.11.1 distribution"
+            exit 1
+          }
+          grep -Fqx 'distributionSha256Sum=89d4e70e4e84e2d2dfbb63e4daa53e21b25017cc70c37e4eea31ee51fb15098a' android/gradle/wrapper/gradle-wrapper.properties || {
+            echo "::error::Gradle wrapper distribution checksum is missing or unexpected"
+            exit 1
+          }
+          (cd android && ./gradlew --version)
+
+      - name: Validate release configuration
+        shell: bash
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          PLAY_UPLOAD_CERT_SHA256: ${{ vars.PLAY_UPLOAD_CERT_SHA256 }}
         run: |
-          test -n "$KEYSTORE_BASE64" || { echo "KEYSTORE_BASE64 is not configured"; exit 1; }
-          printf '%s' "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
-          test -s android/app/upload-keystore.jks
-      - name: Build AAB
+          set -euo pipefail
+          missing=0
+          require_value() {
+            local name="$1"
+            local value="$2"
+            if [[ -z "$value" ]]; then
+              echo "::error::$name is not configured"
+              missing=1
+            fi
+          }
+          require_value KEYSTORE_BASE64 "$KEYSTORE_BASE64"
+          require_value ANDROID_KEYSTORE_PASSWORD "$ANDROID_KEYSTORE_PASSWORD"
+          require_value ANDROID_KEY_ALIAS "$ANDROID_KEY_ALIAS"
+          require_value ANDROID_KEY_PASSWORD "$ANDROID_KEY_PASSWORD"
+          require_value SUPABASE_URL "$SUPABASE_URL"
+          require_value SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY"
+          require_value LIVEKIT_URL "$LIVEKIT_URL"
+          require_value FIREBASE_PROJECT_ID "$FIREBASE_PROJECT_ID"
+          require_value FIREBASE_APP_ID "$FIREBASE_APP_ID"
+          require_value FIREBASE_API_KEY "$FIREBASE_API_KEY"
+          require_value FIREBASE_MESSAGING_SENDER_ID "$FIREBASE_MESSAGING_SENDER_ID"
+          require_value PLAY_UPLOAD_CERT_SHA256 "$PLAY_UPLOAD_CERT_SHA256"
+          if (( missing != 0 )); then
+            exit 1
+          fi
+          expected_fingerprint="$(printf '%s' "$PLAY_UPLOAD_CERT_SHA256" | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')"
+          if [[ ! "$expected_fingerprint" =~ ^[A-F0-9]{64}$ ]]; then
+            echo "::error::PLAY_UPLOAD_CERT_SHA256 must contain a SHA-256 certificate fingerprint"
+            exit 1
+          fi
+
+      - name: Decode and validate upload keystore
+        shell: bash
         env:
-          KEYSTORE_FILE: ${{ github.workspace }}/android/app/upload-keystore.jks
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEYSTORE_FILE: ${{ runner.temp }}/upload-keystore.jks
+          PLAY_UPLOAD_CERT_SHA256: ${{ vars.PLAY_UPLOAD_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
+          test -s "$KEYSTORE_FILE" || {
+            echo "::error::Decoded upload keystore is empty"
+            exit 1
+          }
+          if ! keytool -list -keystore "$KEYSTORE_FILE" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then
+            echo "::error::Upload keystore is invalid or the configured alias/password does not match"
+            exit 1
+          fi
+          expected_fingerprint="$(printf '%s' "$PLAY_UPLOAD_CERT_SHA256" | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')"
+          keystore_fingerprint="$(
+            keytool -exportcert -rfc -keystore "$KEYSTORE_FILE" \
+              -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" |
+              openssl x509 -noout -fingerprint -sha256 |
+              cut -d= -f2 | tr -d ':' | tr '[:lower:]' '[:upper:]'
+          )"
+          if [[ "$keystore_fingerprint" != "$expected_fingerprint" ]]; then
+            echo "::error::Configured upload keystore does not match the Play Console upload certificate (expected SHA-256 $expected_fingerprint; keystore SHA-256 $keystore_fingerprint)"
+            exit 1
+          fi
+          echo "Upload keystore matches the configured Play Console upload certificate fingerprint."
+
+      - name: Build AAB
+        shell: bash
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/upload-keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: >-
-          flutter build appbundle --release --no-tree-shake-icons
-          --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
-          --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+        run: |
+          set -euo pipefail
+          flutter build appbundle --release --no-tree-shake-icons \
+            --dart-define="SUPABASE_URL=$SUPABASE_URL" \
+            --dart-define="SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" \
+            --dart-define="LIVEKIT_URL=$LIVEKIT_URL" \
+            --dart-define="FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID" \
+            --dart-define="FIREBASE_APP_ID=$FIREBASE_APP_ID" \
+            --dart-define="FIREBASE_API_KEY=$FIREBASE_API_KEY" \
+            --dart-define="FIREBASE_MESSAGING_SENDER_ID=$FIREBASE_MESSAGING_SENDER_ID" \
+            --dart-define="FIREBASE_STORAGE_BUCKET=$FIREBASE_STORAGE_BUCKET"
+
+      - name: Verify release signature
+        shell: bash
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/upload-keystore.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          PLAY_UPLOAD_CERT_SHA256: ${{ vars.PLAY_UPLOAD_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          aab="build/app/outputs/bundle/release/app-release.aab"
+          test -s "$aab" || {
+            echo "::error::Release AAB is missing or empty"
+            exit 1
+          }
+          jarsigner -verify -strict -certs "$aab"
+          expected_fingerprint="$(printf '%s' "$PLAY_UPLOAD_CERT_SHA256" | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')"
+          aab_fingerprint="$(
+            keytool -printcert -jarfile "$aab" |
+              awk '/SHA256:/{gsub(/:/, "", $2); print toupper($2); exit}'
+          )"
+          if [[ -z "$aab_fingerprint" || "$aab_fingerprint" != "$expected_fingerprint" ]]; then
+            echo "::error::AAB signer does not match the Play Console upload certificate (expected SHA-256 $expected_fingerprint; AAB SHA-256 ${aab_fingerprint:-unavailable})"
+            exit 1
+          fi
+          echo "AAB is signed with the configured Play Console upload certificate."
+
       - name: Upload AAB
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+      - name: Remove temporary signing files
+        if: always()
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/upload-keystore.jks
+        run: rm -f -- "$KEYSTORE_FILE"

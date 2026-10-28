@@ -2,7 +2,7 @@ name: EthioChat CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, audit-production-readiness]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -27,9 +27,13 @@ jobs:
       - name: Format check
         run: dart format --output=none .
       - name: Analyze
-        run: flutter analyze --no-fatal-infos
+        run: flutter analyze
       - name: Test
+        id: full-tests
         timeout-minutes: 20
-        run: flutter test --reporter expanded --timeout 60s
+        run: flutter test --reporter expanded
+      - name: Isolated DesignGallery golden test
+        if: always() && (success() || steps.full-tests.outcome == 'failure')
+        run: flutter test test/golden/design_gallery_golden_test.dart
       - name: Check APK size
         run: echo "APK size check configured"

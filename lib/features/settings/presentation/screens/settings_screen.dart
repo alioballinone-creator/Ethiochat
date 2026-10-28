@@ -5,7 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/config/feature_flags.dart';
 import '../../../../core/design/design.dart';
 import '../../../../core/settings/app_settings.dart';
-import '../../../profile/application/profile_controller.dart';
+import '../../../auth/application/auth_providers.dart';
+import '../../../auth/application/session_cleanup.dart';
 
 /// Settings — grouped cards on the cream wallpaper.
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -115,8 +116,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Sign out?'),
         content: const Text(
-          'Your chats stay on this device. You can sign back in with your '
-          'phone number.',
+          'This signs you out and removes this account\'s chats, profile, '
+          'preferences and encryption keys from this device. Sign back in with '
+          'your phone number to restore them from the server.',
         ),
         actions: [
           TextButton(
@@ -134,8 +136,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    await ref.read(userProfileProvider.notifier).clear();
+    final signOutResult = await ref.read(authRepositoryProvider).signOut();
     if (!mounted) return;
+    final localFailure = await clearLocalAccountState(ref);
+    if (!mounted) return;
+    final failure = localFailure ?? signOutResult.failureOrNull;
+    if (failure != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Signed out, but some local account data could not be cleared: '
+            '${failure.message}',
+          ),
+        ),
+      );
+    }
     context.go('/welcome');
   }
 

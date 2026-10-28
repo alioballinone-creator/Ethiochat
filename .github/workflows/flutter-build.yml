@@ -5,80 +5,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
-concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.35.4'
-          channel: 'stable'
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Generate code
-        run: dart run build_runner build --delete-conflicting-outputs
-
-      - name: Fix Gradle wrapper
-        run: |
-          cd android
-          rm -f gradle/wrapper/gradle-wrapper.jar gradlew gradlew.bat
-          curl -L -o gradle/wrapper/gradle-wrapper.jar https://github.com/gradle/gradle/raw/v7.6.4/gradle/wrapper/gradle-wrapper.jar
-          curl -L -o gradlew https://github.com/gradle/gradle/raw/v7.6.4/gradlew
-          curl -L -o gradlew.bat https://github.com/gradle/gradle/raw/v7.6.4/gradlew.bat
-          chmod +x gradlew
-          ls -lh gradle/wrapper/gradle-wrapper.jar gradlew
-
-      - name: Build APK (release)
-        run: flutter build apk --release --no-tree-shake-icons
-
-      - name: Build AAB (release)
-        run: flutter build appbundle --release --no-tree-shake-icons
-
-      - name: List build outputs
-        if: always()
-        run: |
-          echo "=== APK ==="
-          find build/app/outputs/flutter-apk -type f 2>&1 | head -10
-          echo "=== AAB ==="
-          find build/app/outputs/bundle -type f 2>&1 | head -10
-
-      - name: Upload AAB
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ethiochat-aab
-          path: build/app/outputs/bundle/release/app-release.aab
-          if-no-files-found: warn
-
-      - name: Upload APK
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ethiochat-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: warn
-
-      - name: Upload APK split per ABI (if exists)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ethiochat-apk-splits
-          path: build/app/outputs/flutter-apk/*-release.apk
-          if-no-files-found: ignore
+  release-aab:
+    uses: ./.github/workflows/build-aab.yml
+    secrets: inherit

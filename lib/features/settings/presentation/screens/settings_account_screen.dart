@@ -1,60 +1,17 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/config/feature_flags.dart';
 import '../../../../core/design/design.dart';
-import '../../../../core/settings/app_settings.dart';
+import '../../../auth/application/auth_providers.dart';
 import '../../../profile/application/profile_controller.dart';
 
 class AccountSecurityScreen extends ConsumerWidget {
   const AccountSecurityScreen({super.key});
 
-  Future<void> _setTwoStep(
-    BuildContext context,
-    WidgetRef ref,
-    bool value,
-  ) async {
-    if (value) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Turn on two-step verification?'),
-          content: const Text(
-            'You will enter a 6-digit code from your phone when signing in on '
-            'a new device. Keep your phone number up to date.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Not now'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Turn on'),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true || !context.mounted) return;
-    }
-    final settings = ref.read(appSettingsProvider);
-    await ref.read(appSettingsProvider.notifier).update(
-          settings.copyWith(twoStepVerification: value),
-        );
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          value
-              ? 'Two-step verification is on.'
-              : 'Two-step verification is off.',
-        ),
-      ),
-    );
-  }
-
-  Future<void> _endSessions(BuildContext context) async {
+  Future<void> _endSessions(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -75,11 +32,20 @@ class AccountSecurityScreen extends ConsumerWidget {
         ],
       ),
     );
-    if (confirmed == true && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('All other devices were signed out.')),
-      );
-    }
+    if (confirmed != true || !context.mounted) return;
+    final result =
+        await ref.read(authRepositoryProvider).signOut(othersOnly: true);
+    if (!context.mounted) return;
+    final failure = result.failureOrNull;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          failure == null
+              ? 'All other devices were signed out.'
+              : 'Could not sign out other devices: ${failure.message}',
+        ),
+      ),
+    );
   }
 
   @override
@@ -87,7 +53,11 @@ class AccountSecurityScreen extends ConsumerWidget {
     final pal = EthioPalette.of(context);
     final text = Theme.of(context).textTheme;
     final profile = ref.watch(userProfileProvider);
-    final settings = ref.watch(appSettingsProvider);
+    final platform = defaultTargetPlatform == TargetPlatform.iOS
+        ? 'iOS'
+        : defaultTargetPlatform == TargetPlatform.android
+            ? 'Android'
+            : 'this platform';
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -107,7 +77,6 @@ class AccountSecurityScreen extends ConsumerWidget {
                   title: 'Phone number',
                   subtitle:
                       profile.phone.isEmpty ? 'Not linked yet' : profile.phone,
-                  onTap: () => context.push('/auth/phone'),
                 ),
                 EthioNavRow(
                   icon: Icons.badge_outlined,
@@ -123,10 +92,10 @@ class AccountSecurityScreen extends ConsumerWidget {
               children: [
                 EthioSwitchRow(
                   icon: Icons.verified_user_outlined,
-                  title: 'Two-step verification',
-                  subtitle: 'Ask for a code on new devices',
-                  value: settings.twoStepVerification,
-                  onChanged: (value) => _setTwoStep(context, ref, value),
+                  title: 'Phone verification',
+                  subtitle: 'Required for every sign-in',
+                  value: true,
+                  onChanged: null,
                   last: true,
                 ),
               ],
@@ -145,7 +114,7 @@ class AccountSecurityScreen extends ConsumerWidget {
                   ),
                   title: Text('This device', style: text.titleMedium),
                   subtitle: Text(
-                    'Active now · Android',
+                    'Active now · $platform',
                     style: text.labelSmall?.copyWith(color: pal.textSecondary),
                   ),
                   trailing: Container(
@@ -168,7 +137,7 @@ class AccountSecurityScreen extends ConsumerWidget {
                   icon: Icons.devices_other_rounded,
                   title: 'Sign out other devices',
                   subtitle: 'End every other active session',
-                  onTap: () => _endSessions(context),
+                  onTap: () => _endSessions(context, ref),
                   last: true,
                 ),
               ],
@@ -202,12 +171,10 @@ class AccountSecurityScreen extends ConsumerWidget {
                     context: context,
                     builder: (dialogContext) => AlertDialog(
                       title: const Text('Security checkup'),
-                      content: Text(
-                        settings.twoStepVerification
-                            ? 'Your account is in good shape. Two-step '
-                                'verification is on and your phone is linked.'
-                            : 'Turn on two-step verification and review your '
-                                'privacy settings to protect your account.',
+                      content: const Text(
+                        'Your account signs in with a phone one-time code. '
+                        'Review your privacy settings and sign out unused '
+                        'devices regularly.',
                       ),
                       actions: [
                         TextButton(

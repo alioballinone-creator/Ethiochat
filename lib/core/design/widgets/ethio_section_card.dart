@@ -96,7 +96,7 @@ class EthioNavRow extends StatelessWidget {
     super.key,
     required this.icon,
     required this.title,
-    required this.onTap,
+    this.onTap,
     this.subtitle,
     this.trailing,
     this.last = false,
@@ -106,7 +106,7 @@ class EthioNavRow extends StatelessWidget {
   final IconData icon;
   final String title;
   final String? subtitle;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Widget? trailing;
   final bool last;
   final bool enabled;
@@ -165,7 +165,7 @@ class EthioSwitchRow extends StatelessWidget {
   final String title;
   final String? subtitle;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
   final bool last;
 
   @override

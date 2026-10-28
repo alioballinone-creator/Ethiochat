@@ -1,24 +1,35 @@
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
+import 'dart:math' as math;
 
-import '../../../../core/config/env.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../../core/design/design.dart';
+import '../../../profile/application/profile_controller.dart';
+import '../../application/auth_providers.dart';
 
-class OtpVerificationScreen extends StatefulWidget {
-  final String phone;
+class OtpVerificationScreen extends ConsumerStatefulWidget {
   const OtpVerificationScreen({super.key, required this.phone});
 
+  final String phone;
+
   @override
-  State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
+  ConsumerState<OtpVerificationScreen> createState() =>
+      _OtpVerificationScreenState();
 }
 
-class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
+class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
+  static const _maxAttempts = 5;
+  static const _cooldownSeconds = 60;
+  static const _lockout = Duration(minutes: 2);
+
   final List<TextEditingController> _controllers =
       List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
-  int _seconds = 42;
+  int _seconds = _cooldownSeconds;
+  DateTime? _lockedUntil;
+  int _failedAttempts = 0;
   Timer? _timer;
   bool _verifying = false;
   bool _resending = false;
@@ -31,76 +42,125 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
   void _startTimer() {
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      if (_seconds > 0) {
-        setState(() => _seconds--);
-      } else {
-        timer.cancel();
-      }
+      final wasLocked = _lockedUntil != null;
+      if (wasLocked && !_isLocked) _lockedUntil = null;
+      if (_seconds > 0) _seconds--;
+      if (_seconds > 0 || wasLocked || _isLocked) setState(() {});
     });
+  }
+
+  bool get _isLocked {
+    final until = _lockedUntil;
+    return until != null && DateTime.now().isBefore(until);
+  }
+
+  int get _lockRemaining {
+    final until = _lockedUntil;
+    if (until == null) return 0;
+    return math.max(0, until.difference(DateTime.now()).inSeconds);
   }
 
   String get _code => _controllers.map((c) => c.text).join();
 
   bool get _complete => _code.length == 6;
 
-  Future<void> _verify() async {
-    if (!_complete || _verifying) return;
-    setState(() => _verifying = true);
-    try {
-      if (Env.hasSupabase) {
-        await Supabase.instance.client.auth.verifyOTP(
-          type: OtpType.sms,
-          phone: widget.phone,
-          token: _code,
-        );
-      }
-      if (!mounted) return;
-      context.go('/auth/profile');
-    } on AuthException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not verify the code. Please try again.'),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _verifying = false);
+  void _recordFailedAttempt(String message) {
+    _failedAttempts++;
+    if (_failedAttempts >= _maxAttempts) {
+      _lockedUntil = DateTime.now().add(_lockout);
     }
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _isLocked
+              ? 'Too many incorrect attempts. Try again in '
+                  '${_lockout.inMinutes} minutes.'
+              : message,
+        ),
+      ),
+    );
   }
 
-  Future<void> _resend() async {
-    if (_resending) return;
-    setState(() => _resending = true);
-    try {
-      if (Env.hasSupabase) {
-        await Supabase.instance.client.auth.signInWithOtp(phone: widget.phone);
-      }
+  Future<void> _verify() async {
+    if (!_complete || _verifying || _isLocked) return;
+    setState(() => _verifying = true);
+    final result =
+        await ref.read(authRepositoryProvider).verifyOtp(widget.phone, _code);
+    if (!mounted) return;
+    setState(() => _verifying = false);
+
+    final failure = result.failureOrNull;
+    if (failure != null) {
+      _recordFailedAttempt(failure.message);
+      return;
+    }
+
+    final profileResult = await ref.read(authRepositoryProvider).fetchProfile();
+    if (!mounted) return;
+    final profile = ref.read(userProfileProvider);
+    final remote = profileResult.valueOrNull;
+    if (remote != null && remote.isComplete) {
+      await ref.read(userProfileProvider.notifier).save(
+            name: remote.displayName,
+            bio: remote.bio,
+            phone: widget.phone,
+            avatarPath: remote.avatarUrl ?? profile.avatarPath,
+          );
       if (!mounted) return;
-      setState(() => _seconds = 42);
-      _startTimer();
+      context.go('/chats');
+      return;
+    }
+
+    await ref.read(userProfileProvider.notifier).save(
+          name: profile.name,
+          bio: profile.bio,
+          phone: widget.phone,
+          avatarPath: profile.avatarPath,
+        );
+    if (!mounted) return;
+    if (profileResult.failureOrNull != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'A new code was sent to '
-            '${widget.phone.isEmpty ? 'your phone' : widget.phone}.',
+            'Signed in, but your profile could not be loaded: '
+            '${profileResult.failureOrNull!.message}',
           ),
         ),
       );
-    } on AuthException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
-    } finally {
-      if (mounted) setState(() => _resending = false);
     }
+    context.go('/auth/profile');
+  }
+
+  Future<void> _resend() async {
+    if (_resending || _seconds > 0 || _isLocked) return;
+    setState(() => _resending = true);
+    final result = await ref.read(authRepositoryProvider).sendOtp(widget.phone);
+    if (!mounted) return;
+    setState(() => _resending = false);
+    final failure = result.failureOrNull;
+    if (failure != null) {
+      setState(() => _seconds = 5);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failure.message)),
+      );
+      return;
+    }
+    setState(() {
+      _seconds = _cooldownSeconds;
+      _failedAttempts = 0;
+      _lockedUntil = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'A new code was sent to '
+          '${widget.phone.isEmpty ? 'your phone' : widget.phone}.',
+        ),
+      ),
+    );
   }
 
   @override
@@ -118,6 +178,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
+    final locked = _isLocked;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -149,6 +210,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       fontWeight: FontWeight.w600,
                     ),
               ),
+              const SizedBox(height: Sp.x2),
+              Text(
+                'Codes expire after a few minutes.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: pal.textSecondary,
+                    ),
+              ),
               const SizedBox(height: Sp.x8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -159,6 +227,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     child: TextField(
                       controller: _controllers[index],
                       focusNode: _focusNodes[index],
+                      enabled: !locked && !_verifying,
                       textAlign: TextAlign.center,
                       keyboardType: TextInputType.number,
                       maxLength: 1,
@@ -197,22 +266,38 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               ),
               const SizedBox(height: Sp.x6),
               Center(
-                child: _seconds > 0
+                child: locked
                     ? Text(
-                        'Resend in 0:${_seconds.toString().padLeft(2, '0')}',
+                        'Try again in '
+                        '${_lockRemaining ~/ 60}:'
+                        '${(_lockRemaining % 60).toString().padLeft(2, '0')}',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: pal.textSecondary,
+                              color: EthioColors.danger,
                             ),
                       )
-                    : TextButton(
-                        onPressed: _resend,
-                        child: const Text('Resend code'),
-                      ),
+                    : _seconds > 0
+                        ? Text(
+                            'Resend in '
+                            '${_seconds ~/ 60}:'
+                            '${(_seconds % 60).toString().padLeft(2, '0')}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: pal.textSecondary,
+                                ),
+                          )
+                        : TextButton(
+                            onPressed: _resending ? null : _resend,
+                            child: Text(
+                              _resending ? 'Sending…' : 'Resend code',
+                            ),
+                          ),
               ),
               const Spacer(),
               EthioButton(
                 label: _verifying ? 'Verifying…' : 'Verify',
-                onPressed: _complete && !_verifying ? _verify : null,
+                onPressed: _complete && !_verifying && !locked ? _verify : null,
               ),
               const SizedBox(height: Sp.x4),
             ],

@@ -65,6 +65,10 @@ class ChatSyncController {
     _service = service;
     source.subscribe(
       onMessage: (message) => unawaited(_onRealtimeMessage(message)),
+      onMessageUpdated: (message) => unawaited(
+        _onRealtimeMessage(message, incrementUnread: false),
+      ),
+      onReceipt: (receipt) => unawaited(_onRealtimeReceipt(receipt)),
       onConversation: (_) => _scheduleResync(),
       onError: (error, stackTrace) => AppLogger.warn(
         'Chat realtime subscription failed',
@@ -130,11 +134,17 @@ class ChatSyncController {
     }
   }
 
-  Future<void> _onRealtimeMessage(RemoteMessage message) async {
+  Future<void> _onRealtimeMessage(
+    RemoteMessage message, {
+    bool incrementUnread = true,
+  }) async {
     final service = _service;
     if (service == null || _disposed) return;
     try {
-      final imported = await service.importMessage(message);
+      final imported = await service.importMessage(
+        message,
+        incrementUnread: incrementUnread,
+      );
       if (!imported) await _runSync();
     } catch (error, stackTrace) {
       AppLogger.warn(
@@ -143,6 +153,28 @@ class ChatSyncController {
         stackTrace: stackTrace,
       );
       _scheduleRetry();
+    }
+  }
+
+  /// Fetches one older remote page for [conversationId]. Returns 0 when there
+  /// is no authenticated backend or the conversation has no older history.
+  Future<int> loadOlder(String conversationId) async {
+    final service = _service;
+    if (service == null || _disposed) return 0;
+    return service.syncOlder(conversationId);
+  }
+
+  Future<void> _onRealtimeReceipt(RemoteReceipt receipt) async {
+    final service = _service;
+    if (service == null || _disposed) return;
+    try {
+      await service.importReceipt(receipt);
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'Could not import realtime message receipt',
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
   }
 

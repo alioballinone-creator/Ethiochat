@@ -17,6 +17,7 @@ import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/design/design.dart';
+import '../../../../core/providers/app_providers.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../../chats/application/chat_providers.dart';
 import '../../../chats/domain/entities/conversation_entity.dart';
@@ -42,6 +43,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   entity.MessageEntity? _replyingTo;
   bool _atBottom = true;
   int _unseen = 0;
+  bool _loadingOlder = false;
+  bool _historyExhausted = false;
   Timer? _draftTimer;
 
   bool get _hasText => _composer.text.trim().isNotEmpty;
@@ -111,6 +114,44 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         if (atBottom) _unseen = 0;
       });
     }
+    if (_scroll.position.pixels < 120 &&
+        !_loadingOlder &&
+        !_historyExhausted) {
+      unawaited(_loadOlder());
+    }
+  }
+
+  Future<void> _loadOlder() async {
+    if (_loadingOlder || _historyExhausted) return;
+    final controller = ref.read(chatSyncProvider);
+    if (controller == null) {
+      _historyExhausted = true;
+      return;
+    }
+    setState(() => _loadingOlder = true);
+    final beforeExtent = _scroll.hasClients
+        ? _scroll.position.maxScrollExtent
+        : 0.0;
+    final beforeOffset = _scroll.hasClients ? _scroll.position.pixels : 0.0;
+    try {
+      final imported = await controller.loadOlder(widget.chatId);
+      if (imported == 0) _historyExhausted = true;
+      if (!mounted) return;
+      if (imported > 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_scroll.hasClients) return;
+          final grown = _scroll.position.maxScrollExtent - beforeExtent;
+          // Keep the previously visible message anchored instead of jumping
+          // to the newly prepended history.
+          _scroll.jumpTo(beforeOffset + grown);
+        });
+      }
+    } catch (_) {
+      // Retry after the next reconnect rather than looping on every scroll.
+      _historyExhausted = true;
+    } finally {
+      if (mounted) setState(() => _loadingOlder = false);
+    }
   }
 
   Future<void> _bootstrap() async {
@@ -179,15 +220,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   Future<void> _startCall({required bool video}) async {
     final route = '/call/${widget.chatId}${video ? '?video=true' : ''}';
-    final outcome = await context.push<String>(route);
-    if (!mounted || outcome == null || outcome.isEmpty) return;
-    final result = await ref.read(chatRepositoryProvider).sendMessage(
-          conversationId: widget.chatId,
-          type: entity.MessageType.system,
-          body: outcome,
-        );
-    if (!mounted) return;
-    if (result.failureOrNull case final failure?) _feedback(failure.message);
+    // The server records the call outcome as a system message when the call
+    // ends, so it is visible to every participant and device.
+    await context.push<void>(route);
   }
 
   String _messagePreview(entity.MessageEntity message) {

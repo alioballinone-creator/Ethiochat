@@ -12,30 +12,29 @@ import 'package:ethiochat/features/chat/presentation/screens/chat_info_screen.da
 import 'package:ethiochat/features/chat/presentation/screens/chat_list_screen.dart';
 import 'package:ethiochat/features/chat/presentation/screens/new_chat_screen.dart';
 import 'package:ethiochat/features/chat/presentation/screens/new_group_screen.dart';
-import 'package:ethiochat/features/contacts/presentation/screens/contacts_screen.dart';
-import 'package:ethiochat/features/discover/presentation/screens/discover_screen.dart';
-import 'package:ethiochat/features/moments/presentation/screens/moments_feed_screen.dart';
-import 'package:ethiochat/features/profile/presentation/screens/me_screen.dart';
-import 'package:ethiochat/features/profile/presentation/screens/my_qr_screen.dart';
-import 'package:ethiochat/features/search/presentation/screens/search_screen.dart';
-import 'package:ethiochat/features/settings/presentation/screens/settings_screen.dart';
-import 'package:ethiochat/features/wallet/presentation/screens/wallet_screen.dart';
 import 'package:ethiochat/features/chat/presentation/screens/group_info_screen.dart';
 import 'package:ethiochat/features/contacts/presentation/screens/contact_requests_screen.dart';
+import 'package:ethiochat/features/contacts/presentation/screens/contacts_screen.dart';
 import 'package:ethiochat/features/discover/presentation/screens/article_reader_screen.dart';
 import 'package:ethiochat/features/discover/presentation/screens/channel_detail_screen.dart';
 import 'package:ethiochat/features/discover/presentation/screens/channels_screen.dart';
+import 'package:ethiochat/features/discover/presentation/screens/discover_screen.dart';
 import 'package:ethiochat/features/discover/presentation/screens/mini_program_screen.dart';
 import 'package:ethiochat/features/discover/presentation/screens/nearby_screen.dart';
 import 'package:ethiochat/features/discover/presentation/screens/official_account_screen.dart';
 import 'package:ethiochat/features/discover/presentation/screens/official_accounts_screen.dart';
 import 'package:ethiochat/features/discover/presentation/screens/scan_screen.dart';
+import 'package:ethiochat/features/moments/presentation/screens/moments_feed_screen.dart';
 import 'package:ethiochat/features/onboarding/presentation/screens/tips_screen.dart';
-import 'package:ethiochat/features/settings/presentation/screens/report_screen.dart';
+import 'package:ethiochat/features/profile/presentation/screens/me_screen.dart';
+import 'package:ethiochat/features/profile/presentation/screens/my_qr_screen.dart';
+import 'package:ethiochat/features/search/presentation/screens/search_screen.dart';
 import 'package:ethiochat/features/settings/presentation/screens/settings_account_screen.dart';
+import 'package:ethiochat/features/settings/presentation/screens/report_screen.dart';
 import 'package:ethiochat/features/settings/presentation/screens/settings_app_screens.dart';
 import 'package:ethiochat/features/settings/presentation/screens/settings_help_screen.dart';
 import 'package:ethiochat/features/settings/presentation/screens/settings_privacy_screen.dart';
+import 'package:ethiochat/features/settings/presentation/screens/settings_screen.dart';
 import 'package:ethiochat/features/wallet/presentation/screens/bills_screen.dart';
 import 'package:ethiochat/features/wallet/presentation/screens/receive_money_screen.dart';
 import 'package:ethiochat/features/wallet/presentation/screens/red_packet_screen.dart';
@@ -44,6 +43,7 @@ import 'package:ethiochat/features/wallet/presentation/screens/top_up_screen.dar
 import 'package:ethiochat/features/wallet/presentation/screens/transactions_screen.dart';
 import 'package:ethiochat/features/wallet/presentation/screens/wallet_pin_screen.dart';
 import 'package:ethiochat/features/wallet/presentation/screens/wallet_receipt_screen.dart';
+import 'package:ethiochat/features/wallet/presentation/screens/wallet_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -81,8 +81,10 @@ final _screens = <_Screen>[
   _Screen('channel-detail', () => const ChannelDetailScreen(channelId: '')),
   _Screen('official-accounts', () => const OfficialAccountsScreen()),
   _Screen('official-account', () => const OfficialAccountScreen(accountId: '')),
-  _Screen('article-reader',
-      () => const ArticleReaderScreen(accountId: '', articleIndex: 0)),
+  _Screen(
+    'article-reader',
+    () => const ArticleReaderScreen(accountId: '', articleIndex: 0),
+  ),
   _Screen('mini-program', () => const MiniProgramScreen(programId: '')),
   _Screen('nearby', () => const NearbyScreen()),
   _Screen('scan', () => const ScanScreen()),
@@ -153,32 +155,34 @@ void main() {
         final mode = brightness == Brightness.light ? 'light' : 'dark';
         group('${entry.key} · ${scale}x · $mode', () {
           for (final screen in _screens) {
-            testWidgets('${screen.name} lays out without overflow',
-                (tester) async {
-              await _pumpScreen(
-                tester,
-                child: screen.builder(),
-                size: entry.value,
-                textScale: scale,
-                brightness: brightness,
-              );
+            testWidgets(
+              '${screen.name} lays out without overflow',
+              (tester) async {
+                await _pumpScreen(
+                  tester,
+                  child: screen.builder(),
+                  size: entry.value,
+                  textScale: scale,
+                  brightness: brightness,
+                );
 
-              expect(
-                tester.takeException(),
-                isNull,
-                reason:
-                    '${screen.name} threw while laying out at ${entry.key}, '
-                    'text scale ${scale}x, $mode',
-              );
+                expect(
+                  tester.takeException(),
+                  isNull,
+                  reason:
+                      '${screen.name} threw while laying out at ${entry.key}, '
+                      'text scale ${scale}x, $mode',
+                );
 
-              // Dispose the screen so timers and controllers are released.
-              // Drift schedules a zero-duration timer when a query stream is
-              // cancelled; pump a few frames so it cannot outlive the test.
-              await tester.pumpWidget(const SizedBox.shrink());
-              await tester.pump(const Duration(milliseconds: 1));
-              await tester.pump(const Duration(milliseconds: 1));
-              expect(tester.takeException(), isNull);
-            });
+                // Dispose the screen so timers and controllers are released.
+                // Drift schedules a zero-duration timer when a query stream is
+                // cancelled; pump a few frames so it cannot outlive the test.
+                await tester.pumpWidget(const SizedBox.shrink());
+                await tester.pump(const Duration(milliseconds: 1));
+                await tester.pump(const Duration(milliseconds: 1));
+                expect(tester.takeException(), isNull);
+              },
+            );
           }
         });
       }

@@ -1,13 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/config/env.dart';
 import 'core/design/design.dart';
 import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
+import 'core/screens/backend_configuration_screen.dart';
 import 'core/settings/app_settings.dart';
 
 class EthioChatApp extends ConsumerStatefulWidget {
@@ -21,6 +26,19 @@ class _EthioChatAppState extends ConsumerState<EthioChatApp> {
   late final GoRouter _router = AppRouter.createRouter();
 
   @override
+  void initState() {
+    super.initState();
+    unawaited(
+      ref.read(pushNotificationServiceProvider).start(
+        onOpen: (location) {
+          if (!mounted) return;
+          _router.go(location);
+        },
+      ),
+    );
+  }
+
+  @override
   void dispose() {
     _router.dispose();
     super.dispose();
@@ -28,6 +46,17 @@ class _EthioChatAppState extends ConsumerState<EthioChatApp> {
 
   @override
   Widget build(BuildContext context) {
+    // Never ship a release build that silently falls back to demo accounts.
+    if (kReleaseMode && !Env.hasSupabase) {
+      return MaterialApp(
+        title: 'EthioChat',
+        debugShowCheckedModeBanner: false,
+        theme: buildEthioTheme(Brightness.light),
+        darkTheme: buildEthioTheme(Brightness.dark),
+        home: const BackendConfigurationScreen(),
+      );
+    }
+
     // Keep background delivery and remote sync alive for the app lifecycle.
     ref.watch(outboxWorkerProvider);
     ref.watch(chatSyncProvider);

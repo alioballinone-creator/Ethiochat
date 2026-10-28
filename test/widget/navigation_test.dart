@@ -181,7 +181,9 @@ void main() {
     await tester.tap(find.byTooltip('Video call'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.textContaining('Video call'), findsWidgets);
+    // Without backend configuration the call screen must stay honest and
+    // offer an end action instead of fabricating a connected call.
+    expect(find.text('End'), findsOneWidget);
     await tester.tap(find.text('End'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));

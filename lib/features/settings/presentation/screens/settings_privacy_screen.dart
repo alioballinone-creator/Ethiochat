@@ -1,18 +1,20 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/config/env.dart';
-
 import '../../../../core/design/design.dart';
 import '../../../../core/settings/app_settings.dart';
+import '../../../auth/application/auth_providers.dart';
+import '../../../auth/application/session_cleanup.dart';
 import '../../../chats/application/chat_providers.dart';
 import '../../../contacts/domain/entities/contact_entity.dart';
-import '../../../profile/application/profile_controller.dart';
 
 class PrivacySettingsScreen extends ConsumerWidget {
   const PrivacySettingsScreen({super.key});
@@ -64,25 +66,69 @@ class PrivacySettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _exportData(BuildContext context, WidgetRef ref) async {
-    final data = await ref.read(chatRepositoryProvider).exportData();
-    final json = const JsonEncoder.withIndent('  ').convert(data);
-    await Clipboard.setData(ClipboardData(text: json));
+    final local = await ref.read(chatRepositoryProvider).exportData();
     if (!context.mounted) return;
+
+    Map<String, dynamic>? server;
+    if (Env.hasSupabase) {
+      final result = await ref.read(accountServiceProvider).exportAccount();
+      if (!context.mounted) return;
+      final failure = result.failureOrNull;
+      if (failure != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not create a complete export: ${failure.message}',
+            ),
+          ),
+        );
+        return;
+      }
+      server = result.valueOrNull;
+    }
+
+    final archive = <String, dynamic>{
+      'formatVersion': 1,
+      'exportedAt': DateTime.now().toUtc().toIso8601String(),
+      if (server != null) 'server': server,
+      'device': local,
+    };
+    final json = const JsonEncoder.withIndent('  ').convert(archive);
+    final bytes = Uint8List.fromList(utf8.encode(json));
+    final fileName =
+        'ethiochat-export-${DateTime.now().toUtc().toIso8601String().split('T').first}.json';
+
+    String? path;
+    try {
+      path = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save your EthioChat data export',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: const ['json'],
+        bytes: bytes,
+      );
+    } catch (_) {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsString(json);
+      path = file.path;
+    }
+    if (!context.mounted) return;
+    if (path == null) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Your data export was copied to the clipboard.'),
-      ),
+      SnackBar(content: Text('Export saved to $path')),
     );
   }
 
   Future<void> _deleteAccount(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
+    final proceed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Delete your account?'),
         content: const Text(
-          'This removes your profile, chats, contacts and wallet history from '
-          'this device. This action cannot be undone.',
+          'This permanently removes your profile, messages, media, contacts, '
+          'moments and wallet history from EthioChat servers. Files you saved '
+          'elsewhere are not affected. This cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -92,32 +138,87 @@ class PrivacySettingsScreen extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text(
-              'Delete everything',
+              'Continue',
               style: TextStyle(color: EthioColors.danger),
             ),
           ),
         ],
       ),
     );
-    if (confirmed != true || !context.mounted) return;
-    final result = await ref.read(chatRepositoryProvider).deleteAllData();
-    if (!context.mounted) return;
-    if (!result.isSuccess) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result.failureOrNull?.message ?? 'Could not delete your data.',
+    if (proceed != true || !context.mounted) return;
+
+    final controller = TextEditingController();
+    final confirmation = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm permanent deletion'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(
+            labelText: 'Type DELETE to confirm',
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: const Text(
+              'Delete account',
+              style: TextStyle(color: EthioColors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (!context.mounted || confirmation?.trim() != 'DELETE') return;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: Sp.x4),
+            Expanded(child: Text('Deleting your account…')),
+          ],
+        ),
+      ),
+    );
+
+    String? failureMessage;
+    if (Env.hasSupabase) {
+      final result = await ref.read(accountServiceProvider).deleteAccount();
+      failureMessage = result.failureOrNull?.message;
+    }
+    if (!context.mounted) return;
+    Navigator.of(context).pop();
+    if (failureMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failureMessage)),
       );
       return;
     }
-    await ref.read(userProfileProvider.notifier).clear();
-    await ref.read(appSettingsProvider.notifier).reset();
-    if (Env.hasSupabase) {
-      await Supabase.instance.client.auth.signOut();
-    }
+
+    await ref.read(authRepositoryProvider).signOut();
+    final localFailure = await clearLocalAccountState(ref);
     if (!context.mounted) return;
+    if (localFailure != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Account deleted, but some local data could not be cleared: '
+            '${localFailure.message}',
+          ),
+        ),
+      );
+    }
     context.go('/welcome');
   }
 
@@ -229,13 +330,13 @@ class PrivacySettingsScreen extends ConsumerWidget {
                 EthioNavRow(
                   icon: Icons.download_outlined,
                   title: 'Export my data',
-                  subtitle: 'Copy a JSON archive to the clipboard',
+                  subtitle: 'Save your server and device data as JSON',
                   onTap: () => _exportData(context, ref),
                 ),
                 EthioNavRow(
                   icon: Icons.delete_forever_outlined,
                   title: 'Delete my account',
-                  subtitle: 'Remove this account and its local data',
+                  subtitle: 'Permanently remove the account and its data',
                   onTap: () => _deleteAccount(context, ref),
                   last: true,
                 ),

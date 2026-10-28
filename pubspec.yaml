@@ -46,6 +46,7 @@ dependencies:
   image: ^4.2.0
   flutter_blurhash: ^0.8.2
   permission_handler: ^11.3.1
+  livekit_client: 2.5.4
 
   # Firebase (optional at runtime; configured per-environment)
   firebase_core: ^3.3.0
@@ -92,6 +93,8 @@ flutter:
     - family: NotoSansEthiopic
       fonts:
         - asset: assets/fonts/NotoSansEthiopic.ttf
+        - asset: assets/fonts/NotoSansEthiopic-Bold.ttf
+          weight: 700
     - family: Poppins
       fonts:
         - asset: assets/fonts/Poppins-Regular.ttf
