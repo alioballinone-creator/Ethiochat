@@ -93,6 +93,8 @@ flutter:
     - family: NotoSansEthiopic
       fonts:
         - asset: assets/fonts/NotoSansEthiopic.ttf
+        - asset: assets/fonts/NotoSansEthiopic-Bold.ttf
+          weight: 700
     - family: Poppins
       fonts:
         - asset: assets/fonts/Poppins-Regular.ttf
