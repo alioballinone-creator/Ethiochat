@@ -1,5 +1,4 @@
 import 'package:ethiochat/core/config/env.dart';
-import 'package:ethiochat/core/router/app_router.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -28,8 +28,8 @@ class WalletPinStore {
   }
 
   Future<bool> verify(String pin) async {
-    final result = await _client
-        .rpc('wallet_verify_pin', params: <String, dynamic>{'p_pin': pin});
+    final result =
+        await _client.rpc<bool>('wallet_verify_pin', params: {'p_pin': pin});
     return result == true;
   }
 

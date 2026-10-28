@@ -2,7 +2,7 @@ name: EthioChat CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, audit-production-readiness]
   pull_request:
     branches: [main]
   workflow_dispatch:

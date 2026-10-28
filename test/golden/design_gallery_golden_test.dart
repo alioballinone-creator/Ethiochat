@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:ethiochat/core/design/ethio_theme.dart';
 import 'package:ethiochat/core/design/gallery/design_gallery.dart';
 import 'package:flutter/material.dart';
@@ -7,21 +5,25 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Future<void> _loadFonts() async {
-  final fonts = <String, String>{
-    'Poppins': 'assets/fonts/Poppins-Regular.ttf',
-    'Poppins-Medium': 'assets/fonts/Poppins-Medium.ttf',
-    'Poppins-SemiBold': 'assets/fonts/Poppins-SemiBold.ttf',
-    'Poppins-Bold': 'assets/fonts/Poppins-Bold.ttf',
-    'NotoSansEthiopic': 'assets/fonts/NotoSansEthiopic.ttf',
-    'Inter': 'assets/fonts/Inter.ttf',
-  };
+  final poppinsRegular = rootBundle.load('assets/fonts/Poppins-Regular.ttf');
+  final poppinsMedium = rootBundle.load('assets/fonts/Poppins-Medium.ttf');
+  final poppinsSemiBold = rootBundle.load('assets/fonts/Poppins-SemiBold.ttf');
+  final poppinsBold = rootBundle.load('assets/fonts/Poppins-Bold.ttf');
+  final noto = rootBundle.load('assets/fonts/NotoSansEthiopic.ttf');
+  final inter = rootBundle.load('assets/fonts/Inter.ttf');
 
-  for (final entry in fonts.entries) {
-    final loader = FontLoader(entry.key);
-    final data = await rootBundle.load(entry.value);
-    loader.addFont(Future.value(data));
-    await loader.load();
-  }
+  final loader = FontLoader('Poppins')
+    ..addFont(poppinsRegular)
+    ..addFont(poppinsMedium)
+    ..addFont(poppinsSemiBold)
+    ..addFont(poppinsBold);
+  await loader.load();
+
+  final notoLoader = FontLoader('NotoSansEthiopic')..addFont(noto);
+  await notoLoader.load();
+
+  final interLoader = FontLoader('Inter')..addFont(inter);
+  await interLoader.load();
 }
 
 Future<void> _pumpGallery(WidgetTester tester, Brightness brightness) async {
@@ -36,7 +38,7 @@ Future<void> _pumpGallery(WidgetTester tester, Brightness brightness) async {
       home: const DesignGallery(),
     ),
   );
-  await tester.pumpAndSettle();
+  await tester.pumpAndSettle(const Duration(milliseconds: 500));
 }
 
 void main() {
@@ -47,7 +49,6 @@ void main() {
 
   testWidgets('DesignGallery golden light', (tester) async {
     await _pumpGallery(tester, Brightness.light);
-    await tester.pumpAndSettle(const Duration(milliseconds: 500));
     await expectLater(
       find.byType(DesignGallery),
       matchesGoldenFile('../goldens/design_gallery_light.png'),
@@ -56,7 +57,6 @@ void main() {
 
   testWidgets('DesignGallery golden dark', (tester) async {
     await _pumpGallery(tester, Brightness.dark);
-    await tester.pumpAndSettle(const Duration(milliseconds: 500));
     await expectLater(
       find.byType(DesignGallery),
       matchesGoldenFile('../goldens/design_gallery_dark.png'),
