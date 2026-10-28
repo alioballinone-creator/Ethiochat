@@ -4,6 +4,7 @@ import '../ethio_colors.dart';
 import '../ethio_spacing.dart';
 
 enum EthioButtonKind { primary, secondary, tonal, danger, text }
+
 enum EthioButtonSize { large, small }
 
 /// One button for the whole app. Primary = shiny gold, one per screen.
@@ -41,12 +42,22 @@ class EthioButton extends StatelessWidget {
       case EthioButtonKind.primary:
         fg = EthioColors.black;
         deco = BoxDecoration(
-          gradient: EthioColors.goldGradient, borderRadius: Rad.r14,
-          boxShadow: [BoxShadow(color: EthioColors.goldDeep.withOpacity(isDark ? .35 : .45), blurRadius: 18, offset: const Offset(0, 8), spreadRadius: -8)],
+          gradient: EthioColors.goldGradient,
+          borderRadius: Rad.r14,
+          boxShadow: [
+            BoxShadow(
+                color: EthioColors.goldDeep.withOpacity(isDark ? .35 : .45),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+                spreadRadius: -8)
+          ],
         );
       case EthioButtonKind.secondary:
         fg = Theme.of(context).colorScheme.onSurface;
-        deco = BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: Rad.r14, border: Border.all(color: EthioColors.gold, width: 1.5));
+        deco = BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: Rad.r14,
+            border: Border.all(color: EthioColors.gold, width: 1.5));
       case EthioButtonKind.tonal:
         fg = Theme.of(context).colorScheme.onSurface;
         deco = BoxDecoration(color: pal.chip, borderRadius: Rad.r14);
@@ -63,28 +74,49 @@ class EthioButton extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (loading)
-          SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: fg))
+          SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2.5, color: fg))
         else ...[
-          if (icon != null) ...[Icon(icon, size: 20, color: fg), const SizedBox(width: 8)],
-          Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelLarge!.copyWith(
-                  color: fg, fontSize: size == EthioButtonSize.large ? 16 : 14))),
+          if (icon != null) ...[
+            Icon(icon, size: 20, color: fg),
+            const SizedBox(width: 8)
+          ],
+          Flexible(
+              child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge!.copyWith(
+                      color: fg,
+                      fontSize: size == EthioButtonSize.large ? 16 : 14))),
         ],
       ],
     );
 
     return Semantics(
-      button: true, enabled: _enabled, label: label,
+      button: true,
+      enabled: _enabled,
+      label: label,
       child: AnimatedOpacity(
-        duration: Dur.fast, opacity: onPressed == null ? .45 : 1,
+        duration: Dur.fast,
+        opacity: onPressed == null ? .45 : 1,
         child: Material(
           color: Colors.transparent,
           child: Ink(
-            decoration: deco, height: h,
+            decoration: deco,
+            height: h,
             child: InkWell(
               borderRadius: Rad.r14,
-              onTap: _enabled ? () { HapticFeedback.selectionClick(); onPressed!(); } : null,
-              child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: content),
+              onTap: _enabled
+                  ? () {
+                      HapticFeedback.selectionClick();
+                      onPressed!();
+                    }
+                  : null,
+              child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: content),
             ),
           ),
         ),

@@ -104,7 +104,8 @@ class WalletRepository {
     }
     if (Env.hasSupabase && _supabase.auth.currentUser != null) {
       if (pin == null || pin.isEmpty) {
-        return const Result.failure(ValidationFailure('Enter your wallet PIN.'));
+        return const Result.failure(
+            ValidationFailure('Enter your wallet PIN.'));
       }
       try {
         final id = idempotencyKey ?? _uuid.v4();

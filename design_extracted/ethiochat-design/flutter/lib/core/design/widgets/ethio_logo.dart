@@ -8,7 +8,8 @@ class EthioMark extends StatelessWidget {
   final double size;
   @override
   Widget build(BuildContext context) =>
-      SvgPicture.asset('assets/brand/logo-mark.svg', width: size, height: size, semanticsLabel: 'EthioChat');
+      SvgPicture.asset('assets/brand/logo-mark.svg',
+          width: size, height: size, semanticsLabel: 'EthioChat');
 }
 
 /// "Ethio" in the text colour + "Chat" in shiny gold.
@@ -17,14 +18,23 @@ class EthioWordmark extends StatelessWidget {
   final double size;
   @override
   Widget build(BuildContext context) {
-    final base = TextStyle(fontFamily: 'Poppins', fontSize: size, letterSpacing: -size * .02);
+    final base = TextStyle(
+        fontFamily: 'Poppins', fontSize: size, letterSpacing: -size * .02);
     return Text.rich(TextSpan(children: [
-      TextSpan(text: 'Ethio', style: base.copyWith(fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface)),
+      TextSpan(
+          text: 'Ethio',
+          style: base.copyWith(
+              fontWeight: FontWeight.w500,
+              color: Theme.of(context).colorScheme.onSurface)),
       WidgetSpan(
-        alignment: PlaceholderAlignment.baseline, baseline: TextBaseline.alphabetic,
+        alignment: PlaceholderAlignment.baseline,
+        baseline: TextBaseline.alphabetic,
         child: ShaderMask(
-          shaderCallback: (r) => const LinearGradient(colors: [EthioColors.gold, EthioColors.goldDeep]).createShader(r),
-          child: Text('Chat', style: base.copyWith(fontWeight: FontWeight.w700, color: Colors.white)),
+          shaderCallback: (r) => const LinearGradient(
+              colors: [EthioColors.gold, EthioColors.goldDeep]).createShader(r),
+          child: Text('Chat',
+              style: base.copyWith(
+                  fontWeight: FontWeight.w700, color: Colors.white)),
         ),
       ),
     ]));
