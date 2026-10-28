@@ -1,10 +1,19 @@
-name: Update Golden Images
+name: Update Goldens (Manual)
 
 on:
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to update goldens on'
+        required: true
+        default: 'audit-production-readiness'
 
 permissions:
   contents: write
+
+concurrency:
+  group: update-goldens-${{ github.event.inputs.branch }}
+  cancel-in-progress: true
 
 jobs:
   update-goldens:
@@ -13,28 +22,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
 
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.35.4'
           channel: 'stable'
           cache: true
 
-      - name: Install dependencies
+      - name: Flutter pub get
         run: flutter pub get
 
       - name: Generate code
-        run: dart run build_runner build --delete-conflicting-outputs || true
+        run: dart run build_runner build --delete-conflicting-outputs
 
-      - name: Update golden images
-        run: flutter test --update-goldens
+      - name: Update design gallery goldens
+        run: flutter test --update-goldens test/golden/design_gallery_golden_test.dart
 
-      - name: Commit golden images
+      - name: Verify goldens pass
+        run: flutter test test/golden/design_gallery_golden_test.dart
+
+      - name: Upload golden artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-gallery-goldens
+          path: test/goldens/*.png
+          if-no-files-found: error
+
+      - name: Commit updated goldens
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add test/golden/ test/goldens/
-          git diff --staged --quiet || git commit -m "Update golden images"
-          git push
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add test/goldens/
+          if git diff --cached --quiet; then
+            echo "No golden changes to commit"
+            exit 0
+          fi
+          git commit -m "Update design gallery goldens via workflow"
+          git push origin HEAD:${{ github.event.inputs.branch }}
