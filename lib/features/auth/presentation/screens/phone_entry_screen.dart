@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../../core/config/env.dart';
 import '../../../../core/design/design.dart';
+import '../../application/auth_providers.dart';
 
-class PhoneEntryScreen extends StatefulWidget {
+class PhoneEntryScreen extends ConsumerStatefulWidget {
   const PhoneEntryScreen({super.key});
 
   @override
-  State<PhoneEntryScreen> createState() => _PhoneEntryScreenState();
+  ConsumerState<PhoneEntryScreen> createState() => _PhoneEntryScreenState();
 }
 
-class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
+class _PhoneEntryScreenState extends ConsumerState<PhoneEntryScreen> {
   final _controller = TextEditingController();
   bool _sending = false;
   bool get _isValid {
@@ -34,31 +34,21 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
   Future<void> _sendCode() async {
     if (!_isValid || _sending) return;
     setState(() => _sending = true);
-    try {
-      if (Env.hasSupabase) {
-        await Supabase.instance.client.auth.signInWithOtp(phone: _e164);
-      }
-      if (!mounted) return;
-      final destination = Uri(
-        path: '/auth/otp',
-        queryParameters: {'phone': _e164},
-      ).toString();
-      context.go(destination);
-    } on AuthException catch (error) {
-      if (!mounted) return;
+    final result = await ref.read(authRepositoryProvider).sendOtp(_e164);
+    if (!mounted) return;
+    setState(() => _sending = false);
+    final failure = result.failureOrNull;
+    if (failure != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
+        SnackBar(content: Text(failure.message)),
       );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not send the code. Check your connection.'),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _sending = false);
+      return;
     }
+    final destination = Uri(
+      path: '/auth/otp',
+      queryParameters: {'phone': _e164},
+    ).toString();
+    context.go(destination);
   }
 
   @override

@@ -29,7 +29,7 @@ import 'package:ethiochat/features/onboarding/presentation/screens/tips_screen.d
 import 'package:ethiochat/features/profile/presentation/screens/me_screen.dart';
 import 'package:ethiochat/features/profile/presentation/screens/my_qr_screen.dart';
 import 'package:ethiochat/features/search/presentation/screens/search_screen.dart';
-import 'package:ethiochat/features/settings/presentation/screens/account_security_screen.dart';
+import 'package:ethiochat/features/settings/presentation/screens/settings_account_screen.dart';
 import 'package:ethiochat/features/settings/presentation/screens/report_screen.dart';
 import 'package:ethiochat/features/settings/presentation/screens/settings_app_screens.dart';
 import 'package:ethiochat/features/settings/presentation/screens/settings_help_screen.dart';

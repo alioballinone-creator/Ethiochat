@@ -116,10 +116,23 @@ class OutboxWorker {
 
   Future<void> _processRow(OutboxData row) async {
     final attempt = row.attempt + 1;
+    Map<String, dynamic> payload;
+    try {
+      payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('Outbox payload was invalid for ${row.messageId}');
+      await (db.delete(db.outbox)
+            ..where((o) => o.messageId.equals(row.messageId)))
+          .go();
+      return;
+    }
+    final kind = payload['kind'] as String? ?? 'message';
     if (attempt > maxAttempts) {
-      // Mark message as failed; do NOT drop. Surface "Tap to retry" in UI.
-      await (db.update(db.messages)..where((m) => m.id.equals(row.messageId)))
-          .write(const MessagesCompanion(status: Value(4)));
+      if (kind == 'message') {
+        // Mark message as failed; do NOT drop. Surface "Tap to retry" in UI.
+        await (db.update(db.messages)..where((m) => m.id.equals(row.messageId)))
+            .write(const MessagesCompanion(status: Value(4)));
+      }
       AppLogger.warn('Outbox gave up on ${row.messageId} after $attempt');
       await (db.delete(db.outbox)
             ..where((o) => o.messageId.equals(row.messageId)))
@@ -128,12 +141,13 @@ class OutboxWorker {
     }
 
     try {
-      final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
       payload['__attempt'] = attempt;
       if (transport != null) await transport!(payload);
 
-      await (db.update(db.messages)..where((m) => m.id.equals(row.messageId)))
-          .write(const MessagesCompanion(status: Value(1))); // sent
+      if (kind == 'message') {
+        await (db.update(db.messages)..where((m) => m.id.equals(row.messageId)))
+            .write(const MessagesCompanion(status: Value(1))); // sent
+      }
 
       await (db.delete(db.outbox)
             ..where((o) => o.messageId.equals(row.messageId)))

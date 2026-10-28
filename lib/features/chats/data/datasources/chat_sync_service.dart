@@ -12,11 +12,20 @@ class ChatSyncReport {
     this.conversations = 0,
     this.messages = 0,
     this.mediaUrls = 0,
+    this.receipts = 0,
   });
 
   final int conversations;
   final int messages;
   final int mediaUrls;
+  final int receipts;
+
+  ChatSyncReport operator +(ChatSyncReport other) => ChatSyncReport(
+        conversations: conversations + other.conversations,
+        messages: messages + other.messages,
+        mediaUrls: mediaUrls + other.mediaUrls,
+        receipts: receipts + other.receipts,
+      );
 }
 
 /// Pulls RLS-scoped conversations and messages into the local Drift database.
@@ -85,7 +94,7 @@ class ChatSyncService {
       final mediaPaths = <String>{
         for (final messages in messagesByConversation.values)
           for (final message in messages)
-            if (message.media?['storage_path'] is String)
+            if (!message.isDeleted && message.media?['storage_path'] is String)
               message.media!['storage_path'] as String,
       };
       var signedUrls = const <String, String>{};
@@ -101,7 +110,25 @@ class ChatSyncService {
         }
       }
 
+      final messageIds = [
+        for (final messages in messagesByConversation.values)
+          for (final message in messages) message.id,
+      ];
+      var receipts = const <RemoteReceipt>[];
+      if (messageIds.isNotEmpty) {
+        try {
+          receipts = await source.fetchReceipts(messageIds);
+        } catch (error, stackTrace) {
+          AppLogger.warn(
+            'Could not refresh message receipts',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        }
+      }
+
       var importedMessages = 0;
+      var importedReceipts = 0;
       final syncedAt = DateTime.now();
       await db.transaction(() async {
         for (final conversation in conversations) {
@@ -148,16 +175,77 @@ class ChatSyncService {
             if (isNew) importedMessages++;
           }
         }
+        for (final receipt in receipts) {
+          if (await _writeReceipt(receipt)) importedReceipts++;
+        }
       });
 
       return ChatSyncReport(
         conversations: conversations.length,
         messages: importedMessages,
         mediaUrls: signedUrls.length,
+        receipts: importedReceipts,
       );
     } finally {
       _syncing = false;
     }
+  }
+
+  /// Loads one older page for an already synced conversation.
+  ///
+  /// Returns the number of messages written. A zero result means the local
+  /// history has reached the beginning of the remotely visible conversation.
+  Future<int> syncOlder(
+    String conversationId, {
+    int? limit,
+  }) async {
+    final pageSize = limit ?? messageLimit;
+    final minSeqRow = await (db.selectOnly(db.messages)
+          ..addColumns([db.messages.seq.min()])
+          ..where(db.messages.conversationId.equals(conversationId)))
+        .getSingle();
+    final minSeq = minSeqRow.read(db.messages.seq.min());
+    if (minSeq == null || minSeq <= 1) return 0;
+
+    final messages = await source.fetchMessages(
+      conversationId,
+      limit: pageSize,
+      beforeSeq: minSeq,
+    );
+    if (messages.isEmpty) return 0;
+
+    final mediaPaths = {
+      for (final message in messages)
+        if (!message.isDeleted && message.media?['storage_path'] is String)
+          message.media!['storage_path'] as String,
+    };
+    var signedUrls = const <String, String>{};
+    if (mediaPaths.isNotEmpty) {
+      signedUrls = await source.signedMediaUrls(mediaPaths);
+    }
+
+    var written = 0;
+    await db.transaction(() async {
+      final existing = await _existingMessages(
+        messages.map((message) => message.id).toList(growable: false),
+      );
+      for (final message in messages) {
+        if (existing.containsKey(message.id)) continue;
+        await _writeMessage(
+          message,
+          signedUrls: signedUrls,
+          existing: null,
+        );
+        written++;
+      }
+    });
+    return written;
+  }
+
+  /// Imports a realtime receipt and upgrades the local outgoing status without
+  /// ever downgrading a previously read message.
+  Future<void> importReceipt(RemoteReceipt receipt) async {
+    await db.transaction(() => _writeReceipt(receipt));
   }
 
   /// Imports a realtime message. Returns false when the conversation is not
@@ -306,6 +394,59 @@ class ChatSyncService {
     }
   }
 
+  Future<bool> _writeReceipt(RemoteReceipt receipt) async {
+    final localUserId = receipt.userId == currentUserId ? 'me' : receipt.userId;
+    final message = await (db.select(db.messages)
+          ..where((row) => row.id.equals(receipt.messageId)))
+        .getSingleOrNull();
+    if (message == null) return false;
+
+    final before = await (db.select(db.messageReceipts)
+          ..where(
+            (row) =>
+                row.messageId.equals(receipt.messageId) &
+                row.userId.equals(localUserId),
+          ))
+        .getSingleOrNull();
+
+    final delivered = receipt.deliveredAt ?? before?.deliveredAt;
+    final read = receipt.readAt ?? before?.readAt;
+    final changed = before == null ||
+        delivered != before.deliveredAt ||
+        read != before.readAt;
+    if (changed) {
+      await db.into(db.messageReceipts).insert(
+            MessageReceiptsCompanion.insert(
+              messageId: receipt.messageId,
+              userId: localUserId,
+              deliveredAt: Value(delivered),
+              readAt: Value(read),
+            ),
+            onConflict: DoUpdate(
+              (_) => MessageReceiptsCompanion(
+                deliveredAt: Value(delivered),
+                readAt: Value(read),
+              ),
+            ),
+          );
+    }
+
+    if (localUserId == 'me' || message.senderId != 'me') {
+      return changed;
+    }
+    final nextStatus = read != null
+        ? 3
+        : delivered != null
+            ? 2
+            : message.status;
+    if (nextStatus > message.status) {
+      await (db.update(db.messages)
+            ..where((row) => row.id.equals(receipt.messageId)))
+          .write(MessagesCompanion(status: Value(nextStatus)));
+    }
+    return changed;
+  }
+
   Future<void> _writeMessage(
     RemoteMessage message, {
     required Map<String, String> signedUrls,
@@ -313,7 +454,8 @@ class ChatSyncService {
   }) async {
     final senderId =
         message.senderId == currentUserId ? 'me' : message.senderId;
-    final media = _messageMedia(message, signedUrls);
+    final deleted = message.isDeleted;
+    final media = deleted ? null : _messageMedia(message, signedUrls);
     final mediaJson = media == null ? null : jsonEncode(media);
     if (existing == null) {
       await db.into(db.messages).insert(
@@ -323,12 +465,13 @@ class ChatSyncService {
               senderId: senderId,
               seq: Value(message.seq),
               type: message.type,
-              body: Value(message.body),
+              body: Value(deleted ? null : message.body),
               mediaJson: Value(mediaJson),
               replyTo: Value(message.replyTo),
               editedAt: Value(message.editedAt),
               createdAt: message.createdAt,
               status: const Value(1),
+              deletedEveryone: Value(deleted),
             ),
             mode: InsertMode.insertOrIgnore,
           );
@@ -340,12 +483,13 @@ class ChatSyncService {
         senderId: Value(senderId),
         seq: Value(message.seq),
         type: Value(message.type),
-        body: Value(message.body),
+        body: Value(deleted ? null : message.body),
         mediaJson: Value(mediaJson),
         replyTo: Value(message.replyTo),
         editedAt: Value(message.editedAt),
         createdAt: Value(message.createdAt),
-        status: Value(existing.status == 3 ? 3 : 1),
+        status: Value(existing.status),
+        deletedEveryone: Value(deleted || existing.deletedEveryone),
       ),
     );
   }

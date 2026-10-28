@@ -21,32 +21,60 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+      LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+      LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+      FCM_SERVICE_ACCOUNT_JSON: ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
+      PUSH_WEBHOOK_SECRET: ${{ secrets.PUSH_WEBHOOK_SECRET }}
       PAYMENT_WEBHOOK_SECRET: ${{ secrets.PAYMENT_WEBHOOK_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-      - name: Deployment prerequisites
-        if: env.SUPABASE_ACCESS_TOKEN == '' || env.SUPABASE_PROJECT_REF == ''
+
+      - name: Require deployment credentials
         run: |
-          echo "::notice::Supabase deployment skipped: SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF must be configured."
+          missing=0
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_REF; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not configured. Refusing to report a successful deployment."
+              missing=1
+            fi
+          done
+          exit "$missing"
 
       - name: Link project
-        if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != ''
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
 
       - name: Push migrations
-        if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != ''
-        run: supabase db push
+        run: supabase db push --include-all
+
+      - name: Configure function secrets
+        run: |
+          secrets=()
+          if [ -n "$LIVEKIT_API_KEY" ]; then secrets+=("LIVEKIT_API_KEY=$LIVEKIT_API_KEY"); fi
+          if [ -n "$LIVEKIT_API_SECRET" ]; then secrets+=("LIVEKIT_API_SECRET=$LIVEKIT_API_SECRET"); fi
+          if [ -n "$LIVEKIT_URL" ]; then secrets+=("LIVEKIT_URL=$LIVEKIT_URL"); fi
+          if [ -n "$FCM_SERVICE_ACCOUNT_JSON" ]; then secrets+=("FCM_SERVICE_ACCOUNT_JSON=$FCM_SERVICE_ACCOUNT_JSON"); fi
+          if [ -n "$PUSH_WEBHOOK_SECRET" ]; then secrets+=("PUSH_WEBHOOK_SECRET=$PUSH_WEBHOOK_SECRET"); fi
+          if [ -n "$PAYMENT_WEBHOOK_SECRET" ]; then secrets+=("PAYMENT_WEBHOOK_SECRET=$PAYMENT_WEBHOOK_SECRET"); fi
+          if [ "${#secrets[@]}" -gt 0 ]; then
+            supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" "${secrets[@]}"
+          else
+            echo "::warning::No provider secrets configured. Calls, push and payments will fail closed at runtime."
+          fi
 
       - name: Deploy authenticated functions
-        if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != ''
         run: |
-          supabase functions deploy wallet-transfer --project-ref "$SUPABASE_PROJECT_REF"
-          supabase functions deploy wallet-redpacket --project-ref "$SUPABASE_PROJECT_REF"
-          supabase functions deploy contact-discovery --project-ref "$SUPABASE_PROJECT_REF"
+          for fn in wallet-transfer wallet-redpacket contact-discovery livekit-token call-control delete-account export-account; do
+            supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF"
+          done
 
-      - name: Deploy signed payment webhook
-        if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != '' && env.PAYMENT_WEBHOOK_SECRET != ''
-        run: supabase functions deploy payment-webhook --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
+      - name: Deploy webhook functions
+        run: |
+          supabase functions deploy payment-webhook --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
+          supabase functions deploy push-dispatch --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Verify deployed function list
+        run: supabase functions list --project-ref "$SUPABASE_PROJECT_REF"

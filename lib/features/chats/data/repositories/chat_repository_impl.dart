@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:ethiochat/core/config/env.dart';
 import 'package:ethiochat/core/db/app_database.dart';
 import 'package:ethiochat/core/errors/failure.dart';
 import 'package:ethiochat/core/errors/result.dart';
@@ -280,7 +281,19 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Future<Result<void>> markRead(String conversationId, int lastReadSeq) async {
     try {
-      await db.markRead(conversationId, lastReadSeq);
+      final seq = await db.markRead(conversationId, lastReadSeq);
+      if (_isRemoteConversation(conversationId) && seq > 0) {
+        await OutboxWorker.enqueue(
+          db,
+          messageId: 'read:$conversationId',
+          conversationId: conversationId,
+          payload: {
+            'kind': 'read',
+            'conversation_id': conversationId,
+            'seq': seq,
+          },
+        );
+      }
       return const Result.success(null);
     } catch (e) {
       return Result.failure(mapError(e));
@@ -290,16 +303,24 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Future<Result<void>> retryFailed(String messageId) async {
     try {
-      await (db.update(db.messages)..where((m) => m.id.equals(messageId)))
-          .write(const MessagesCompanion(status: Value(0)));
       final msg = await (db.select(db.messages)
             ..where((m) => m.id.equals(messageId)))
           .getSingle();
+      await (db.update(db.messages)..where((m) => m.id.equals(messageId)))
+          .write(const MessagesCompanion(status: Value(0)));
       await OutboxWorker.enqueue(
         db,
         messageId: messageId,
         conversationId: msg.conversationId,
-        payload: {'id': messageId, 'conversation_id': msg.conversationId},
+        payload: {
+          'id': messageId,
+          'conversation_id': msg.conversationId,
+          'type': msg.type,
+          'body': msg.body,
+          'media': _decodeMedia(msg.mediaJson),
+          'reply_to': msg.replyTo,
+          'created_at': msg.createdAt.toIso8601String(),
+        },
       );
       return const Result.success(null);
     } catch (e) {
@@ -406,6 +427,18 @@ class ChatRepositoryImpl implements ChatRepository {
         await (db.delete(db.outbox)
               ..where((o) => o.messageId.equals(messageId)))
             .go();
+        if (_isRemoteConversation(row.conversationId)) {
+          await OutboxWorker.enqueue(
+            db,
+            messageId: messageId,
+            conversationId: row.conversationId,
+            payload: {
+              'kind': 'delete',
+              'id': messageId,
+              'conversation_id': row.conversationId,
+            },
+          );
+        }
       });
       return const Result.success(null);
     } catch (e) {
@@ -469,6 +502,20 @@ class ChatRepositoryImpl implements ChatRepository {
           await (db.update(db.outbox)
                 ..where((o) => o.messageId.equals(messageId)))
               .write(OutboxCompanion(payloadJson: Value(jsonEncode(payload))));
+        } else if (_isRemoteConversation(row.conversationId) &&
+            row.status >= 1 &&
+            row.status != 4) {
+          await OutboxWorker.enqueue(
+            db,
+            messageId: messageId,
+            conversationId: row.conversationId,
+            payload: {
+              'kind': 'edit',
+              'id': messageId,
+              'conversation_id': row.conversationId,
+              'body': trimmed,
+            },
+          );
         }
       });
       return const Result.success(null);
@@ -1242,6 +1289,16 @@ class ChatRepositoryImpl implements ChatRepository {
         );
       }
     });
+  }
+
+  bool _isRemoteConversation(String conversationId) {
+    return Env.hasSupabase && Uuid.isValidUUID(fromString: conversationId);
+  }
+
+  Map<String, dynamic>? _decodeMedia(String? raw) {
+    if (raw == null) return null;
+    final decoded = jsonDecode(raw);
+    return decoded is Map ? Map<String, dynamic>.from(decoded) : null;
   }
 
   Future<Result<void>> _writeConversation(

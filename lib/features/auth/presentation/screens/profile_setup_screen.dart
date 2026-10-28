@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/config/env.dart';
 import '../../../../core/design/design.dart';
 import '../../../profile/application/profile_controller.dart';
+import '../../application/auth_providers.dart';
 
 /// Profile setup — shown once after OTP verification, and from Settings.
 ///
@@ -71,13 +71,40 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     setState(() => _saving = true);
     final name = _name.text.trim();
     final bio = _bio.text.trim();
+    final current = ref.read(userProfileProvider);
+
+    // A production profile is only reported as saved after the authenticated
+    // backend accepts it. The local-only path exists for credential-free
+    // development builds only; release builds are blocked at startup when
+    // Supabase is missing.
+    if (Env.hasSupabase) {
+      final result = await ref.read(authRepositoryProvider).completeProfile(
+            displayName: name,
+            bio: bio,
+            phone: current.phone,
+            avatarPath: _avatarPath,
+          );
+      if (!mounted) return;
+      final failure = result.failureOrNull;
+      if (failure != null) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(failure.message)),
+        );
+        return;
+      }
+    }
+
+    final remote = Env.hasSupabase
+        ? (await ref.read(authRepositoryProvider).fetchProfile()).valueOrNull
+        : null;
     await ref.read(userProfileProvider.notifier).save(
           name: name,
           bio: bio,
-          avatarPath: _avatarPath,
+          avatarPath: remote?.avatarUrl ?? _avatarPath,
         );
-    await _syncCloudProfile(name: name, bio: bio);
     if (!mounted) return;
+    setState(() => _saving = false);
     if (widget.isEditing) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profile updated.')),
@@ -86,23 +113,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       return;
     }
     context.go('/chats');
-  }
-
-  Future<void> _syncCloudProfile({
-    required String name,
-    required String bio,
-  }) async {
-    if (!Env.hasSupabase) return;
-    try {
-      final client = Supabase.instance.client;
-      final user = client.auth.currentUser;
-      if (user == null) return;
-      await client
-          .from('profiles')
-          .update({'display_name': name, 'bio': bio}).eq('id', user.id);
-    } catch (_) {
-      // Local profile remains authoritative when the network is unavailable.
-    }
   }
 
   @override
@@ -193,7 +203,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             EthioTextField(
               controller: _bio,
               hint: 'A short line about you',
-              maxLength: 80,
+              maxLength: 160,
             ),
             const SizedBox(height: Sp.x4),
             Container(

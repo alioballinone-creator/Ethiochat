@@ -46,23 +46,40 @@ android {
         multiDexEnabled true
     }
 
+    def releaseKeystore = System.getenv("KEYSTORE_FILE")
+    def releaseStorePassword = System.getenv("KEYSTORE_PASSWORD")
+    def releaseKeyAlias = System.getenv("KEY_ALIAS")
+    def releaseKeyPassword = System.getenv("KEY_PASSWORD")
+    def hasReleaseSigning = releaseKeystore != null && !releaseKeystore.trim().isEmpty() &&
+        releaseStorePassword != null && !releaseStorePassword.isEmpty() &&
+        releaseKeyAlias != null && !releaseKeyAlias.isEmpty() &&
+        releaseKeyPassword != null && !releaseKeyPassword.isEmpty()
+    def releaseRequested = gradle.startParameter.taskNames.any {
+        it.toLowerCase(Locale.ROOT).contains("release")
+    }
+
+    if (releaseRequested && !hasReleaseSigning) {
+        throw new GradleException(
+            "Release signing is not configured. Set KEYSTORE_FILE, KEYSTORE_PASSWORD, " +
+            "KEY_ALIAS and KEY_PASSWORD. Debug signing is never used for releases."
+        )
+    }
+
     signingConfigs {
         release {
-            if (System.getenv("KEYSTORE_FILE") != null) {
-                storeFile file(System.getenv("KEYSTORE_FILE"))
-                storePassword System.getenv("KEYSTORE_PASSWORD")
-                keyAlias System.getenv("KEY_ALIAS")
-                keyPassword System.getenv("KEY_PASSWORD")
+            if (hasReleaseSigning) {
+                storeFile file(releaseKeystore)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
             }
         }
     }
 
     buildTypes {
         release {
-            if (System.getenv("KEYSTORE_FILE") != null) {
+            if (hasReleaseSigning) {
                 signingConfig signingConfigs.release
-            } else {
-                signingConfig signingConfigs.debug
             }
             minifyEnabled true
             shrinkResources true

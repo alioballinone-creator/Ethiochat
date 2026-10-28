@@ -222,9 +222,54 @@ class AppDatabase extends _$AppDatabase {
     return query.watch();
   }
 
-  Future<void> markRead(String conversationId, int lastReadSeq) async {
+  /// Marks inbound messages through [lastReadSeq] as read and persists local
+  /// receipt rows. Returns the sequence that was applied so callers can queue
+  /// the matching server receipt.
+  Future<int> markRead(String conversationId, int lastReadSeq) async {
+    var seq = lastReadSeq;
+    if (seq <= 0) {
+      final query = selectOnly(messages)
+        ..addColumns([messages.seq.max()])
+        ..where(messages.conversationId.equals(conversationId));
+      final row = await query.getSingle();
+      seq = row.read(messages.seq.max()) ?? 0;
+    }
+    if (seq > 0) {
+      final inbound = await (select(messages)
+            ..where(
+              (m) =>
+                  m.conversationId.equals(conversationId) &
+                  m.senderId.equals('me').not() &
+                  m.seq.isSmallerOrEqualValue(seq) &
+                  m.deletedForMe.equals(false),
+            ))
+          .get();
+      final now = DateTime.now();
+      await transaction(() async {
+        for (final message in inbound) {
+          await into(messageReceipts).insert(
+            MessageReceiptsCompanion.insert(
+              messageId: message.id,
+              userId: 'me',
+              deliveredAt: Value(now),
+              readAt: Value(now),
+            ),
+            onConflict: DoUpdate(
+              (_) => MessageReceiptsCompanion(
+                deliveredAt: Value(now),
+                readAt: Value(now),
+              ),
+            ),
+          );
+        }
+        await (update(conversations)..where((c) => c.id.equals(conversationId)))
+            .write(const ConversationsCompanion(localUnread: Value(0)));
+      });
+      return seq;
+    }
     await (update(conversations)..where((c) => c.id.equals(conversationId)))
         .write(const ConversationsCompanion(localUnread: Value(0)));
+    return 0;
   }
 
   Future<void> clearAllData() async {

@@ -87,6 +87,7 @@ class RemoteMessage {
     this.media,
     this.replyTo,
     this.editedAt,
+    this.deletedAt,
   });
 
   factory RemoteMessage.fromMap(Map<String, dynamic> map) {
@@ -101,6 +102,7 @@ class RemoteMessage {
       media: rawMedia is Map ? Map<String, dynamic>.from(rawMedia) : null,
       replyTo: map['reply_to'] as String?,
       editedAt: _date(map['edited_at']),
+      deletedAt: _date(map['deleted_at']),
       createdAt: _date(map['created_at']) ?? DateTime.now(),
     );
   }
@@ -114,7 +116,33 @@ class RemoteMessage {
   final Map<String, dynamic>? media;
   final String? replyTo;
   final DateTime? editedAt;
+  final DateTime? deletedAt;
   final DateTime createdAt;
+
+  bool get isDeleted => deletedAt != null;
+}
+
+class RemoteReceipt {
+  const RemoteReceipt({
+    required this.messageId,
+    required this.userId,
+    this.deliveredAt,
+    this.readAt,
+  });
+
+  factory RemoteReceipt.fromMap(Map<String, dynamic> map) {
+    return RemoteReceipt(
+      messageId: map['message_id'] as String,
+      userId: map['user_id'] as String,
+      deliveredAt: _date(map['delivered_at']),
+      readAt: _date(map['read_at']),
+    );
+  }
+
+  final String messageId;
+  final String userId;
+  final DateTime? deliveredAt;
+  final DateTime? readAt;
 }
 
 abstract interface class RemoteChatSource {
@@ -127,12 +155,17 @@ abstract interface class RemoteChatSource {
   Future<List<RemoteMessage>> fetchMessages(
     String conversationId, {
     int limit = 50,
+    int? beforeSeq,
   });
+
+  Future<List<RemoteReceipt>> fetchReceipts(List<String> messageIds);
 
   Future<Map<String, String>> signedMediaUrls(Iterable<String> paths);
 
   void subscribe({
     required void Function(RemoteMessage message) onMessage,
+    void Function(RemoteMessage message)? onMessageUpdated,
+    void Function(RemoteReceipt receipt)? onReceipt,
     void Function(RemoteConversation conversation)? onConversation,
     void Function(Object error, StackTrace stackTrace)? onError,
   });
@@ -195,21 +228,36 @@ class SupabaseRemoteChatSource implements RemoteChatSource {
   Future<List<RemoteMessage>> fetchMessages(
     String conversationId, {
     int limit = 50,
+    int? beforeSeq,
   }) async {
-    final rows = await _client
+    var query = _client
         .from('messages')
         .select(
           'id,conversation_id,sender_id,seq,type,body,media,reply_to,'
-          'edited_at,created_at',
+          'edited_at,deleted_at,created_at',
         )
-        .eq('conversation_id', conversationId)
-        .isFilter('deleted_at', null)
-        .order('seq', ascending: false)
-        .limit(limit);
+        .eq('conversation_id', conversationId);
+    if (beforeSeq != null) {
+      query = query.lt('seq', beforeSeq);
+    }
+    final rows = await query.order('seq', ascending: false).limit(limit);
     return rows
         .map((row) => RemoteMessage.fromMap(row))
         .toList(growable: false)
         .reversed
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<RemoteReceipt>> fetchReceipts(List<String> messageIds) async {
+    if (messageIds.isEmpty) return const [];
+    final rows = await _client
+        .from('message_receipts')
+        .select('message_id,user_id,delivered_at,read_at')
+        .inFilter('message_id', messageIds)
+        .limit(5000);
+    return rows
+        .map((row) => RemoteReceipt.fromMap(row))
         .toList(growable: false);
   }
 
@@ -234,6 +282,8 @@ class SupabaseRemoteChatSource implements RemoteChatSource {
   @override
   void subscribe({
     required void Function(RemoteMessage message) onMessage,
+    void Function(RemoteMessage message)? onMessageUpdated,
+    void Function(RemoteReceipt receipt)? onReceipt,
     void Function(RemoteConversation conversation)? onConversation,
     void Function(Object error, StackTrace stackTrace)? onError,
   }) {
@@ -251,19 +301,57 @@ class SupabaseRemoteChatSource implements RemoteChatSource {
         }
       },
     );
-    if (onConversation != null) {
+    if (onMessageUpdated != null) {
       channel.onPostgresChanges(
-        event: PostgresChangeEvent.insert,
+        event: PostgresChangeEvent.update,
         schema: 'public',
-        table: 'conversations',
+        table: 'messages',
         callback: (payload) {
           try {
-            onConversation(RemoteConversation.fromMap(payload.newRecord));
+            onMessageUpdated(RemoteMessage.fromMap(payload.newRecord));
           } catch (error, stackTrace) {
             onError?.call(error, stackTrace);
           }
         },
       );
+    }
+    if (onReceipt != null) {
+      for (final event in [
+        PostgresChangeEvent.insert,
+        PostgresChangeEvent.update,
+      ]) {
+        channel.onPostgresChanges(
+          event: event,
+          schema: 'public',
+          table: 'message_receipts',
+          callback: (payload) {
+            try {
+              onReceipt(RemoteReceipt.fromMap(payload.newRecord));
+            } catch (error, stackTrace) {
+              onError?.call(error, stackTrace);
+            }
+          },
+        );
+      }
+    }
+    if (onConversation != null) {
+      for (final event in [
+        PostgresChangeEvent.insert,
+        PostgresChangeEvent.update,
+      ]) {
+        channel.onPostgresChanges(
+          event: event,
+          schema: 'public',
+          table: 'conversations',
+          callback: (payload) {
+            try {
+              onConversation(RemoteConversation.fromMap(payload.newRecord));
+            } catch (error, stackTrace) {
+              onError?.call(error, stackTrace);
+            }
+          },
+        );
+      }
     }
     _channel = channel.subscribe((status, error) {
       if (error != null) onError?.call(error, StackTrace.current);

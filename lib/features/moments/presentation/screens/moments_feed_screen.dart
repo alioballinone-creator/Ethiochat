@@ -25,7 +25,6 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
   List<MomentRow> _rows = const [];
   Set<String> _likedIds = const {};
   final Set<String> _hiddenIds = <String>{};
-  final Map<String, List<String>> _newComments = <String, List<String>>{};
   StreamSubscription<List<MomentRow>>? _momentsSub;
   StreamSubscription<Set<String>>? _likesSub;
 
@@ -60,14 +59,17 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
   }
 
   Future<void> _comment(_MomentPost post) async {
+    final repository = ref.read(chatRepositoryProvider);
+    final existingComments = await repository.momentComments(post.id);
+    if (!mounted) return;
     final controller = TextEditingController();
+    final comments = List<MomentCommentRow>.from(existingComments);
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (sheetContext) {
-        final comments = _newComments.putIfAbsent(post.id, () => <String>[]);
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
@@ -87,7 +89,7 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
                         ),
                         const Spacer(),
                         Text(
-                          '${post.comments}',
+                          '${comments.length}',
                           style: Theme.of(context).textTheme.labelSmall,
                         ),
                       ],
@@ -112,9 +114,12 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
                           for (final comment in comments)
                             ListTile(
                               dense: true,
-                              leading: const EthioAvatar(name: 'You', size: 32),
-                              title: Text(comment),
-                              subtitle: const Text('just now'),
+                              leading: EthioAvatar(
+                                name: comment.authorName,
+                                size: 32,
+                              ),
+                              title: Text(comment.body),
+                              subtitle: Text(_timeAgo(comment.createdAt)),
                             ),
                         ],
                       ),
@@ -139,9 +144,10 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
                           onPressed: () async {
                             final text = controller.text.trim();
                             if (text.isEmpty) return;
-                            final result = await ref
-                                .read(chatRepositoryProvider)
-                                .addMomentComment(post.id, text);
+                            final result = await repository.addMomentComment(
+                              post.id,
+                              text,
+                            );
                             if (result.failureOrNull case final failure?) {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -150,8 +156,14 @@ class _MomentsFeedScreenState extends ConsumerState<MomentsFeedScreen> {
                               }
                               return;
                             }
+                            final updated =
+                                await repository.momentComments(post.id);
                             if (!sheetContext.mounted) return;
-                            setSheetState(() => comments.add(text));
+                            setSheetState(() {
+                              comments
+                                ..clear()
+                                ..addAll(updated);
+                            });
                             controller.clear();
                           },
                         ),

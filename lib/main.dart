@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
 import 'core/config/env.dart';
+import 'core/notifications/push_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,5 +21,8 @@ Future<void> main() async {
       anonKey: Env.supabaseAnonKey,
     );
   }
+  // Push is optional. Initialization failures are logged and never block the
+  // local-first app from starting.
+  await initializeFirebasePush();
   runApp(const ProviderScope(child: EthioChatApp()));
 }

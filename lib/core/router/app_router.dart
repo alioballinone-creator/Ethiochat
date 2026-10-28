@@ -1,4 +1,5 @@
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/auth/presentation/screens/otp_verification_screen.dart';
 import '../../features/auth/presentation/screens/phone_entry_screen.dart';
@@ -43,6 +44,7 @@ import '../../features/wallet/presentation/screens/transactions_screen.dart';
 import '../../features/wallet/presentation/screens/wallet_pin_screen.dart';
 import '../../features/wallet/presentation/screens/wallet_receipt_screen.dart';
 import '../../features/wallet/presentation/screens/wallet_screen.dart';
+import '../config/env.dart';
 import '../config/feature_flags.dart';
 import '../screens/splash_screen.dart';
 import 'main_shell.dart';
@@ -75,9 +77,39 @@ class AppRouter {
   static const String call = '/call/:id';
   static const String settings = '/me/settings';
 
+  static const _signedOutRoutes = <String>{
+    splash,
+    welcome,
+    phoneEntry,
+    otpVerification,
+  };
+
+  static bool get _hasSession {
+    if (!Env.hasSupabase) return false;
+    return Supabase.instance.client.auth.currentSession != null;
+  }
+
   static GoRouter createRouter({String initialLocation = splash}) {
     return GoRouter(
       initialLocation: initialLocation,
+      redirect: (context, state) {
+        // Credential-free debug builds remain usable for local UI development.
+        // Release builds without Supabase never reach the router because the
+        // app shell shows the configuration error screen instead.
+        if (!Env.hasSupabase) return null;
+
+        final signedIn = _hasSession;
+        final location = state.matchedLocation;
+        if (!signedIn) {
+          return _signedOutRoutes.contains(location) ? null : welcome;
+        }
+        if (location == welcome ||
+            location == phoneEntry ||
+            location == otpVerification) {
+          return chats;
+        }
+        return null;
+      },
       routes: [
         GoRoute(
           path: splash,
@@ -261,6 +293,7 @@ class AppRouter {
               isVideo: isVideo,
               isIncoming: isIncoming,
               chatId: state.pathParameters['id'] ?? '',
+              callId: state.uri.queryParameters['callId'] ?? '',
             );
           },
         ),

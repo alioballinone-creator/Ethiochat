@@ -19,7 +19,7 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
       - name: Generate code
-        run: dart run build_runner build --delete-conflicting-outputs || true
+        run: dart run build_runner build --delete-conflicting-outputs
       - name: Fix Gradle wrapper
         run: |
           cd android
@@ -45,8 +45,19 @@ jobs:
           flutter build appbundle --release --no-tree-shake-icons
           --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
           --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+          --dart-define=LIVEKIT_URL="${{ secrets.LIVEKIT_URL }}"
+          --dart-define=FIREBASE_PROJECT_ID="${{ secrets.FIREBASE_PROJECT_ID }}"
+          --dart-define=FIREBASE_APP_ID="${{ secrets.FIREBASE_APP_ID }}"
+          --dart-define=FIREBASE_API_KEY="${{ secrets.FIREBASE_API_KEY }}"
+          --dart-define=FIREBASE_MESSAGING_SENDER_ID="${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}"
+          --dart-define=FIREBASE_STORAGE_BUCKET="${{ secrets.FIREBASE_STORAGE_BUCKET }}"
+      - name: Verify release signature
+        run: |
+          test -s build/app/outputs/bundle/release/app-release.aab
+          jarsigner -verify -strict -certs build/app/outputs/bundle/release/app-release.aab
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error

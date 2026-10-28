@@ -10,6 +10,7 @@ import '../../features/chats/data/datasources/supabase_outbox_transport.dart';
 import '../config/env.dart';
 import '../db/app_database.dart';
 import '../network/connectivity_service.dart';
+import '../notifications/push_notification_service.dart';
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
@@ -41,6 +42,15 @@ final chatSyncProvider = Provider<ChatSyncController?>((ref) {
   unawaited(controller.start());
   ref.onDispose(controller.dispose);
   return controller;
+});
+
+/// Firebase Cloud Messaging registration. Starting it is a no-op unless all
+/// public Firebase client values were supplied at build time.
+final pushNotificationServiceProvider =
+    Provider<PushNotificationService>((ref) {
+  final service = PushNotificationService(db: ref.watch(appDatabaseProvider));
+  ref.onDispose(service.dispose);
+  return service;
 });
 
 final connectivityServiceProvider = Provider<ConnectivityService>((ref) {

@@ -154,6 +154,7 @@ class _WalletPinScreenState extends ConsumerState<WalletPinScreen> {
           recipient: request.recipient ?? 'EthioChat user',
           amountMinor: request.amountMinor,
           note: request.note,
+          pin: _pin,
         ),
       WalletTxType.bill => await repo.payBill(
           provider: request.provider ?? 'Biller',
@@ -164,6 +165,8 @@ class _WalletPinScreenState extends ConsumerState<WalletPinScreen> {
           totalMinor: request.amountMinor,
           count: request.redPacketCount,
           note: request.note ?? 'Best wishes',
+          conversationId: null,
+          pin: _pin,
         ),
       WalletTxType.topUp => await repo.topUp(
           amountMinor: request.amountMinor,
