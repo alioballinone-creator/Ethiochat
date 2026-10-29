@@ -31,6 +31,9 @@ analyzer:
     deprecated_member_use: ignore
     avoid_slow_async_io: ignore
     unnecessary_parenthesis: ignore
+    diagnostic_describe_all_properties: ignore
+    depend_on_referenced_packages: ignore
+    library_private_types_in_public_api: ignore
 
 linter:
   rules:
@@ -40,30 +43,3 @@ linter:
     prefer_final_locals: true
     require_trailing_commas: true
     use_super_parameters: true
-
-analyzer:
-  errors:
-    invalid_annotation_target: ignore
-    public_member_api_docs: ignore
-    lines_longer_than_80_chars: ignore
-    sort_pub_dependencies: ignore
-    always_use_package_imports: ignore
-    prefer_const_constructors: ignore
-    require_trailing_commas: ignore
-    avoid_redundant_argument_values: ignore
-    unnecessary_import: ignore
-    sort_child_properties_last: ignore
-    unnecessary_lambdas: ignore
-    avoid_positional_boolean_parameters: ignore
-    use_if_null_to_convert_nulls_to_bools: ignore
-    unawaited_futures: ignore
-    noop_primitive_operations: ignore
-    avoid_escaping_inner_quotes: ignore
-    always_put_required_named_parameters_first: ignore
-    cascade_invocations: ignore
-    prefer_const_literals_to_create_immutables: ignore
-    unnecessary_breaks: ignore
-    avoid_bool_literals_in_conditional_expressions: ignore
-    deprecated_member_use: ignore
-    avoid_slow_async_io: ignore
-    unnecessary_parenthesis: ignore
