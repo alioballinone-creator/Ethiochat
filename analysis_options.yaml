@@ -56,6 +56,9 @@ analyzer:
     use_key_in_widget_constructors: ignore
     curly_braces_in_flow_control_structures: ignore
 
+    constant_identifier_names: ignore
+    type=thought: ignore
+
 linter:
   rules:
     always_declare_return_types: true
