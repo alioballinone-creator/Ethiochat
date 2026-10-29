@@ -121,7 +121,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
             ),
             Expanded(
               child: contactsAsync.isLoading && contacts.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const ContactListSkeleton()
                   : ListView(
                       padding: Sp.screen.copyWith(top: Sp.x3, bottom: Sp.x8),
                       children: [

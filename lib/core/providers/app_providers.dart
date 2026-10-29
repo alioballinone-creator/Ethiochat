@@ -9,6 +9,7 @@ import '../../features/chats/data/datasources/outbox_worker.dart';
 import '../../features/chats/data/datasources/supabase_outbox_transport.dart';
 import '../config/env.dart';
 import '../db/app_database.dart';
+import '../logging/app_logger.dart';
 import '../network/connectivity_service.dart';
 import '../notifications/push_notification_service.dart';
 
@@ -27,6 +28,27 @@ final outboxWorkerProvider = Provider<OutboxWorker>((ref) {
     transport: SupabaseOutboxTransport().send,
   );
   worker.start();
+  if (Env.hasSupabase) {
+    final client = Supabase.instance.client;
+    if (client.auth.currentSession == null) worker.pause();
+    final subscription = client.auth.onAuthStateChange.listen(
+      (state) {
+        if (state.session == null) {
+          worker.pause();
+        } else {
+          worker.resume();
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        AppLogger.warn(
+          'Outbox auth-state stream failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      },
+    );
+    ref.onDispose(() => unawaited(subscription.cancel()));
+  }
   ref.onDispose(worker.stop);
   return worker;
 });

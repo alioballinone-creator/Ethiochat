@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../providers/app_providers.dart';
 
 class OfflineBanner extends ConsumerWidget {
@@ -18,15 +19,17 @@ class OfflineBanner extends ConsumerWidget {
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          child: const Row(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.cloud_off, color: Colors.white, size: 16),
-              SizedBox(width: 8),
+              const Icon(Icons.cloud_off, color: Colors.white, size: 16),
+              const SizedBox(width: 8),
               Text(
-                'You are offline',
-                style:
-                    TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                AppLocalizations.of(context).offline,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),

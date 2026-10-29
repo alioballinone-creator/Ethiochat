@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../design/design.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -13,11 +17,23 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        context.go('/welcome');
+    unawaited(_openInitialDestination());
+  }
+
+  Future<void> _openInitialDestination() async {
+    await Future<void>.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastChatId = prefs.getString('chat.lastOpenedId');
+      if (mounted && lastChatId != null && lastChatId.isNotEmpty) {
+        context.go('/chats/$lastChatId');
+        return;
       }
-    });
+    } catch (_) {
+      // Continue to the welcome screen if saved navigation is unavailable.
+    }
+    if (mounted) context.go('/welcome');
   }
 
   @override

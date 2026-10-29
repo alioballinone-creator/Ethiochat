@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/config/feature_flags.dart';
 import '../../../../core/design/design.dart';
+import '../../../../core/providers/app_providers.dart';
 import '../../../../core/settings/app_settings.dart';
 import '../../../auth/application/auth_providers.dart';
 import '../../../auth/application/session_cleanup.dart';
@@ -138,18 +141,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (confirmed != true || !mounted) return;
     final signOutResult = await ref.read(authRepositoryProvider).signOut();
     if (!mounted) return;
+    final signOutFailure = signOutResult.failureOrNull;
+    if (signOutFailure != null) {
+      final message = signOutFailure.messageFor(
+        Localizations.localeOf(context).languageCode,
+      );
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(message),
+            action: SnackBarAction(
+              label: Localizations.localeOf(context).languageCode == 'am'
+                  ? 'እንደገና ይሞክሩ'
+                  : 'Try again',
+              onPressed: () => unawaited(_signOut()),
+            ),
+          ),
+        );
+      return;
+    }
+    await _finishSignOut();
+  }
+
+  Future<void> _finishSignOut() async {
     final localFailure = await clearLocalAccountState(ref);
     if (!mounted) return;
-    final failure = localFailure ?? signOutResult.failureOrNull;
-    if (failure != null) {
+    if (localFailure != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             'Signed out, but some local account data could not be cleared: '
-            '${failure.message}',
+            '${localFailure.messageFor(Localizations.localeOf(context).languageCode)}',
+          ),
+          action: SnackBarAction(
+            label: Localizations.localeOf(context).languageCode == 'am'
+                ? 'እንደገና ይሞክሩ'
+                : 'Try again',
+            onPressed: () => unawaited(_finishSignOut()),
           ),
         ),
       );
+      return;
     }
     context.go('/welcome');
   }

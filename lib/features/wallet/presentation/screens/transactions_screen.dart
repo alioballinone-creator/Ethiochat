@@ -58,7 +58,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             ),
             Expanded(
               child: async.isLoading && all.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const TransactionListSkeleton()
                   : entries.isEmpty
                       ? EthioEmptyState(
                           icon: Icons.receipt_long_outlined,

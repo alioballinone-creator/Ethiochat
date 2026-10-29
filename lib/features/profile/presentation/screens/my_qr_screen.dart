@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/design/design.dart';
+import '../../../../core/errors/failure.dart';
 import '../../application/profile_controller.dart';
 
 /// My QR code — scan-to-add card.
@@ -53,7 +54,11 @@ class _MyQrScreenState extends ConsumerState<MyQrScreen> {
       await file.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
       _feedback('QR code saved to ${file.path}');
     } catch (error) {
-      _feedback('Could not save the QR code: $error');
+      _feedback(
+        mapError(error).messageFor(
+          Localizations.localeOf(context).languageCode,
+        ),
+      );
     }
   }
 

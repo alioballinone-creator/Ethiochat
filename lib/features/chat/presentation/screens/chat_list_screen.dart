@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/design/design.dart';
 import '../../../../core/utils/time_format.dart';
@@ -20,13 +23,71 @@ class ChatListScreen extends ConsumerStatefulWidget {
 
 class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   int _filter = 0;
+  final _listScrollController = ScrollController();
+  Timer? _stateSaveTimer;
+  double? _restoredScrollOffset;
+  bool _scrollPositionRestored = false;
 
   static const _filters = ['All', 'Unread', 'Groups', 'Official', 'Archived'];
+  static const _filterKey = 'chatList.filter';
+  static const _scrollKey = 'chatList.scrollOffset';
 
   @override
   void initState() {
     super.initState();
     _filter = widget.initialFilter.clamp(0, _filters.length - 1).toInt();
+    _listScrollController.addListener(_scheduleStateSave);
+    Future<void>.microtask(_restoreListState);
+  }
+
+  @override
+  void dispose() {
+    _stateSaveTimer?.cancel();
+    final scrollOffset = _listScrollController.hasClients
+        ? _listScrollController.offset
+        : null;
+    unawaited(_saveListState(scrollOffset));
+    _listScrollController
+      ..removeListener(_scheduleStateSave)
+      ..dispose();
+    super.dispose();
+  }
+
+  Future<void> _restoreListState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      final storedFilter = prefs.getInt(_filterKey);
+      setState(() {
+        if (storedFilter != null) {
+          _filter = storedFilter.clamp(0, _filters.length - 1).toInt();
+        }
+        _restoredScrollOffset = prefs.getDouble(_scrollKey);
+      });
+    } catch (_) {
+      // The route-provided filter and initial position remain usable.
+    }
+  }
+
+  void _scheduleStateSave() {
+    _stateSaveTimer?.cancel();
+    _stateSaveTimer = Timer(const Duration(milliseconds: 300), _saveListState);
+  }
+
+  Future<void> _saveListState([double? scrollOffset]) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_filterKey, _filter);
+      final offset = scrollOffset ??
+          (_listScrollController.hasClients
+              ? _listScrollController.offset
+              : null);
+      if (offset != null) {
+        await prefs.setDouble(_scrollKey, offset);
+      }
+    } catch (_) {
+      // Keep browsing if preference storage is unavailable.
+    }
   }
 
   @override
@@ -189,6 +250,18 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     final chats = _visible(all);
     final loading =
         seed.isLoading && all.isEmpty || summaries.isLoading && all.isEmpty;
+    if (!loading &&
+        !_scrollPositionRestored &&
+        _restoredScrollOffset != null) {
+      _scrollPositionRestored = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_listScrollController.hasClients) return;
+        final maxExtent = _listScrollController.position.maxScrollExtent;
+        _listScrollController.jumpTo(
+          _restoredScrollOffset!.clamp(0, maxExtent).toDouble(),
+        );
+      });
+    }
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -250,22 +323,38 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                               fontWeight:
                                   selected ? FontWeight.w600 : FontWeight.w500,
                             ),
-                    onSelected: (_) => setState(() => _filter = i),
+                    onSelected: (_) {
+                      setState(() => _filter = i);
+                      _scheduleStateSave();
+                    },
                   );
                 },
               ),
             ),
             Expanded(
               child: loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const ChatListSkeleton()
                   : summaries.hasError && all.isEmpty
                       ? Center(
                           child: Padding(
                             padding: Sp.screen,
-                            child: Text(
-                              'Could not load chats: '
-                              '${summaries.error}',
-                              textAlign: TextAlign.center,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Could not load chats.',
+                                  textAlign: TextAlign.center,
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    ref.invalidate(
+                                      conversationSummariesProvider,
+                                    );
+                                    ref.invalidate(demoSeedProvider);
+                                  },
+                                  child: const Text('Try again'),
+                                ),
+                              ],
                             ),
                           ),
                         )
@@ -283,6 +372,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                 ref.invalidate(conversationSummariesProvider);
                               },
                               child: ListView.builder(
+                                controller: _listScrollController,
                                 padding: const EdgeInsets.only(
                                   top: Sp.x2,
                                   bottom: Sp.x8,
@@ -311,6 +401,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                       title: chat.title,
                                       preview: chat.preview,
                                       time: chatListTime(chat.lastMessageAt),
+                                      avatarUrl: chat.conversation.avatarUrl,
+                                      heroTag: 'chat-avatar-${chat.id}',
                                       unread: chat.unread,
                                       pinned: chat.pinned,
                                       muted: chat.muted,

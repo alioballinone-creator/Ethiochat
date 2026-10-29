@@ -24,6 +24,41 @@ jobs:
         run: flutter pub get
       - name: Generate code
         run: dart run build_runner build --delete-conflicting-outputs
+      - name: Analyze
+        run: flutter analyze
+      - name: Test
+        run: flutter test --reporter expanded
+      - name: Read release metadata
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | head -n 1)"
+          if [[ "$version" != *+* ]]; then
+            echo "::error::pubspec.yaml version must include a build number (versionName+versionCode)"
+            exit 1
+          fi
+          version_name="${version%%+*}"
+          version_code="${version##*+}"
+          if [[ ! "$version_code" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::pubspec.yaml versionCode must be a positive integer"
+            exit 1
+          fi
+          commit_sha="$(git rev-parse HEAD)"
+          build_date="$(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          {
+            echo "version_name=$version_name"
+            echo "version_code=$version_code"
+            echo "commit_sha=$commit_sha"
+            echo "build_date=$build_date"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "## EthioChat Android release"
+            echo "- Version name: $version_name"
+            echo "- Version code: $version_code"
+            echo "- Commit SHA: $commit_sha"
+            echo "- Build date: $build_date"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify committed Gradle wrapper
         run: |
@@ -53,7 +88,7 @@ jobs:
       - name: Validate release configuration
         shell: bash
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
@@ -77,7 +112,7 @@ jobs:
               missing=1
             fi
           }
-          require_value KEYSTORE_BASE64 "$KEYSTORE_BASE64"
+          require_value ANDROID_KEYSTORE_BASE64 "$ANDROID_KEYSTORE_BASE64"
           require_value ANDROID_KEYSTORE_PASSWORD "$ANDROID_KEYSTORE_PASSWORD"
           require_value ANDROID_KEY_ALIAS "$ANDROID_KEY_ALIAS"
           require_value ANDROID_KEY_PASSWORD "$ANDROID_KEY_PASSWORD"
@@ -88,6 +123,7 @@ jobs:
           require_value FIREBASE_APP_ID "$FIREBASE_APP_ID"
           require_value FIREBASE_API_KEY "$FIREBASE_API_KEY"
           require_value FIREBASE_MESSAGING_SENDER_ID "$FIREBASE_MESSAGING_SENDER_ID"
+          require_value FIREBASE_STORAGE_BUCKET "$FIREBASE_STORAGE_BUCKET"
           require_value PLAY_UPLOAD_CERT_SHA256 "$PLAY_UPLOAD_CERT_SHA256"
           if (( missing != 0 )); then
             exit 1
@@ -101,15 +137,16 @@ jobs:
       - name: Decode and validate upload keystore
         shell: bash
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           KEYSTORE_FILE: ${{ runner.temp }}/upload-keystore.jks
           PLAY_UPLOAD_CERT_SHA256: ${{ vars.PLAY_UPLOAD_CERT_SHA256 }}
         run: |
           set -euo pipefail
           umask 077
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
           test -s "$KEYSTORE_FILE" || {
             echo "::error::Decoded upload keystore is empty"
             exit 1
@@ -129,9 +166,13 @@ jobs:
             echo "::error::Configured upload keystore does not match the Play Console upload certificate (expected SHA-256 $expected_fingerprint; keystore SHA-256 $keystore_fingerprint)"
             exit 1
           fi
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$KEYSTORE_FILE" "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_ALIAS" \
+            "$ANDROID_KEY_PASSWORD" > android/key.properties
+          chmod 600 android/key.properties
           echo "Upload keystore matches the configured Play Console upload certificate fingerprint."
 
-      - name: Build AAB
+      - name: Build release AAB and APK
         shell: bash
         env:
           KEYSTORE_FILE: ${{ runner.temp }}/upload-keystore.jks
@@ -146,9 +187,24 @@ jobs:
           FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
           FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
           FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          VERSION_NAME: ${{ steps.metadata.outputs.version_name }}
+          VERSION_CODE: ${{ steps.metadata.outputs.version_code }}
         run: |
           set -euo pipefail
-          flutter build appbundle --release --no-tree-shake-icons \
+          flutter build appbundle --release \
+            --build-name="$VERSION_NAME" \
+            --build-number="$VERSION_CODE" \
+            --dart-define="SUPABASE_URL=$SUPABASE_URL" \
+            --dart-define="SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" \
+            --dart-define="LIVEKIT_URL=$LIVEKIT_URL" \
+            --dart-define="FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID" \
+            --dart-define="FIREBASE_APP_ID=$FIREBASE_APP_ID" \
+            --dart-define="FIREBASE_API_KEY=$FIREBASE_API_KEY" \
+            --dart-define="FIREBASE_MESSAGING_SENDER_ID=$FIREBASE_MESSAGING_SENDER_ID" \
+            --dart-define="FIREBASE_STORAGE_BUCKET=$FIREBASE_STORAGE_BUCKET"
+          flutter build apk --release \
+            --build-name="$VERSION_NAME" \
+            --build-number="$VERSION_CODE" \
             --dart-define="SUPABASE_URL=$SUPABASE_URL" \
             --dart-define="SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" \
             --dart-define="LIVEKIT_URL=$LIVEKIT_URL" \
@@ -165,6 +221,8 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           PLAY_UPLOAD_CERT_SHA256: ${{ vars.PLAY_UPLOAD_CERT_SHA256 }}
+          VERSION_NAME: ${{ steps.metadata.outputs.version_name }}
+          VERSION_CODE: ${{ steps.metadata.outputs.version_code }}
         run: |
           set -euo pipefail
           aab="build/app/outputs/bundle/release/app-release.aab"
@@ -183,17 +241,41 @@ jobs:
             exit 1
           fi
           echo "AAB is signed with the configured Play Console upload certificate."
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          mapping="build/app/outputs/mapping/release/mapping.txt"
+          test -s "$apk" || {
+            echo "::error::Release APK is missing or empty"
+            exit 1
+          }
+          test -s "$mapping" || {
+            echo "::error::R8 mapping file is missing or empty"
+            exit 1
+          }
+          mkdir -p build/release-artifacts
+          cp "$aab" "build/release-artifacts/echat-v${VERSION_NAME}-${VERSION_CODE}.aab"
+          cp "$apk" "build/release-artifacts/echat-v${VERSION_NAME}-${VERSION_CODE}.apk"
+          cp "$mapping" build/release-artifacts/mapping.txt
 
-      - name: Upload AAB
+      - name: Upload signed AAB and R8 mapping
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: build/app/outputs/bundle/release/app-release.aab
+          name: echat-v${{ steps.metadata.outputs.version_name }}-${{ steps.metadata.outputs.version_code }}-aab
+          path: |
+            build/release-artifacts/*.aab
+            build/release-artifacts/mapping.txt
+          if-no-files-found: error
+
+      - name: Upload release APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: echat-v${{ steps.metadata.outputs.version_name }}-${{ steps.metadata.outputs.version_code }}-apk
+          path: build/release-artifacts/*.apk
           if-no-files-found: error
 
       - name: Remove temporary signing files
         if: always()
         env:
           KEYSTORE_FILE: ${{ runner.temp }}/upload-keystore.jks
-        run: rm -f -- "$KEYSTORE_FILE"
+        run: rm -f -- "$KEYSTORE_FILE" android/key.properties

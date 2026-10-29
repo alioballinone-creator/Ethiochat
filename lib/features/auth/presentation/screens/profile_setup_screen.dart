@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/config/env.dart';
 import '../../../../core/design/design.dart';
+import '../../../../core/errors/failure.dart';
 import '../../../profile/application/profile_controller.dart';
 import '../../application/auth_providers.dart';
 
@@ -61,7 +62,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not pick a photo: $error')),
+        SnackBar(
+          content: Text(
+            mapError(error).messageFor(
+              Localizations.localeOf(context).languageCode,
+            ),
+          ),
+        ),
       );
     }
   }
@@ -72,6 +79,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     final name = _name.text.trim();
     final bio = _bio.text.trim();
     final current = ref.read(userProfileProvider);
+
+    await ref.read(userProfileProvider.notifier).save(
+          name: name,
+          bio: bio,
+          avatarPath: _avatarPath,
+          clearAvatarPath: _avatarPath == null,
+        );
 
     // A production profile is only reported as saved after the authenticated
     // backend accepts it. The local-only path exists for credential-free
@@ -87,9 +101,20 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       if (!mounted) return;
       final failure = result.failureOrNull;
       if (failure != null) {
+        await ref.read(userProfileProvider.notifier).save(
+              name: current.name,
+              bio: current.bio,
+              phone: current.phone,
+              avatarPath: current.avatarPath,
+              clearAvatarPath: current.avatarPath == null,
+            );
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(failure.message)),
+          SnackBar(
+            content: Text(
+              failure.messageFor(Localizations.localeOf(context).languageCode),
+            ),
+          ),
         );
         return;
       }
@@ -98,11 +123,14 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     final remote = Env.hasSupabase
         ? (await ref.read(authRepositoryProvider).fetchProfile()).valueOrNull
         : null;
-    await ref.read(userProfileProvider.notifier).save(
-          name: name,
-          bio: bio,
-          avatarPath: remote?.avatarUrl ?? _avatarPath,
-        );
+    if (remote != null) {
+      await ref.read(userProfileProvider.notifier).save(
+            name: remote.displayName,
+            bio: remote.bio,
+            avatarPath: remote.avatarUrl,
+            clearAvatarPath: remote.avatarUrl == null,
+          );
+    }
     if (!mounted) return;
     setState(() => _saving = false);
     if (widget.isEditing) {

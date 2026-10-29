@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../../../core/cache/image_cache_manager.dart';
 import '../../../../core/design/design.dart';
+import '../../../../core/errors/failure.dart';
 import '../../../../core/settings/app_settings.dart';
 
 class NotificationSettingsScreen extends ConsumerWidget {
@@ -231,6 +233,7 @@ class _StorageManagerScreenState extends State<StorageManagerScreen> {
   var _cacheBytes = 0;
   var _loading = true;
   var _clearing = false;
+  String? _error;
 
   @override
   void initState() {
@@ -248,8 +251,15 @@ class _StorageManagerScreenState extends State<StorageManagerScreen> {
           total += await entity.length();
         }
       }
-    } catch (_) {
-      // Platform storage is unavailable on some test hosts.
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = mapError(error).messageFor(
+          Localizations.localeOf(context).languageCode,
+        );
+        _loading = false;
+      });
+      return;
     }
     if (!mounted) return;
     setState(() {
@@ -260,28 +270,48 @@ class _StorageManagerScreenState extends State<StorageManagerScreen> {
 
   Future<void> _clear() async {
     setState(() => _clearing = true);
+    var skippedFiles = false;
     try {
+      await EthioCacheManager.instance.emptyCache();
       final dir = await getTemporaryDirectory();
       await for (final entity in dir.list(followLinks: false)) {
         try {
           if (entity is File) await entity.delete();
           if (entity is Directory) await entity.delete(recursive: true);
         } catch (_) {
-          // A file in use can be skipped; the rest of the cache is cleared.
+          skippedFiles = true;
         }
       }
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
-    } catch (_) {
-      // Ignore host limitations.
+    } catch (error) {
+      if (!mounted) return;
+      final message = mapError(error).messageFor(
+        Localizations.localeOf(context).languageCode,
+      );
+      setState(() {
+        _clearing = false;
+        _error = message;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+      return;
     }
     if (!mounted) return;
     setState(() {
       _cacheBytes = 0;
       _clearing = false;
+      _error = null;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Temporary files cleared.')),
+      SnackBar(
+        content: Text(
+          skippedFiles
+              ? 'Most cached files were cleared; some are still in use.'
+              : 'Temporary files cleared.',
+        ),
+      ),
     );
   }
 
@@ -319,7 +349,9 @@ class _StorageManagerScreenState extends State<StorageManagerScreen> {
                       size: 42, color: pal.textSecondary),
                   const SizedBox(height: Sp.x2),
                   Text(
-                    _loading ? 'Measuring…' : _formatBytes(_cacheBytes),
+                    _loading
+                        ? 'Measuring…'
+                        : _error ?? _formatBytes(_cacheBytes),
                     style: text.headlineMedium,
                   ),
                   Text(

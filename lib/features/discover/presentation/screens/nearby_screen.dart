@@ -83,7 +83,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
       body: SafeArea(
         top: false,
         child: _checking
-            ? const Center(child: CircularProgressIndicator())
+            ? const ContactListSkeleton(count: 4)
             : granted
                 ? ListView(
                     padding: Sp.screen.copyWith(top: Sp.x3, bottom: Sp.x8),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/design/design.dart';
 import '../../../chats/application/chat_providers.dart';
@@ -24,6 +25,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   String _committed = '';
   int _filter = 0;
   Timer? _debounce;
+  Timer? _saveTimer;
+  static const _queryKey = 'search.query';
+  static const _filterKey = 'search.filter';
   final _recent = <String>[
     'Abebe Kebede',
     'rent',
@@ -35,14 +39,58 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   static const _filters = ['All', 'Chats', 'Contacts', 'Messages', 'Files'];
 
   @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(_restoreSearchState);
+  }
+
+  Future<void> _restoreSearchState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      final query = prefs.getString(_queryKey) ?? '';
+      setState(() {
+        _query = query;
+        _committed = query;
+        _filter =
+            (prefs.getInt(_filterKey) ?? 0)
+                .clamp(0, _filters.length - 1)
+                .toInt();
+        _controller.text = query;
+        _controller.selection = TextSelection.collapsed(offset: query.length);
+      });
+    } catch (_) {
+      // Search remains available with a blank query if storage is unavailable.
+    }
+  }
+
+  void _scheduleSearchStateSave() {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 300), _persistSearchState);
+  }
+
+  Future<void> _persistSearchState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_queryKey, _query);
+      await prefs.setInt(_filterKey, _filter);
+    } catch (_) {
+      // Search remains usable when preference storage is unavailable.
+    }
+  }
+
+  @override
   void dispose() {
     _debounce?.cancel();
+    _saveTimer?.cancel();
+    unawaited(_persistSearchState());
     _controller.dispose();
     super.dispose();
   }
 
   void _search(String value) {
     setState(() => _query = value.trim());
+    _scheduleSearchStateSave();
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 220), () {
       if (!mounted) return;
@@ -57,6 +105,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       _query = term;
       _committed = term;
     });
+    _scheduleSearchStateSave();
   }
 
   Future<void> _openConversation(String id) async {
@@ -196,7 +245,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                       ? FontWeight.w600
                                       : FontWeight.w500,
                                 ),
-                                onSelected: (_) => setState(() => _filter = i),
+                                onSelected: (_) {
+                                  setState(() => _filter = i);
+                                  _scheduleSearchStateSave();
+                                },
                               );
                             },
                           ),
