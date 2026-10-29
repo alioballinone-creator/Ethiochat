@@ -16,6 +16,12 @@ Add these in Settings → Secrets and variables → Actions:
   `FIREBASE_MESSAGING_SENDER_ID`, and `FIREBASE_STORAGE_BUCKET` - Firebase
   client configuration
 
+The release workflow currently reports these missing configuration names:
+`LIVEKIT_URL`, `FIREBASE_PROJECT_ID`, `FIREBASE_APP_ID`, `FIREBASE_API_KEY`,
+and `FIREBASE_MESSAGING_SENDER_ID`. It also reports the
+`PLAY_UPLOAD_CERT_SHA256` repository variable as missing. Add the secrets and
+variable before expecting a release build to proceed.
+
 Also add the public `PLAY_UPLOAD_CERT_SHA256` repository variable under
 Settings → Secrets and variables → Actions → Variables. Set it to the SHA-256
 fingerprint shown for the app's **upload key certificate** in Play Console
@@ -33,3 +39,20 @@ Command: `flutter build appbundle --release --no-tree-shake-icons`.
 The AAB is uploaded only after strict `jarsigner` verification and confirmation
 that its signing certificate matches `PLAY_UPLOAD_CERT_SHA256`. The temporary
 keystore is kept under the runner's temporary directory and removed at job end.
+
+## Supabase Deployment
+
+The Supabase deployment workflow requires these repository Actions secrets:
+`SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, and `SUPABASE_PROJECT_REF`.
+The latest deployment run reports `SUPABASE_PROJECT_REF` as missing. Add it at
+repository Settings → Secrets and variables → Actions → New repository secret.
+`SUPABASE_PROJECT_REF` must be the project's 20-character reference, not its
+URL or an API key. The deployment workflow checks it against the reference in
+`SUPABASE_URL` when that URL uses the canonical `*.supabase.co` host.
+
+LiveKit requires `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, and `LIVEKIT_URL`
+together. Push dispatch requires `FCM_SERVICE_ACCOUNT_JSON` and
+`PUSH_WEBHOOK_SECRET` together. `PAYMENT_WEBHOOK_SECRET` enables payment
+webhook verification. Missing optional service credentials are reported as
+warnings and those services remain unavailable or fail closed; they are not
+reported as production-ready.

@@ -114,9 +114,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         if (atBottom) _unseen = 0;
       });
     }
-    if (_scroll.position.pixels < 120 &&
-        !_loadingOlder &&
-        !_historyExhausted) {
+    if (_scroll.position.pixels < 120 && !_loadingOlder && !_historyExhausted) {
       unawaited(_loadOlder());
     }
   }
@@ -129,9 +127,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       return;
     }
     setState(() => _loadingOlder = true);
-    final beforeExtent = _scroll.hasClients
-        ? _scroll.position.maxScrollExtent
-        : 0.0;
+    final beforeExtent =
+        _scroll.hasClients ? _scroll.position.maxScrollExtent : 0.0;
     final beforeOffset = _scroll.hasClients ? _scroll.position.pixels : 0.0;
     try {
       final imported = await controller.loadOlder(widget.chatId);

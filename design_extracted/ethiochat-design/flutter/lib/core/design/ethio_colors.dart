@@ -23,8 +23,14 @@ abstract final class EthioColors {
 
   /// Warm, muted avatar tones (never bright primaries).
   static const avatarTones = <Color>[
-    Color(0xFF8C5A2B), Color(0xFFB8860B), Color(0xFF4A4034), Color(0xFFA5472F),
-    Color(0xFF6B7A3A), Color(0xFF7A5C8F), Color(0xFF2F6B6B), Color(0xFFC98B2B),
+    Color(0xFF8C5A2B),
+    Color(0xFFB8860B),
+    Color(0xFF4A4034),
+    Color(0xFFA5472F),
+    Color(0xFF6B7A3A),
+    Color(0xFF7A5C8F),
+    Color(0xFF2F6B6B),
+    Color(0xFFC98B2B),
   ];
 }
 
@@ -52,7 +58,8 @@ class EthioPalette extends ThemeExtension<EthioPalette> {
   final Color tickSent, tickRead;
   final Gradient bubbleSent;
 
-  static const _blackFill = LinearGradient(colors: [EthioColors.black, EthioColors.black]);
+  static const _blackFill =
+      LinearGradient(colors: [EthioColors.black, EthioColors.black]);
 
   /// Light: sent bubbles are black with cream text; gold ticks pop on black.
   static const light = EthioPalette(

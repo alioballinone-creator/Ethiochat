@@ -61,19 +61,31 @@ class _EthioTextFieldState extends State<EthioTextField> {
           duration: Dur.fast,
           decoration: BoxDecoration(
             borderRadius: Rad.r14,
-            boxShadow: focused ? [BoxShadow(color: pal.ring, spreadRadius: 4)] : const [],
+            boxShadow: focused
+                ? [BoxShadow(color: pal.ring, spreadRadius: 4)]
+                : const [],
           ),
           child: TextField(
-            focusNode: _focus, controller: widget.controller, autofocus: widget.autofocus,
-            keyboardType: widget.keyboardType, inputFormatters: widget.inputFormatters,
-            onChanged: widget.onChanged, obscureText: widget.obscureText, maxLength: widget.maxLength,
+            focusNode: _focus,
+            controller: widget.controller,
+            autofocus: widget.autofocus,
+            keyboardType: widget.keyboardType,
+            inputFormatters: widget.inputFormatters,
+            onChanged: widget.onChanged,
+            obscureText: widget.obscureText,
+            maxLength: widget.maxLength,
             style: widget.textStyle ?? Theme.of(context).textTheme.bodyLarge,
             cursorColor: EthioColors.gold,
             decoration: InputDecoration(
-              hintText: widget.hint, prefixIcon: widget.prefix, suffixIcon: widget.suffix,
+              hintText: widget.hint,
+              prefixIcon: widget.prefix,
+              suffixIcon: widget.suffix,
               counterText: '',
               enabledBorder: widget.errorText != null
-                  ? OutlineInputBorder(borderRadius: Rad.r14, borderSide: const BorderSide(color: EthioColors.danger, width: 1.5))
+                  ? OutlineInputBorder(
+                      borderRadius: Rad.r14,
+                      borderSide: const BorderSide(
+                          color: EthioColors.danger, width: 1.5))
                   : null,
             ),
           ),
@@ -81,7 +93,11 @@ class _EthioTextFieldState extends State<EthioTextField> {
         if (widget.errorText != null)
           Padding(
             padding: const EdgeInsets.only(top: 6, left: 4),
-            child: Text(widget.errorText!, style: Theme.of(context).textTheme.labelSmall!.copyWith(color: EthioColors.danger)),
+            child: Text(widget.errorText!,
+                style: Theme.of(context)
+                    .textTheme
+                    .labelSmall!
+                    .copyWith(color: EthioColors.danger)),
           ),
       ],
     );
