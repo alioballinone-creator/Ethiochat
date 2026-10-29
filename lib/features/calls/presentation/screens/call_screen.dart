@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
 
 import '../../../../core/design/design.dart';
+import '../../../../core/errors/failure.dart';
 import '../../../chats/application/chat_providers.dart';
 import '../../data/livekit_call_service.dart';
 import '../../domain/call_models.dart';
@@ -93,10 +94,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       }
     } on CallException catch (error) {
       await _service.disconnect();
-      _fail(error.message);
+      _fail(_friendlyCallError(error));
     } catch (error) {
       await _service.disconnect();
-      _fail('The call could not be started: $error');
+      _fail(_friendlyCallError(error));
     }
   }
 
@@ -117,10 +118,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       _markConnected();
     } on CallException catch (error) {
       await _service.disconnect();
-      _fail(error.message);
+      _fail(_friendlyCallError(error));
     } catch (error) {
       await _service.disconnect();
-      _fail('The call could not be answered: $error');
+      _fail(_friendlyCallError(error));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -202,9 +203,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
         rejected: rejected || (widget.isIncoming && !_lifecycle.isConnected),
       );
     } on CallException catch (error) {
-      failure = error.message;
+      failure = _friendlyCallError(error);
     } catch (error) {
-      failure = 'The call server could not be updated: $error';
+      failure = _friendlyCallError(error);
     }
     if (!mounted) return;
     if (failure != null) {
@@ -233,9 +234,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       await _service.setMicrophoneEnabled(!next);
       if (mounted) setState(() => _muted = next);
     } on CallException catch (error) {
-      _feedback(error.message);
+      _feedback(_friendlyCallError(error));
     } catch (error) {
-      _feedback('Could not change the microphone: $error');
+      _feedback(_friendlyCallError(error));
     }
   }
 
@@ -245,9 +246,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       await _service.setSpeakerEnabled(next);
       if (mounted) setState(() => _speaker = next);
     } on CallException catch (error) {
-      _feedback(error.message);
+      _feedback(_friendlyCallError(error));
     } catch (error) {
-      _feedback('Could not change the audio output: $error');
+      _feedback(_friendlyCallError(error));
     }
   }
 
@@ -257,9 +258,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       await _service.setCameraEnabled(next);
       if (mounted) setState(() => _videoOn = next);
     } on CallException catch (error) {
-      _feedback(error.message);
+      _feedback(_friendlyCallError(error));
     } catch (error) {
-      _feedback('Could not change the camera: $error');
+      _feedback(_friendlyCallError(error));
     }
   }
 
@@ -274,8 +275,15 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       setState(() => _frontCamera = !_frontCamera);
       HapticFeedback.selectionClick();
     } catch (error) {
-      _feedback('Could not switch the camera: $error');
+      _feedback(_friendlyCallError(error));
     }
+  }
+
+  String _friendlyCallError(Object error) {
+    if (!mounted) return mapError(error).message;
+    return mapError(error).messageFor(
+      Localizations.localeOf(context).languageCode,
+    );
   }
 
   void _feedback(String message) {

@@ -104,11 +104,49 @@ void main() {
 
     final row = (await db.select(db.outbox).get()).single;
     expect(row.attempt, 1);
-    expect(row.lastError, contains('offline'));
+    expect(row.lastError, 'send_failed');
     expect(row.nextRetryAt, greaterThan(DateTime.now().millisecondsSinceEpoch));
     final message = await (db.select(db.messages)
           ..where((m) => m.id.equals('m2')))
         .getSingle();
     expect(message.status, 0);
+  });
+
+  test('does not mark queued message sent without a transport', () async {
+    await seedPendingMessage('m3');
+    final worker = OutboxWorker(
+      db: db,
+      connectivity: Connectivity(),
+    );
+
+    await worker.processPending();
+
+    final row = (await db.select(db.outbox).get()).single;
+    expect(row.attempt, 1);
+    expect(row.lastError, 'send_failed');
+    final message = await (db.select(db.messages)
+          ..where((m) => m.id.equals('m3')))
+        .getSingle();
+    expect(message.status, 0);
+  });
+
+  test('invalid message payload remains visible as failed', () async {
+    await seedPendingMessage('m4');
+    await (db.update(db.outbox)..where((o) => o.messageId.equals('m4'))).write(
+      const OutboxCompanion(payloadJson: drift.Value('{invalid')),
+    );
+    final worker = OutboxWorker(
+      db: db,
+      connectivity: Connectivity(),
+      transport: (_) async {},
+    );
+
+    await worker.processPending();
+
+    expect(await db.select(db.outbox).get(), isEmpty);
+    final message = await (db.select(db.messages)
+          ..where((m) => m.id.equals('m4')))
+        .getSingle();
+    expect(message.status, 4);
   });
 }

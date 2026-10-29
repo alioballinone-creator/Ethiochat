@@ -3,6 +3,7 @@ export 'ethio_spacing.dart';
 export 'ethio_theme.dart';
 export 'routes.dart';
 export 'widgets/chat_list_tile.dart';
+export 'widgets/content_skeletons.dart';
 export 'widgets/ethio_avatar.dart';
 export 'widgets/ethio_bottom_nav.dart';
 export 'widgets/ethio_button.dart';

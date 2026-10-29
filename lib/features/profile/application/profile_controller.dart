@@ -28,13 +28,14 @@ class UserProfile {
     String? phone,
     String? ethioId,
     String? avatarPath,
+    bool clearAvatarPath = false,
   }) {
     return UserProfile(
       name: name ?? this.name,
       bio: bio ?? this.bio,
       phone: phone ?? this.phone,
       ethioId: ethioId ?? this.ethioId,
-      avatarPath: avatarPath ?? this.avatarPath,
+      avatarPath: clearAvatarPath ? null : avatarPath ?? this.avatarPath,
     );
   }
 }
@@ -72,12 +73,14 @@ class ProfileController extends StateNotifier<UserProfile> {
     String? bio,
     String? phone,
     String? avatarPath,
+    bool clearAvatarPath = false,
   }) async {
     state = state.copyWith(
       name: name.trim(),
       bio: bio?.trim(),
       phone: phone,
       avatarPath: avatarPath,
+      clearAvatarPath: clearAvatarPath,
     );
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -89,6 +92,8 @@ class ProfileController extends StateNotifier<UserProfile> {
       await prefs.setString(_ethioIdKey, state.ethioId);
       if (state.avatarPath != null) {
         await prefs.setString(_avatarKey, state.avatarPath!);
+      } else if (clearAvatarPath) {
+        await prefs.remove(_avatarKey);
       }
     } catch (_) {
       // Keep the in-memory value even when persistence fails.

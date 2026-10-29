@@ -60,7 +60,7 @@ class MessageBubble extends StatelessWidget {
               fontFamily: 'Poppins')),
       if (isMine) ...[
         const SizedBox(width: 5),
-        _StatusIcon(status: status, pal: pal)
+        _AnimatedStatusIcon(status: status, pal: pal)
       ],
     ]);
 
@@ -107,6 +107,38 @@ class MessageBubble extends StatelessWidget {
             onLongPress: onLongPress,
             child: bubble),
       ),
+    );
+  }
+}
+
+class _AnimatedStatusIcon extends StatelessWidget {
+  const _AnimatedStatusIcon({required this.status, required this.pal});
+
+  final MessageStatus status;
+  final EthioPalette pal;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = _StatusIcon(status: status, pal: pal);
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final statusIcon = reduceMotion
+        ? icon
+        : AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: KeyedSubtree(key: ValueKey(status), child: icon),
+          );
+    final isAmharic = Localizations.localeOf(context).languageCode == 'am';
+    final label = switch (status) {
+      MessageStatus.sending => isAmharic ? 'በመላክ ላይ' : 'Sending',
+      MessageStatus.sent => isAmharic ? 'ተልኳል' : 'Sent',
+      MessageStatus.delivered => isAmharic ? 'ደርሷል' : 'Delivered',
+      MessageStatus.read => isAmharic ? 'ተነቧል' : 'Read',
+      MessageStatus.failed =>
+        isAmharic ? 'አልተላከም፤ ለመድገም ይንኩ' : 'Failed — tap to retry',
+    };
+    return Tooltip(
+      message: label,
+      child: statusIcon,
     );
   }
 }

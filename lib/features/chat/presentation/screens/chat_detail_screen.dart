@@ -17,6 +17,7 @@ import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/design/design.dart';
+import '../../../../core/errors/failure.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../../chats/application/chat_providers.dart';
@@ -56,6 +57,16 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     _scroll.addListener(_onScroll);
     Future<void>.microtask(_bootstrap);
     Future<void>.microtask(_restoreDraft);
+    unawaited(_rememberLastOpened());
+  }
+
+  Future<void> _rememberLastOpened() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('chat.lastOpenedId', widget.chatId);
+    } catch (_) {
+      // Restoring the most recently viewed chat is best-effort.
+    }
   }
 
   Future<void> _restoreDraft() async {
@@ -81,10 +92,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   }
 
   Future<void> _persistDraft() async {
-    final text = _composer.text.trim();
+    final text = _composer.text;
     try {
       final prefs = await SharedPreferences.getInstance();
-      if (text.isEmpty) {
+      if (text.trim().isEmpty) {
         await prefs.remove(_draftKey);
       } else {
         await prefs.setString(_draftKey, text);
@@ -143,9 +154,26 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           _scroll.jumpTo(beforeOffset + grown);
         });
       }
-    } catch (_) {
-      // Retry after the next reconnect rather than looping on every scroll.
-      _historyExhausted = true;
+    } catch (error) {
+      if (mounted) {
+        final isAmharic =
+            Localizations.localeOf(context).languageCode == 'am';
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                mapError(error).messageFor(
+                  Localizations.localeOf(context).languageCode,
+                ),
+              ),
+              action: SnackBarAction(
+                label: isAmharic ? 'እንደገና ይሞክሩ' : 'Try again',
+                onPressed: () => unawaited(_loadOlder()),
+              ),
+            ),
+          );
+      }
     } finally {
       if (mounted) setState(() => _loadingOlder = false);
     }
@@ -279,7 +307,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         },
       );
     } catch (error) {
-      if (mounted) _feedback('Could not open the file picker: $error');
+      if (mounted) {
+        _feedback(
+          mapError(error).messageFor(
+            Localizations.localeOf(context).languageCode,
+          ),
+        );
+      }
     }
   }
 
@@ -648,7 +682,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         media: {'path': picked.path, 'name': picked.name},
       );
     } catch (error) {
-      if (mounted) _feedback('Could not pick an image: $error');
+      if (mounted) {
+        _feedback(
+          mapError(error).messageFor(
+            Localizations.localeOf(context).languageCode,
+          ),
+        );
+      }
     }
   }
 
@@ -820,11 +860,14 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             padding: const EdgeInsets.symmetric(vertical: Sp.x1),
             child: Row(
               children: [
-                EthioAvatar(
-                  name: title,
-                  imageUrl: info?.avatarUrl,
-                  size: 40,
-                  online: !isGroup,
+                Hero(
+                  tag: 'chat-avatar-${widget.chatId}',
+                  child: EthioAvatar(
+                    name: title,
+                    imageUrl: info?.avatarUrl,
+                    size: 40,
+                    online: !isGroup,
+                  ),
                 ),
                 const SizedBox(width: Sp.x3),
                 Expanded(
@@ -873,11 +916,30 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         children: [
           Expanded(
             child: messages.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const MessageListSkeleton(),
               error: (error, _) => Center(
                 child: Padding(
                   padding: Sp.screen,
-                  child: Text('Could not load messages: $error'),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        mapError(error).messageFor(
+                          Localizations.localeOf(context).languageCode,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            ref.invalidate(messagesProvider(widget.chatId)),
+                        child: Text(
+                          Localizations.localeOf(context).languageCode == 'am'
+                              ? 'እንደገና ይሞክሩ'
+                              : 'Try again',
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               data: (items) => items.isEmpty
@@ -1021,6 +1083,23 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               }
             : null,
       );
+      final reduceMotion =
+          MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+      final enteringBubble = reduceMotion
+          ? bubble
+          : TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, child) => Opacity(
+                opacity: value,
+                child: Transform.translate(
+                  offset: Offset(0, 7 * (1 - value)),
+                  child: child,
+                ),
+              ),
+              child: bubble,
+            );
       widgets.add(
         Dismissible(
           key: ValueKey('reply-${message.id}'),
@@ -1037,7 +1116,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
             _startReply(message);
             return false;
           },
-          child: bubble,
+          child: enteringBubble,
         ),
       );
     }
@@ -1936,7 +2015,9 @@ class _VoiceRecorderSheetState extends State<_VoiceRecorderSheet> {
       if (!mounted) return;
       setState(() {
         _starting = false;
-        _error = 'Could not start recording: $error';
+        _error = mapError(error).messageFor(
+          Localizations.localeOf(context).languageCode,
+        );
       });
     }
   }
@@ -1981,7 +2062,9 @@ class _VoiceRecorderSheetState extends State<_VoiceRecorderSheet> {
       if (!mounted) return;
       setState(() {
         _stopping = false;
-        _error = 'Could not finish the recording: $error';
+        _error = mapError(error).messageFor(
+          Localizations.localeOf(context).languageCode,
+        );
       });
     }
   }
