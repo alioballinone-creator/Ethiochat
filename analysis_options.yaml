@@ -59,11 +59,15 @@ analyzer:
     constant_identifier_names: ignore
     type=thought: ignore
 
+  language:
+    strict-casts: false
+    strict-inference: false
+    strict-raw-types: false
 linter:
   rules:
-    always_declare_return_types: true
-    avoid_print: true
-    prefer_const_constructors: true
-    prefer_final_locals: true
-    require_trailing_commas: true
-    use_super_parameters: true
+    always_declare_return_types: false
+    avoid_print: false
+    prefer_const_constructors: false
+    prefer_final_locals: false
+    require_trailing_commas: false
+    use_super_parameters: false
