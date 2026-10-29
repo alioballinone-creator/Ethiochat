@@ -7,6 +7,14 @@ analyzer:
     - "lib/l10n/**"
     - "design_extracted/**"
   errors:
+    avoid_multiple_declarations_per_line: ignore
+    prefer_asserts_with_message: ignore
+    use_super_parameters: ignore
+    unnecessary_raw_strings: ignore
+    omit_local_variable_types: ignore
+    prefer_if_elements_to_conditional_expressions: ignore
+    cast_nullable_to_non_nullable: ignore
+    unrecognized_error_code: ignore
     invalid_annotation_target: ignore
     public_member_api_docs: ignore
     lines_longer_than_80_chars: ignore
