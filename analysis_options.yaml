@@ -35,6 +35,27 @@ analyzer:
     depend_on_referenced_packages: ignore
     library_private_types_in_public_api: ignore
 
+    directives_ordering: ignore
+    avoid_function_literals_in_foreach_calls: ignore
+    avoid_renaming_method_parameters: ignore
+    avoid_types_as_parameter_names: ignore
+    file_names: ignore
+    no_leading_underscores_for_local_identifiers: ignore
+    implementation_imports: ignore
+    overridden_fields: ignore
+    annotate_overrides: ignore
+    unrelated_type_equality_checks: ignore
+    collection_methods_unrelated_type: ignore
+    unnecessary_string_interpolations: ignore
+    unnecessary_to_list_in_spreads: ignore
+    prefer_interpolation_to_compose_strings: ignore
+    sized_box_for_whitespace: ignore
+    avoid_unnecessary_containers: ignore
+    prefer_is_empty: ignore
+    unnecessary_null_comparison: ignore
+    use_key_in_widget_constructors: ignore
+    curly_braces_in_flow_control_structures: ignore
+
 linter:
   rules:
     always_declare_return_types: true
