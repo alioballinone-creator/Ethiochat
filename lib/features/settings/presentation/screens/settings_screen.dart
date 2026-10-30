@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/config/feature_flags.dart';
 import '../../../../core/design/design.dart';
-import '../../../../core/providers/app_providers.dart';
+
 import '../../../../core/settings/app_settings.dart';
 import '../../../auth/application/auth_providers.dart';
 import '../../../auth/application/session_cleanup.dart';
