@@ -1,9 +1,29 @@
 import 'package:ethiochat/core/design/ethio_theme.dart';
 import 'package:ethiochat/core/design/gallery/design_gallery.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+Future<void> _loadTestFonts() async {
+  try {
+    final inter = rootBundle.load('assets/fonts/Inter.ttf');
+    final fontLoader = FontLoader('Inter')..addFont(inter);
+    await fontLoader.load();
+  } catch (_) {}
+  try {
+    final noto = rootBundle.load('assets/fonts/NotoSansEthiopic.ttf');
+    final fontLoader = FontLoader('NotoSansEthiopic')..addFont(noto);
+    await fontLoader.load();
+  } catch (_) {}
+  try {
+    final poppins = rootBundle.load('assets/fonts/Poppins-Regular.ttf');
+    final fontLoader = FontLoader('Poppins')..addFont(poppins);
+    await fontLoader.load();
+  } catch (_) {}
+}
+
 Future<void> _pumpGallery(WidgetTester tester, Brightness brightness) async {
+  await _loadTestFonts();
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
@@ -15,7 +35,7 @@ Future<void> _pumpGallery(WidgetTester tester, Brightness brightness) async {
       home: const DesignGallery(),
     ),
   );
-  await tester.pumpAndSettle();
+  await tester.pumpAndSettle(const Duration(seconds: 2));
 }
 
 void main() {
