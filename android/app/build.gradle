@@ -67,17 +67,20 @@ android {
     signingConfigs {
         release {
             if (hasReleaseSigning) {
-                storeFile file(releaseKeystore)
-                storePassword releaseStorePassword
-                keyAlias releaseKeyAlias
-                keyPassword releaseKeyPassword
+                def ks = file(releaseKeystore)
+                if (ks.exists()) {
+                    storeFile ks
+                    storePassword releaseStorePassword
+                    keyAlias releaseKeyAlias
+                    keyPassword releaseKeyPassword
+                }
             }
         }
     }
 
     buildTypes {
         release {
-            if (hasReleaseSigning) {
+            if (hasReleaseSigning && signingConfigs.release.storeFile != null && signingConfigs.release.storeFile.exists()) {
                 signingConfig signingConfigs.release
             }
             minifyEnabled true
