@@ -40,7 +40,7 @@ class SkeletonBox extends StatelessWidget {
   final double? width;
   final double borderRadius;
 
-  @Override
+  @override
   Widget build(BuildContext context) {
     return Container(
       height: height,
