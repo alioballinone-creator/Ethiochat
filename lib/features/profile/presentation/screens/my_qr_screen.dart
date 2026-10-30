@@ -54,9 +54,11 @@ class _MyQrScreenState extends ConsumerState<MyQrScreen> {
       await file.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
       _feedback('QR code saved to ${file.path}');
     } catch (error) {
+      if (!mounted) return;
+      final locale = Localizations.localeOf(context).languageCode;
       _feedback(
         mapError(error).messageFor(
-          Localizations.localeOf(context).languageCode,
+          locale,
         ),
       );
     }

@@ -109,10 +109,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               clearAvatarPath: current.avatarPath == null,
             );
         setState(() => _saving = false);
+        if (!mounted) return;
+        final locale = Localizations.localeOf(context).languageCode;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              failure.messageFor(Localizations.localeOf(context).languageCode),
+              failure.messageFor(locale),
             ),
           ),
         );
