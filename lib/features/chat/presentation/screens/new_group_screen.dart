@@ -171,7 +171,7 @@ class _NewGroupScreenState extends ConsumerState<NewGroupScreen> {
             const SizedBox(height: Sp.x3),
             Expanded(
               child: contactsAsync.isLoading && contacts.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const ContactListSkeleton()
                   : ListView.builder(
                       padding: Sp.screen.copyWith(bottom: Sp.x8),
                       itemCount: filtered.length,

@@ -1,60 +1,123 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../errors/failure.dart';
-import 'error_view.dart';
+import '../logging/app_logger.dart';
 
-class GlobalErrorBoundary extends ConsumerStatefulWidget {
-  const GlobalErrorBoundary({
-    super.key,
-    required this.child,
-    this.onError,
-  });
+class GlobalErrorBoundary extends StatefulWidget {
+  const GlobalErrorBoundary({super.key, required this.child});
 
   final Widget child;
-  final void Function(Object error, StackTrace stackTrace)? onError;
+
+  static _GlobalErrorBoundaryState? _state;
+
+  static bool capture() {
+    return _state?._capture() ?? false;
+  }
 
   @override
-  ConsumerState<GlobalErrorBoundary> createState() =>
-      _GlobalErrorBoundaryState();
+  State<GlobalErrorBoundary> createState() => _GlobalErrorBoundaryState();
 }
 
-class _GlobalErrorBoundaryState extends ConsumerState<GlobalErrorBoundary> {
-  Object? _error;
-  StackTrace? _stackTrace;
+class _GlobalErrorBoundaryState extends State<GlobalErrorBoundary> {
+  bool _hasError = false;
+  int _retry = 0;
 
   @override
   void initState() {
     super.initState();
-    FlutterError.onError = (details) {
-      if (_error != null) return;
-      FlutterError.presentError(details);
-      if (mounted) {
-        setState(() {
-          _error = details.exception;
-          _stackTrace = details.stack;
-        });
-      }
-      widget.onError?.call(details.exception, details.stack ?? StackTrace.current);
-    };
+    GlobalErrorBoundary._state = this;
+  }
+
+  @override
+  void dispose() {
+    if (identical(GlobalErrorBoundary._state, this)) {
+      GlobalErrorBoundary._state = null;
+    }
+    super.dispose();
+  }
+
+  bool _capture() {
+    if (!mounted) return false;
+    if (_hasError) return true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_hasError) setState(() => _hasError = true);
+    });
+    return true;
+  }
+
+  void _retryApp() {
+    setState(() {
+      _retry++;
+      _hasError = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) {
-      final failure = mapError(_error!, _stackTrace);
-      return Material(
-        child: ErrorView(
-          failure: failure,
-          onRetry: () {
-            setState(() {
-              _error = null;
-              _stackTrace = null;
-            });
-          },
-        ),
-      );
+    if (!_hasError) {
+      return KeyedSubtree(key: ValueKey(_retry), child: widget.child);
     }
-    return widget.child;
+
+    final isAmharic = ui.PlatformDispatcher.instance.locale.languageCode == 'am';
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline_rounded, size: 52),
+                  const SizedBox(height: 16),
+                  Text(
+                    isAmharic ? 'ችግር ተፈጥሯል' : 'Something went wrong',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    isAmharic
+                        ? 'መረጃዎ አልጠፋም። እባክዎ እንደገና ይሞክሩ።'
+                        : 'Your data is safe. Please try again.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton(
+                    onPressed: _retryApp,
+                    child: Text(isAmharic ? 'እንደገና ይሞክሩ' : 'Try again'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
+}
+
+void installGlobalErrorBoundary() {
+  final previousFlutterError = FlutterError.onError;
+  final previousErrorWidgetBuilder = ErrorWidget.builder;
+  final previousPlatformError = ui.PlatformDispatcher.instance.onError;
+  FlutterError.onError = (details) {
+    if (GlobalErrorBoundary.capture()) {
+      AppLogger.error('Flutter framework error');
+    } else {
+      previousFlutterError?.call(details);
+    }
+  };
+  ErrorWidget.builder = (details) {
+    if (GlobalErrorBoundary.capture()) return const SizedBox.shrink();
+    return previousErrorWidgetBuilder(details);
+  };
+  ui.PlatformDispatcher.instance.onError = (error, stackTrace) {
+    if (GlobalErrorBoundary.capture()) {
+      AppLogger.error('Unhandled asynchronous application error');
+      return true;
+    }
+    return previousPlatformError?.call(error, stackTrace) ?? false;
+  };
 }

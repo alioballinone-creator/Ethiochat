@@ -181,7 +181,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                 ),
                 Expanded(
                   child: contactsAsync.isLoading && contacts.isEmpty
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const ContactListSkeleton()
                       : ListView(
                           controller: _scrollController,
                           padding:

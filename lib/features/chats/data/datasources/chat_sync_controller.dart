@@ -16,11 +16,13 @@ class ChatSyncController {
     required this.db,
     required this.client,
     this.retryDelay = const Duration(seconds: 30),
+    this.maxRetryDelay = const Duration(minutes: 5),
   });
 
   final AppDatabase db;
   final SupabaseClient client;
   final Duration retryDelay;
+  final Duration maxRetryDelay;
 
   StreamSubscription<AuthState>? _authSubscription;
   ChatSyncService? _service;
@@ -32,6 +34,7 @@ class ChatSyncController {
   bool _disposed = false;
   bool _syncing = false;
   bool _resyncQueued = false;
+  int _retryAttempt = 0;
 
   Future<void> start() async {
     if (_started || _disposed) return;
@@ -114,6 +117,7 @@ class ChatSyncController {
     _retryTimer = null;
     try {
       final report = await service.sync();
+      _retryAttempt = 0;
       AppLogger.info(
         'Chat sync imported ${report.conversations} conversations, '
         '${report.messages} messages',
@@ -189,7 +193,14 @@ class ChatSyncController {
 
   void _scheduleRetry() {
     if (_disposed || _retryTimer != null) return;
-    _retryTimer = Timer(retryDelay, () {
+    _retryAttempt++;
+    final multiplier = 1 << (_retryAttempt - 1).clamp(0, 20).toInt();
+    final delay = Duration(
+      milliseconds: (retryDelay.inMilliseconds * multiplier)
+          .clamp(0, maxRetryDelay.inMilliseconds)
+          .toInt(),
+    );
+    _retryTimer = Timer(delay, () {
       _retryTimer = null;
       unawaited(_runSync());
     });

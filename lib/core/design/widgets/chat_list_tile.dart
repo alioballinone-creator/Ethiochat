@@ -13,6 +13,7 @@ class ChatListTile extends StatelessWidget {
     this.pinned = false,
     this.muted = false,
     this.avatarUrl,
+    this.heroTag,
     this.online = false,
     this.onTap,
     this.onLongPress,
@@ -22,6 +23,7 @@ class ChatListTile extends StatelessWidget {
   final int unread;
   final bool pinned, muted, online;
   final String? avatarUrl;
+  final Object? heroTag;
   final VoidCallback? onTap, onLongPress;
 
   @override
@@ -29,6 +31,12 @@ class ChatListTile extends StatelessWidget {
     final pal = EthioPalette.of(context);
     final t = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final avatar = EthioAvatar(
+      name: title,
+      imageUrl: avatarUrl,
+      size: 54,
+      online: online,
+    );
     return Material(
       color: pinned ? pal.surface2 : Colors.transparent,
       child: InkWell(
@@ -37,8 +45,7 @@ class ChatListTile extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
           child: Row(children: [
-            EthioAvatar(
-                name: title, imageUrl: avatarUrl, size: 54, online: online),
+            heroTag == null ? avatar : Hero(tag: heroTag!, child: avatar),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -87,21 +94,33 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
-    return Container(
-      constraints: const BoxConstraints(minWidth: 20),
-      height: 20,
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: muted ? pal.textTertiary : EthioColors.gold,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(count > 99 ? '99+' : '$count',
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    return AnimatedSwitcher(
+      duration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 180),
+      transitionBuilder: (child, animation) =>
+          ScaleTransition(scale: animation, child: child),
+      child: Container(
+        key: ValueKey(count),
+        constraints: const BoxConstraints(minWidth: 20),
+        height: 20,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: muted ? pal.textTertiary : EthioColors.gold,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          count > 99 ? '99+' : '$count',
           style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: EthioColors.black,
-              fontFamily: 'Poppins')),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: EthioColors.black,
+            fontFamily: 'Poppins',
+          ),
+        ),
+      ),
     );
   }
 }

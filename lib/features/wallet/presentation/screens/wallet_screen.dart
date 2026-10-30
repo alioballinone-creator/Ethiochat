@@ -131,9 +131,9 @@ class WalletScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: Sp.x1),
                 if (seed.isLoading && entries.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(Sp.x6),
-                    child: Center(child: CircularProgressIndicator()),
+                  const SizedBox(
+                    height: 172,
+                    child: TransactionListSkeleton(count: 3),
                   )
                 else if (entries.isEmpty)
                   Container(

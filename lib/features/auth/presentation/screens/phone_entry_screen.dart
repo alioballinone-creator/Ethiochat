@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/design.dart';
+import '../../../profile/application/profile_controller.dart';
 import '../../application/auth_providers.dart';
 
 class PhoneEntryScreen extends ConsumerStatefulWidget {
@@ -24,6 +25,18 @@ class _PhoneEntryScreenState extends ConsumerState<PhoneEntryScreen> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final phone = ref.read(userProfileProvider).phone;
+    var digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.startsWith('251')) digits = digits.substring(3);
+    if (digits.length == 9 &&
+        (digits.startsWith('9') || digits.startsWith('7'))) {
+      _controller.text = digits;
+    }
   }
 
   String get _e164 {

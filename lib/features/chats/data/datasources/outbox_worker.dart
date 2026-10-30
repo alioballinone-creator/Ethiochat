@@ -37,6 +37,7 @@ class OutboxWorker {
   final _rng = Random.secure();
 
   Timer? _timer;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   bool _running = false;
   bool _paused = false;
   bool _processing = false;
@@ -44,7 +45,16 @@ class OutboxWorker {
   void start() {
     if (_running) return;
     _running = true;
-    connectivity.onConnectivityChanged.listen(_onConnectivity);
+    _connectivitySubscription = connectivity.onConnectivityChanged.listen(
+      _onConnectivity,
+      onError: (Object error, StackTrace stackTrace) {
+        AppLogger.warn(
+          'Outbox connectivity stream failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      },
+    );
     _scheduleNext(const Duration(milliseconds: 250));
     AppLogger.info('OutboxWorker started');
   }
@@ -53,6 +63,8 @@ class OutboxWorker {
     _running = false;
     _timer?.cancel();
     _timer = null;
+    unawaited(_connectivitySubscription?.cancel());
+    _connectivitySubscription = null;
   }
 
   void pause() => _paused = true;
@@ -119,8 +131,10 @@ class OutboxWorker {
     Map<String, dynamic> payload;
     try {
       payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
-    } catch (e) {
+    } catch (_) {
       AppLogger.error('Outbox payload was invalid for ${row.messageId}');
+      await (db.update(db.messages)..where((m) => m.id.equals(row.messageId)))
+          .write(const MessagesCompanion(status: Value(4)));
       await (db.delete(db.outbox)
             ..where((o) => o.messageId.equals(row.messageId)))
           .go();
@@ -142,7 +156,11 @@ class OutboxWorker {
 
     try {
       payload['__attempt'] = attempt;
-      if (transport != null) await transport!(payload);
+      final send = transport;
+      if (send == null) {
+        throw StateError('Outbox transport is not configured.');
+      }
+      await send(payload);
 
       if (kind == 'message') {
         await (db.update(db.messages)..where((m) => m.id.equals(row.messageId)))
@@ -152,7 +170,7 @@ class OutboxWorker {
       await (db.delete(db.outbox)
             ..where((o) => o.messageId.equals(row.messageId)))
           .go();
-    } catch (e) {
+    } catch (_) {
       final delay = _backoff(attempt);
       final next = DateTime.now().add(delay).millisecondsSinceEpoch;
       await (db.update(db.outbox)
@@ -161,11 +179,12 @@ class OutboxWorker {
         OutboxCompanion(
           attempt: Value(attempt),
           nextRetryAt: Value(next),
-          lastError: Value(e.toString()),
+          lastError: const Value('send_failed'),
         ),
       );
-      AppLogger.debug('Retrying ${row.messageId} in ${delay.inSeconds}s');
+      AppLogger.warn('Outbox send failed; retrying after ${delay.inSeconds}s');
     }
+
   }
 
   Duration _backoff(int attempt) {

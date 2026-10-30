@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 
 import 'core/config/env.dart';
 import 'core/design/design.dart';
+import 'l10n/app_localizations.dart';
 import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/screens/backend_configuration_screen.dart';
@@ -87,6 +88,7 @@ class _EthioChatAppState extends ConsumerState<EthioChatApp> {
       themeMode: settings.themeMode,
       locale: settings.locale,
       localizationsDelegates: const [
+        AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         _FallbackMaterialLocalizationsDelegate(),
         GlobalWidgetsLocalizations.delegate,
