@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../design/ethio_colors.dart';
-
 class SkeletonLoader extends StatelessWidget {
   const SkeletonLoader({
     super.key,
@@ -48,7 +46,10 @@ class SkeletonBox extends StatelessWidget {
       height: height,
       width: width,
       decoration: BoxDecoration(
-        color: EthioColors.slate.withValues(alpha: 0.3),
+        color: (Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : Colors.black)
+            .withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(borderRadius),
       ),
     );
