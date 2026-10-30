@@ -184,7 +184,6 @@ class OutboxWorker {
       );
       AppLogger.warn('Outbox send failed; retrying after ${delay.inSeconds}s');
     }
-
   }
 
   Duration _backoff(int attempt) {

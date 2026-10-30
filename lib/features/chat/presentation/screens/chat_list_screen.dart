@@ -43,9 +43,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   @override
   void dispose() {
     _stateSaveTimer?.cancel();
-    final scrollOffset = _listScrollController.hasClients
-        ? _listScrollController.offset
-        : null;
+    final scrollOffset =
+        _listScrollController.hasClients ? _listScrollController.offset : null;
     unawaited(_saveListState(scrollOffset));
     _listScrollController
       ..removeListener(_scheduleStateSave)
@@ -250,9 +249,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     final chats = _visible(all);
     final loading =
         seed.isLoading && all.isEmpty || summaries.isLoading && all.isEmpty;
-    if (!loading &&
-        !_scrollPositionRestored &&
-        _restoredScrollOffset != null) {
+    if (!loading && !_scrollPositionRestored && _restoredScrollOffset != null) {
       _scrollPositionRestored = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_listScrollController.hasClients) return;

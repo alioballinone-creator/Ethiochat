@@ -21,7 +21,8 @@ class SkeletonBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = EthioPalette.of(context);
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final shape = Container(
       width: width,
       height: height,

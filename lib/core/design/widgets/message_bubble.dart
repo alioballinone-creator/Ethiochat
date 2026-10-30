@@ -120,7 +120,8 @@ class _AnimatedStatusIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final icon = _StatusIcon(status: status, pal: pal);
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final statusIcon = reduceMotion
         ? icon
         : AnimatedSwitcher(

@@ -156,8 +156,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       }
     } catch (error) {
       if (mounted) {
-        final isAmharic =
-            Localizations.localeOf(context).languageCode == 'am';
+        final isAmharic = Localizations.localeOf(context).languageCode == 'am';
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(

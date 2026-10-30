@@ -15,8 +15,7 @@ sealed class Failure implements Exception {
       return cause == null ? _message : _englishMessage;
     }
     return switch (this) {
-      NetworkFailure() =>
-        'የበይነመረብ ግንኙነት የለም። ግንኙነቱን ያረጋግጡና እንደገና ይሞክሩ።',
+      NetworkFailure() => 'የበይነመረብ ግንኙነት የለም። ግንኙነቱን ያረጋግጡና እንደገና ይሞክሩ።',
       TimeoutFailure() => 'ጥያቄው ዘግይቷል። እባክዎ እንደገና ይሞክሩ።',
       AuthFailure() => 'መግባት አልተቻለም። መረጃዎን ያረጋግጡና እንደገና ይሞክሩ።',
       ValidationFailure() => 'ያስገቡትን መረጃ ያረጋግጡና እንደገና ይሞክሩ።',
@@ -24,21 +23,25 @@ sealed class Failure implements Exception {
       NotFoundFailure() => 'የተጠየቀው ነገር አልተገኘም። እንደገና ይሞክሩ።',
       RateLimitFailure() => 'ብዙ ጊዜ ሞክረዋል። ትንሽ ቆይተው እንደገና ይሞክሩ።',
       StorageFailure() => 'መረጃውን ማስቀመጥ አልተቻለም። እንደገና ይሞክሩ።',
-      ServerFailure() || UnknownFailure() =>
-        'ችግር ተፈጥሯል። እባክዎ ቆይተው እንደገና ይሞክሩ።',
+      ServerFailure() || UnknownFailure() => 'ችግር ተፈጥሯል። እባክዎ ቆይተው እንደገና ይሞክሩ።',
     };
   }
 
   String get _englishMessage => switch (this) {
-        NetworkFailure() => 'No internet connection. Check your connection and try again.',
+        NetworkFailure() =>
+          'No internet connection. Check your connection and try again.',
         TimeoutFailure() => 'The request timed out. Please try again.',
-        AuthFailure() => 'Could not sign you in. Check your details and try again.',
+        AuthFailure() =>
+          'Could not sign you in. Check your details and try again.',
         ValidationFailure() => 'Please check your information and try again.',
-        PermissionFailure() => 'Permission was not granted. Allow it and try again.',
-        NotFoundFailure() => 'The requested item was not found. Please try again.',
+        PermissionFailure() =>
+          'Permission was not granted. Allow it and try again.',
+        NotFoundFailure() =>
+          'The requested item was not found. Please try again.',
         RateLimitFailure() => 'Too many attempts. Please wait and try again.',
         StorageFailure() => 'Could not save your data. Please try again.',
-        ServerFailure() || UnknownFailure() =>
+        ServerFailure() ||
+        UnknownFailure() =>
           'Something went wrong. Please try again later.',
       };
 
@@ -136,7 +139,8 @@ Failure mapError(Object error, [StackTrace? stackTrace]) {
     return TimeoutFailure('The request timed out.', 'timeout', error);
   }
   if (text.contains('404') || text.contains('not found')) {
-    return NotFoundFailure('The requested item was not found.', 'not_found', error);
+    return NotFoundFailure(
+        'The requested item was not found.', 'not_found', error);
   }
   if (text.contains('500') ||
       text.contains('502') ||
@@ -160,8 +164,11 @@ Failure mapError(Object error, [StackTrace? stackTrace]) {
   if (text.contains('permission denied') || text.contains('permission')) {
     return PermissionFailure('Permission denied.', 'permission', error);
   }
-  if (text.contains('sqlite') || text.contains('database') || text.contains('storage')) {
+  if (text.contains('sqlite') ||
+      text.contains('database') ||
+      text.contains('storage')) {
     return StorageFailure('Could not access local storage.', 'storage', error);
   }
-  return UnknownFailure('Something went wrong. Please try again.', 'unknown', error);
+  return UnknownFailure(
+      'Something went wrong. Please try again.', 'unknown', error);
 }

@@ -94,11 +94,11 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return AnimatedSwitcher(
-      duration: reduceMotion
-          ? Duration.zero
-          : const Duration(milliseconds: 180),
+      duration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 180),
       transitionBuilder: (child, animation) =>
           ScaleTransition(scale: animation, child: child),
       child: Container(

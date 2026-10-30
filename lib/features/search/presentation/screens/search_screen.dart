@@ -52,10 +52,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       setState(() {
         _query = query;
         _committed = query;
-        _filter =
-            (prefs.getInt(_filterKey) ?? 0)
-                .clamp(0, _filters.length - 1)
-                .toInt();
+        _filter = (prefs.getInt(_filterKey) ?? 0)
+            .clamp(0, _filters.length - 1)
+            .toInt();
         _controller.text = query;
         _controller.selection = TextSelection.collapsed(offset: query.length);
       });

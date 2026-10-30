@@ -23,7 +23,8 @@ class _CacheSettingsScreenState extends State<CacheSettingsScreen> {
   Future<void> _loadSize() async {
     final size = await CacheManagerService.instance.getCacheSize();
     if (mounted) {
-      setState(() => _cacheSize = CacheManagerService.instance.formatSize(size));
+      setState(
+          () => _cacheSize = CacheManagerService.instance.formatSize(size));
     }
   }
 

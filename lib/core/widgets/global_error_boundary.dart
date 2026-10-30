@@ -59,7 +59,8 @@ class _GlobalErrorBoundaryState extends State<GlobalErrorBoundary> {
       return KeyedSubtree(key: ValueKey(_retry), child: widget.child);
     }
 
-    final isAmharic = ui.PlatformDispatcher.instance.locale.languageCode == 'am';
+    final isAmharic =
+        ui.PlatformDispatcher.instance.locale.languageCode == 'am';
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(

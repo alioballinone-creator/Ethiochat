@@ -20,9 +20,8 @@ class SkeletonLoader extends StatelessWidget {
     final baseColor = isDark
         ? Colors.white.withValues(alpha: 0.08)
         : Colors.black.withValues(alpha: 0.06);
-    final highlightColor = isDark
-        ? Colors.white.withValues(alpha: 0.16)
-        : Colors.white;
+    final highlightColor =
+        isDark ? Colors.white.withValues(alpha: 0.16) : Colors.white;
     return Shimmer.fromColors(
       baseColor: baseColor,
       highlightColor: highlightColor,
