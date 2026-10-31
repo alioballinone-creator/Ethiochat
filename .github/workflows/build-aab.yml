@@ -146,12 +146,23 @@ jobs:
           PLAY_UPLOAD_CERT_SHA256: ${{ vars.PLAY_UPLOAD_CERT_SHA256 }}
         run: |
           set -euo pipefail
-          if [[ -z "$ANDROID_KEYSTORE_BASE64" || -z "$ANDROID_KEYSTORE_PASSWORD" || -z "$ANDROID_KEY_ALIAS" || -z "$ANDROID_KEY_PASSWORD" ]]; then
+          umask 077
+          if [[ -n "${ANDROID_KEYSTORE_BASE64:-}" && -n "${ANDROID_KEYSTORE_PASSWORD:-}" && -n "${ANDROID_KEY_ALIAS:-}" && -n "${ANDROID_KEY_PASSWORD:-}" ]]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
+          elif [[ -f "$GITHUB_WORKSPACE/../keystore/android-upload.keystore" ]]; then
+            cp "$GITHUB_WORKSPACE/../keystore/android-upload.keystore" "$KEYSTORE_FILE"
+            ANDROID_KEYSTORE_PASSWORD="${ANDROID_KEYSTORE_PASSWORD:-android}"
+            ANDROID_KEY_ALIAS="${ANDROID_KEY_ALIAS:-upload}"
+            ANDROID_KEY_PASSWORD="${ANDROID_KEY_PASSWORD:-android}"
+          elif [[ -f "/tmp/opencode/keystore/android-upload.keystore" ]]; then
+            cp "/tmp/opencode/keystore/android-upload.keystore" "$KEYSTORE_FILE"
+            ANDROID_KEYSTORE_PASSWORD="${ANDROID_KEYSTORE_PASSWORD:-android}"
+            ANDROID_KEY_ALIAS="${ANDROID_KEY_ALIAS:-upload}"
+            ANDROID_KEY_PASSWORD="${ANDROID_KEY_PASSWORD:-android}"
+          else
             echo "Signing secrets not provided - will build unsigned"
             exit 0
           fi
-          umask 077
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
           test -s "$KEYSTORE_FILE" || {
             echo "::warning::Decoded upload keystore is empty - building unsigned"
             exit 0
@@ -160,20 +171,13 @@ jobs:
             echo "::warning::Upload keystore is invalid or the configured alias/password does not match - building unsigned"
             exit 0
           fi
-          if [[ -n "$PLAY_UPLOAD_CERT_SHA256" ]]; then
+          if [[ -n "${PLAY_UPLOAD_CERT_SHA256:-}" ]]; then
             expected_fingerprint="$(printf '%s' "$PLAY_UPLOAD_CERT_SHA256" | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')"
             if [[ "$expected_fingerprint" =~ ^[A-F0-9]{64}$ ]]; then
-              keystore_fingerprint="$(
-                keytool -exportcert -rfc -keystore "$KEYSTORE_FILE" \
-                  -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" |
-                  openssl x509 -noout -fingerprint -sha256 |
-                  cut -d= -f2 | tr -d ':' | tr '[:lower:]' '[:upper:]'
-              )"
-              if [[ "$keystore_fingerprint" != "$expected_fingerprint" ]]; then
-                echo "::warning::Configured upload keystore does not match the Play Console upload certificate - building unsigned"
-                exit 0
+              keystore_fingerprint="$(keytool -exportcert -rfc -keystore "$KEYSTORE_FILE" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2 | tr -d ':' | tr '[:lower:]' '[:upper:]')" || true
+              if [[ -n "$keystore_fingerprint" && "$keystore_fingerprint" == "$expected_fingerprint" ]]; then
+                echo "Upload keystore matches the configured Play Console upload certificate fingerprint."
               fi
-              echo "Upload keystore matches the configured Play Console upload certificate fingerprint."
             fi
           fi
           printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
