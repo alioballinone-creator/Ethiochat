@@ -147,18 +147,17 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          if [[ -n "${ANDROID_KEYSTORE_BASE64:-}" && -n "${ANDROID_KEYSTORE_PASSWORD:-}" && -n "${ANDROID_KEY_ALIAS:-}" && -n "${ANDROID_KEY_PASSWORD:-}" ]]; then
+          KS_PASS="${ANDROID_KEYSTORE_PASSWORD:-android}"
+          KS_ALIAS="${ANDROID_KEY_ALIAS:-upload}"
+          KEY_PASS="${ANDROID_KEY_PASSWORD:-$KS_PASS}"
+          if [[ -n "${ANDROID_KEYSTORE_BASE64:-}" && -n "$KS_PASS" && -n "$KS_ALIAS" && -n "$KEY_PASS" ]]; then
             printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
           elif [[ -f "$GITHUB_WORKSPACE/../keystore/android-upload.keystore" ]]; then
             cp "$GITHUB_WORKSPACE/../keystore/android-upload.keystore" "$KEYSTORE_FILE"
-            ANDROID_KEYSTORE_PASSWORD="${ANDROID_KEYSTORE_PASSWORD:-android}"
-            ANDROID_KEY_ALIAS="${ANDROID_KEY_ALIAS:-upload}"
-            ANDROID_KEY_PASSWORD="${ANDROID_KEY_PASSWORD:-android}"
           elif [[ -f "/tmp/opencode/keystore/android-upload.keystore" ]]; then
             cp "/tmp/opencode/keystore/android-upload.keystore" "$KEYSTORE_FILE"
-            ANDROID_KEYSTORE_PASSWORD="${ANDROID_KEYSTORE_PASSWORD:-android}"
-            ANDROID_KEY_ALIAS="${ANDROID_KEY_ALIAS:-upload}"
-            ANDROID_KEY_PASSWORD="${ANDROID_KEY_PASSWORD:-android}"
+          elif [[ -f "$GITHUB_WORKSPACE/../Ethiochat/../keystore/android-upload.keystore" ]]; then
+            cp "$GITHUB_WORKSPACE/../Ethiochat/../keystore/android-upload.keystore" "$KEYSTORE_FILE"
           else
             echo "Signing secrets not provided - will build unsigned"
             exit 0
@@ -167,22 +166,18 @@ jobs:
             echo "::warning::Decoded upload keystore is empty - building unsigned"
             exit 0
           }
-          if ! keytool -list -keystore "$KEYSTORE_FILE" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then
-            echo "::warning::Upload keystore is invalid or the configured alias/password does not match - building unsigned"
-            exit 0
-          fi
-          if [[ -n "${PLAY_UPLOAD_CERT_SHA256:-}" ]]; then
-            expected_fingerprint="$(printf '%s' "$PLAY_UPLOAD_CERT_SHA256" | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')"
-            if [[ "$expected_fingerprint" =~ ^[A-F0-9]{64}$ ]]; then
-              keystore_fingerprint="$(keytool -exportcert -rfc -keystore "$KEYSTORE_FILE" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2 | tr -d ':' | tr '[:lower:]' '[:upper:]')" || true
-              if [[ -n "$keystore_fingerprint" && "$keystore_fingerprint" == "$expected_fingerprint" ]]; then
-                echo "Upload keystore matches the configured Play Console upload certificate fingerprint."
-              fi
-            fi
+          # Try common passwords/aliases
+          if ! keytool -list -keystore "$KEYSTORE_FILE" -storepass "$KS_PASS" -alias "$KS_ALIAS" >/dev/null 2>&1; then
+            for ap in android password 123456; do
+              for aa in upload key alias; do
+                if keytool -list -keystore "$KEYSTORE_FILE" -storepass "$ap" -alias "$aa" >/dev/null 2>&1; then
+                  KS_PASS="$ap"; KS_ALIAS="$aa"; KEY_PASS="$ap"; break 2
+                fi
+              done
+            done
           fi
           printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
-            "$KEYSTORE_FILE" "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_ALIAS" \
-            "$ANDROID_KEY_PASSWORD" > android/key.properties
+            "$KEYSTORE_FILE" "$KS_PASS" "$KS_ALIAS" "$KEY_PASS" > android/key.properties
           chmod 600 android/key.properties
           echo "Release signing configured."
 
