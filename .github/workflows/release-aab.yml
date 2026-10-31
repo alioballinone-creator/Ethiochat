@@ -70,11 +70,30 @@ jobs:
           flutter build appbundle --release
 
       - name: Verify AAB signature
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           set -euo pipefail
           AAB="build/app/outputs/bundle/release/app-release.aab"
           test -s "$AAB"
-          jarsigner -verify -certs "$AAB" | tail -5
+          KS="$RUNNER_TEMP/upload.jks"
+          test -s "$KS"
+          # Run jarsigner verify and check output contains "jar verified"
+          VERIFY_OUT=$(jarsigner -verify -certs "$AAB" 2>&1 || true)
+          echo "$VERIFY_OUT" | tail -15
+          echo "$VERIFY_OUT" | grep -q "jar verified"
+          # Extract signer fingerprint from AAB
+          AAB_FP=$(unzip -p "$AAB" 'META-INF/*.RSA' 2>/dev/null | keytool -printcert 2>/dev/null | grep -i "SHA256" | head -1 | awk '{print $NF}' | tr -d ':' | tr '[:lower:]' '[:upper:]')
+          # Extract signer fingerprint from keystore
+          KS_FP=$(keytool -list -v -keystore "$KS" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" 2>/dev/null | grep -A1 "SHA256:" | grep "SHA256:" | awk '{print $2}' | tr -d ':' | tr '[:lower:]' '[:upper:]')
+          echo "AAB_SHA256_FINGERPRINT=$AAB_FP"
+          echo "KS_SHA256_FINGERPRINT=$KS_FP"
+          if [[ -z "$AAB_FP" || -z "$KS_FP" || "$AAB_FP" != "$KS_FP" ]]; then
+            echo "::error::Signing certificate fingerprint mismatch"
+            exit 1
+          fi
+          echo "Signature verification passed and matches upload key."
 
       - name: Upload release AAB
         uses: actions/upload-artifact@v4
