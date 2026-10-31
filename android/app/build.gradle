@@ -52,14 +52,22 @@ android {
         signingPropertiesFile.withInputStream { signingProperties.load(it) }
     }
 
-    def releaseKeystore = System.getenv("KEYSTORE_FILE") ?: signingProperties.getProperty("storeFile")
-    def releaseStorePassword = System.getenv("KEYSTORE_PASSWORD") ?: signingProperties.getProperty("storePassword")
-    def releaseKeyAlias = System.getenv("KEY_ALIAS") ?: signingProperties.getProperty("keyAlias")
-    def releaseKeyPassword = System.getenv("KEY_PASSWORD") ?: signingProperties.getProperty("keyPassword")
-    def hasReleaseSigning = releaseKeystore != null && !releaseKeystore.trim().isEmpty() &&
-        releaseStorePassword != null && !releaseStorePassword.isEmpty() &&
-        releaseKeyAlias != null && !releaseKeyAlias.isEmpty() &&
-        releaseKeyPassword != null && !releaseKeyPassword.isEmpty()
+    def releaseKeystore = System.getenv("ANDROID_KEYSTORE_PATH")
+        ?: System.getenv("KEYSTORE_FILE")
+        ?: signingProperties.getProperty("storeFile")
+    def releaseStorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+        ?: System.getenv("KEYSTORE_PASSWORD")
+        ?: signingProperties.getProperty("storePassword")
+    def releaseKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
+        ?: System.getenv("KEY_ALIAS")
+        ?: signingProperties.getProperty("keyAlias")
+    def releaseKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+        ?: System.getenv("KEY_PASSWORD")
+        ?: signingProperties.getProperty("keyPassword")
+    def hasReleaseSigning = releaseKeystore != null && !releaseKeystore.toString().trim().isEmpty() &&
+        releaseStorePassword != null && !releaseStorePassword.toString().isEmpty() &&
+        releaseKeyAlias != null && !releaseKeyAlias.toString().isEmpty() &&
+        releaseKeyPassword != null && !releaseKeyPassword.toString().isEmpty()
     def releaseRequested = gradle.startParameter.taskNames.any {
         it.toLowerCase(Locale.ROOT).contains("release")
     }
@@ -67,14 +75,16 @@ android {
     signingConfigs {
         release {
             if (hasReleaseSigning) {
-                def ks = file(releaseKeystore)
+                def ks = file(releaseKeystore.toString())
                 if (ks.exists()) {
                     storeFile ks
-                    storePassword releaseStorePassword
-                    keyAlias releaseKeyAlias
-                    keyPassword releaseKeyPassword
+                    storePassword releaseStorePassword.toString()
+                    keyAlias releaseKeyAlias.toString()
+                    keyPassword releaseKeyPassword.toString()
                 }
             }
+        }
+        debug {
         }
     }
 
@@ -82,6 +92,8 @@ android {
         release {
             if (hasReleaseSigning && signingConfigs.release.storeFile != null && signingConfigs.release.storeFile.exists()) {
                 signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
             }
             minifyEnabled true
             shrinkResources true

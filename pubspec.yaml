@@ -1,7 +1,7 @@
 name: ethiochat
 description: EthioChat - a WeChat-class super-app for Ethiopia and the Horn of Africa.
 publish_to: "none"
-version: 0.1.0+2
+version: 0.1.0+3
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
