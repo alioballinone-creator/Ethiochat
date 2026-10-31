@@ -79,16 +79,17 @@ jobs:
           test -s "$AAB"
           KS="$RUNNER_TEMP/upload.jks"
           test -s "$KS"
-          # Run jarsigner verify and check output contains "jar verified"
-          VERIFY_OUT=$(jarsigner -verify -certs "$AAB" 2>&1 || true)
-          echo "$VERIFY_OUT" | tail -15
-          echo "$VERIFY_OUT" | grep -q "jar verified"
-          # Extract signer fingerprint from AAB
-          AAB_FP=$(unzip -p "$AAB" 'META-INF/*.RSA' 2>/dev/null | keytool -printcert 2>/dev/null | grep -i "SHA256" | head -1 | awk '{print $NF}' | tr -d ':' | tr '[:lower:]' '[:upper:]')
-          # Extract signer fingerprint from keystore
-          KS_FP=$(keytool -list -v -keystore "$KS" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" 2>/dev/null | grep -A1 "SHA256:" | grep "SHA256:" | awk '{print $2}' | tr -d ':' | tr '[:lower:]' '[:upper:]')
+          set +e
+          OUT=$(jarsigner -verify -verbose -certs "$AAB" 2>&1)
+          set -e
+          case "$OUT" in
+            *"jar verified"*) echo "jarsigner: jar verified" ;;
+            *) echo "::error::jarsigner did not report 'jar verified'"; exit 1 ;;
+          esac
+          keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/bundle-cert.txt"
+          KS_FP=$(keytool -list -v -keystore "$KS" -alias "$ANDROID_KEY_ALIAS" -storepass:env ANDROID_KEYSTORE_PASSWORD 2>/dev/null | grep -A1 "SHA256:" | grep "SHA256:" | awk '{print $2}' | tr -d ':' | tr '[:lower:]' '[:upper:]')
+          AAB_FP=$(grep -A1 "SHA256:" "$RUNNER_TEMP/bundle-cert.txt" | grep "SHA256:" | awk '{print $2}' | tr -d ':' | tr '[:lower:]' '[:upper:]')
           echo "AAB_SHA256_FINGERPRINT=$AAB_FP"
-          echo "KS_SHA256_FINGERPRINT=$KS_FP"
           if [[ -z "$AAB_FP" || -z "$KS_FP" || "$AAB_FP" != "$KS_FP" ]]; then
             echo "::error::Signing certificate fingerprint mismatch"
             exit 1
