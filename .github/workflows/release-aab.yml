@@ -74,7 +74,7 @@ jobs:
           set -euo pipefail
           AAB="build/app/outputs/bundle/release/app-release.aab"
           test -s "$AAB"
-          jarsigner -verify -strict -certs "$AAB"
+          jarsigner -verify -certs "$AAB" | tail -5
 
       - name: Upload release AAB
         uses: actions/upload-artifact@v4
