@@ -59,15 +59,38 @@ jobs:
       - name: Generate code
         run: dart run build_runner build --delete-conflicting-outputs
 
+      - name: Validate Supabase configuration
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          missing=0
+          if [[ -z "${SUPABASE_URL:-}" ]]; then
+            echo "::error::SUPABASE_URL is empty or not configured"
+            missing=1
+          fi
+          if [[ -z "${SUPABASE_ANON_KEY:-}" ]]; then
+            echo "::error::SUPABASE_ANON_KEY is empty or not configured"
+            missing=1
+          fi
+          if (( missing != 0 )); then
+            exit 1
+          fi
+
       - name: Build release AAB
         env:
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/upload.jks
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           set -euo pipefail
-          flutter build appbundle --release
+          flutter build appbundle --release \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 
       - name: Verify AAB signature
         env:
