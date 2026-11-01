@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../config/env.dart';
@@ -26,30 +27,36 @@ class BackendConfigurationScreen extends StatelessWidget {
               ),
               const SizedBox(height: Sp.x4),
               Text(
-                'EthioChat is not configured',
+                kDebugMode
+                    ? 'EthioChat is not configured'
+                    : 'EthioChat is temporarily unavailable',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: Sp.x3),
               Text(
-                'This release was built without the Supabase authentication '
-                'backend. Sign-in is disabled so the app cannot fall back to '
-                'an insecure local account.',
+                kDebugMode
+                    ? 'This release was built without the Supabase '
+                        'authentication backend. Sign-in is disabled so the '
+                        'app cannot fall back to an insecure local account.'
+                    : 'Please try again later.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context)
                     .textTheme
                     .bodyMedium
                     ?.copyWith(color: pal.textSecondary),
               ),
-              const SizedBox(height: Sp.x4),
-              Text(
-                'Missing build configuration: ${Env.missingBackendConfig}',
-                textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: pal.textTertiary),
-              ),
+              if (kDebugMode) ...[
+                const SizedBox(height: Sp.x4),
+                Text(
+                  'Missing build configuration: ${Env.missingBackendConfig}',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: pal.textTertiary),
+                ),
+              ],
             ],
           ),
         ),

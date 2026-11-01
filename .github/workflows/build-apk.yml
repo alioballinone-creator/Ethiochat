@@ -26,7 +26,34 @@ jobs:
       - name: Generate code
         run: dart run build_runner build --delete-conflicting-outputs || true
 
-      - run: flutter build apk --debug
+      - name: Validate Supabase configuration
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          missing=0
+          if [[ -z "${SUPABASE_URL:-}" ]]; then
+            echo "::error::SUPABASE_URL is empty or not configured"
+            missing=1
+          fi
+          if [[ -z "${SUPABASE_ANON_KEY:-}" ]]; then
+            echo "::error::SUPABASE_ANON_KEY is empty or not configured"
+            missing=1
+          fi
+          if (( missing != 0 )); then
+            exit 1
+          fi
+
+      - name: Build debug APK
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          flutter build apk --debug \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 
       - uses: actions/upload-artifact@v4
         with:
