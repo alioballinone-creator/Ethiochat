@@ -29,23 +29,24 @@ class BackendConfigurationScreen extends StatelessWidget {
               Text(
                 kDebugMode
                     ? 'EthioChat is not configured'
-                    : 'EthioChat is temporarily unavailable',
+                    : 'EthioChat is temporarily unavailable. Please try again later.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: Sp.x3),
-              Text(
-                kDebugMode
-                    ? 'This release was built without the Supabase '
-                        'authentication backend. Sign-in is disabled so the '
-                        'app cannot fall back to an insecure local account.'
-                    : 'Please try again later.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: pal.textSecondary),
-              ),
+              if (kDebugMode)
+                Text(
+                  'This release was built without the Supabase '
+                  'authentication backend. Sign-in is disabled so the '
+                  'app cannot fall back to an insecure local account.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: pal.textSecondary),
+                )
+              else
+                const SizedBox.shrink(),
               if (kDebugMode) ...[
                 const SizedBox(height: Sp.x4),
                 Text(
