@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../features/auth/presentation/screens/gateway_screen.dart';
 import '../../features/auth/presentation/screens/otp_verification_screen.dart';
 import '../../features/auth/presentation/screens/phone_entry_screen.dart';
 import '../../features/auth/presentation/screens/profile_setup_screen.dart';
@@ -55,6 +56,7 @@ class AppRouter {
   static const String phoneEntry = '/auth/phone';
   static const String otpVerification = '/auth/otp';
   static const String profileSetup = '/auth/profile';
+  static const String gateway = '/auth/gateway';
   static const String chats = '/chats';
   static const String chatDetail = '/chats/:id';
   static const String chatInfo = '/chats/:id/info';
@@ -82,6 +84,7 @@ class AppRouter {
     welcome,
     phoneEntry,
     otpVerification,
+    gateway,
   };
 
   static bool get _hasSession {
@@ -105,7 +108,8 @@ class AppRouter {
         }
         if (location == welcome ||
             location == phoneEntry ||
-            location == otpVerification) {
+            location == otpVerification ||
+            location == gateway) {
           return chats;
         }
         return null;
@@ -122,6 +126,10 @@ class AppRouter {
         GoRoute(
           path: phoneEntry,
           builder: (context, state) => const PhoneEntryScreen(),
+        ),
+        GoRoute(
+          path: gateway,
+          builder: (context, state) => const GatewayScreen(),
         ),
         GoRoute(
           path: otpVerification,

@@ -29,4 +29,17 @@ abstract class AuthRepository {
     String? avatarPath,
   });
   Future<Result<void>> signOut({bool othersOnly = false});
+
+  /// Signs in with Supabase Auth email/password credentials.
+  ///
+  /// When [requireAdmin] is true the server-side `is_admin()` RPC must confirm
+  /// the account's role. A non-admin session is signed out before returning.
+  Future<Result<bool>> signInWithPassword({
+    required String email,
+    required String password,
+    bool requireAdmin = false,
+  });
+
+  /// Sends a Supabase Auth password reset link to [email].
+  Future<Result<void>> sendPasswordResetEmail(String email);
 }

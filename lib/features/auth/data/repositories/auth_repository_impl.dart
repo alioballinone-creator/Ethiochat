@@ -266,6 +266,149 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  @override
+  Future<Result<bool>> signInWithPassword({
+    required String email,
+    required String password,
+    bool requireAdmin = false,
+  }) async {
+    final trimmedEmail = email.trim();
+    if (trimmedEmail.isEmpty || !trimmedEmail.contains('@')) {
+      return const Result.failure(
+        ValidationFailure('Enter the email address for your account.'),
+      );
+    }
+    if (password.isEmpty) {
+      return const Result.failure(
+        ValidationFailure('Enter your password.'),
+      );
+    }
+
+    if (!Env.hasSupabase) {
+      return const Result.failure(
+        AuthFailure(
+          'Supabase is not configured. This build cannot sign in.',
+        ),
+      );
+    }
+
+    final client = _effectiveClient;
+    if (client == null) {
+      return const Result.failure(
+        AuthFailure('Supabase authentication is unavailable.'),
+      );
+    }
+
+    try {
+      final response = await client.auth.signInWithPassword(
+        email: trimmedEmail,
+        password: password,
+      );
+      if (response.session == null) {
+        return const Result.failure(
+          AuthFailure('Sign-in succeeded but no session was returned.'),
+        );
+      }
+
+      if (!requireAdmin) {
+        return const Result.success(false);
+      }
+
+      final adminResult = await _checkAdmin(client);
+      final failure = adminResult.failureOrNull;
+      if (failure != null) {
+        await client.auth.signOut(scope: SignOutScope.local);
+        return Result.failure(failure);
+      }
+      if (adminResult.valueOrNull != true) {
+        await client.auth.signOut(scope: SignOutScope.local);
+        return const Result.failure(
+          AuthFailure('This account does not have admin access.'),
+        );
+      }
+      return const Result.success(true);
+    } on AuthException catch (error) {
+      return Result.failure(_gatewayAuthFailure(error));
+    } on SocketException catch (error) {
+      return Result.failure(
+        NetworkFailure(
+            'Could not reach the authentication server.', null, error),
+      );
+    } catch (error) {
+      return Result.failure(mapError(error));
+    }
+  }
+
+  @override
+  Future<Result<void>> sendPasswordResetEmail(String email) async {
+    final trimmedEmail = email.trim();
+    if (trimmedEmail.isEmpty || !trimmedEmail.contains('@')) {
+      return const Result.failure(
+        ValidationFailure('Enter the email address for your account.'),
+      );
+    }
+
+    if (!Env.hasSupabase) {
+      return const Result.failure(
+        AuthFailure(
+          'Supabase is not configured. This build cannot send reset links.',
+        ),
+      );
+    }
+
+    final client = _effectiveClient;
+    if (client == null) {
+      return const Result.failure(
+        AuthFailure('Supabase authentication is unavailable.'),
+      );
+    }
+
+    try {
+      await client.auth.resetPasswordForEmail(trimmedEmail);
+      return const Result.success(null);
+    } on AuthException catch (error) {
+      return Result.failure(_gatewayAuthFailure(error));
+    } on SocketException catch (error) {
+      return Result.failure(
+        NetworkFailure(
+            'Could not reach the authentication server.', null, error),
+      );
+    } catch (error) {
+      return Result.failure(mapError(error));
+    }
+  }
+
+  Future<Result<bool>> _checkAdmin(SupabaseClient client) async {
+    try {
+      final value = await client.rpc('is_admin');
+      return Result.success(value == true);
+    } on PostgrestException catch (error) {
+      return Result.failure(ServerFailure(error.message, error.code, error));
+    } on SocketException catch (error) {
+      return Result.failure(
+        NetworkFailure('Could not verify admin access.', null, error),
+      );
+    } catch (error) {
+      return Result.failure(mapError(error));
+    }
+  }
+
+  AuthFailure _gatewayAuthFailure(AuthException error) {
+    final code = error.code ?? error.statusCode?.toString();
+    final message = switch (code) {
+      'invalid_credentials' => 'Incorrect email or password.',
+      'email_not_confirmed' => 'Confirm your email address before signing in.',
+      'over_request_rate_limit' ||
+      'over_email_send_rate_limit' =>
+        'Too many attempts. Wait a moment and try again.',
+      'weak_password' => 'Choose a stronger password.',
+      'same_password' => 'Choose a password you have not used before.',
+      _ => null,
+    };
+    if (message != null) return AuthFailure(message, code);
+    return AuthFailure(error.message, code, error);
+  }
+
   Future<Result<String>> _uploadAvatar(
     SupabaseClient client,
     String userId,
