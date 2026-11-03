@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,8 +8,42 @@ import '../../../../core/design/design.dart';
 import '../../../../core/settings/app_settings.dart';
 import '../../../profile/application/profile_controller.dart';
 
-class WelcomeScreen extends ConsumerWidget {
+class WelcomeScreen extends ConsumerStatefulWidget {
   const WelcomeScreen({super.key});
+
+  @override
+  ConsumerState<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
+  static const _gatewayTapWindow = Duration(seconds: 3);
+  static const _gatewayTapTarget = 5;
+
+  final List<DateTime> _logoTaps = <DateTime>[];
+  Timer? _logoTapResetTimer;
+
+  void _onLogoTap() {
+    final now = DateTime.now();
+    _logoTaps.removeWhere(
+      (tap) => now.difference(tap) > _gatewayTapWindow,
+    );
+    _logoTaps.add(now);
+
+    _logoTapResetTimer?.cancel();
+    _logoTapResetTimer = Timer(_gatewayTapWindow, () {
+      if (mounted) {
+        setState(() => _logoTaps.clear());
+      }
+    });
+
+    if (_logoTaps.length >= _gatewayTapTarget) {
+      _logoTaps.clear();
+      _logoTapResetTimer?.cancel();
+      if (mounted) {
+        context.push('/auth/gateway');
+      }
+    }
+  }
 
   Future<void> _setLanguage(
     BuildContext context,
@@ -25,7 +61,13 @@ class WelcomeScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void dispose() {
+    _logoTapResetTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
     final settings = ref.watch(appSettingsProvider);
     final profile = ref.watch(userProfileProvider);
@@ -39,7 +81,13 @@ class WelcomeScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(),
-              const EthioMark(size: 80),
+              Center(
+                child: GestureDetector(
+                  onTap: _onLogoTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: const EthioMark(size: 80),
+                ),
+              ),
               const SizedBox(height: Sp.x4),
               Center(
                 child: Text(

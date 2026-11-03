@@ -46,12 +46,14 @@ Deno.serve(async (req) => {
     }
 
     if (body.action === 'review') {
-      const { data: adminRow } = await admin
-        .from('admin_users')
-        .select('user_id')
-        .eq('user_id', user.id)
+      const { data: profile } = await admin
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
         .maybeSingle();
-      if (!adminRow) return fail('Admin privileges required', 403, 'forbidden');
+      if (profile?.role !== 'admin') {
+        return fail('Admin privileges required', 403, 'forbidden');
+      }
 
       if (!isUuid(body.reportId)) return fail('reportId is required');
       const status = body.status ?? 'reviewing';

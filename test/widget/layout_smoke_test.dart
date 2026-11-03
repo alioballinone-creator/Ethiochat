@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:ethiochat/core/db/app_database.dart';
 import 'package:ethiochat/core/design/ethio_theme.dart';
 import 'package:ethiochat/core/providers/app_providers.dart';
+import 'package:ethiochat/features/auth/presentation/screens/gateway_screen.dart';
 import 'package:ethiochat/features/auth/presentation/screens/otp_verification_screen.dart';
 import 'package:ethiochat/features/auth/presentation/screens/phone_entry_screen.dart';
 import 'package:ethiochat/features/auth/presentation/screens/profile_setup_screen.dart';
@@ -59,6 +60,7 @@ class _Screen {
 
 final _screens = <_Screen>[
   _Screen('welcome', () => const WelcomeScreen()),
+  _Screen('gateway', () => const GatewayScreen()),
   _Screen('phone', () => const PhoneEntryScreen()),
   _Screen('otp', () => const OtpVerificationScreen(phone: '+251912345678')),
   _Screen('profile-setup', () => const ProfileSetupScreen()),
