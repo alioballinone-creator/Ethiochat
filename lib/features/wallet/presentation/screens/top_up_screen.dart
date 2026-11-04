@@ -27,6 +27,10 @@ class _TopUpScreenState extends ConsumerState<TopUpScreen> {
   }
 
   Future<void> _continue() async {
+    if (!ref.read(walletRepositoryProvider).isServerAvailable) {
+      setState(() => _error = 'Payments are not enabled yet.');
+      return;
+    }
     final amount = parseEtbToMinor(_amount.text);
     if (amount <= 0) {
       setState(() => _error = 'Enter an amount greater than zero.');

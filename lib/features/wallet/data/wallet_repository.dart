@@ -18,75 +18,75 @@ class WalletRepository {
   SupabaseClient get _supabase => _client ?? Supabase.instance.client;
 
   Stream<int> watchBalance() {
-    if (Env.hasSupabase && _supabase.auth.currentUser != null) {
-      // The server is the source of truth. Fall back to local ledger only when
-      // unauthenticated or offline so the UI remains usable without minting
-      // fake funds.
-    }
-    return (db.select(db.ledgerEntries)..where((e) => e.account.equals('me')))
-        .watch()
-        .map(_balanceOf);
+    final userId = _authenticatedUserId;
+    if (userId == null) return Stream<int>.value(0);
+    return _supabase
+        .from('ledger_entries')
+        .stream(primaryKey: ['id'])
+        .eq('account', userId)
+        .map(_balanceFromRows);
   }
 
   Future<int> currentBalance() async {
-    if (Env.hasSupabase && _supabase.auth.currentUser != null) {
-      try {
-        final rows = await _supabase
-            .from('ledger_entries')
-            .select('direction,amount_minor')
-            .eq('account', _supabase.auth.currentUser!.id);
-        var balance = 0;
-        for (final row in rows) {
-          final amount = (row['amount_minor'] as num?)?.toInt() ?? 0;
-          if (row['direction'] == 'credit') {
-            balance += amount;
-          } else {
-            balance -= amount;
-          }
-        }
-        return balance;
-      } catch (_) {
-        // Fall back to local cache on network errors.
-      }
-    }
-    final rows = await (db.select(db.ledgerEntries)
-          ..where((e) => e.account.equals('me')))
-        .get();
-    return _balanceOf(rows);
+    if (_authenticatedUserId == null) return 0;
+    final balance = await _supabase.rpc('wallet_balance');
+    return (balance as num?)?.toInt() ?? 0;
   }
 
-  int _balanceOf(List<LedgerEntry> rows) {
+  String? get _authenticatedUserId {
+    if (!Env.hasSupabase) return null;
+    return _supabase.auth.currentUser?.id;
+  }
+
+  bool get isServerAvailable => _authenticatedUserId != null;
+
+  int _balanceFromRows(List<Map<String, dynamic>> rows) {
     return rows.fold<int>(
       0,
-      (sum, row) =>
-          sum +
-          (row.direction == 'credit' ? row.amountMinor : -row.amountMinor),
+      (sum, row) {
+        final amount = (row['amount_minor'] as num?)?.toInt() ?? 0;
+        return sum + (row['direction'] == 'credit' ? amount : -amount);
+      },
     );
   }
 
   Stream<List<WalletEntry>> watchEntries() {
-    return (db.select(db.walletTransactions)
-          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
-          ..limit(100))
-        .watch()
-        .map((rows) => rows.map(_toEntity).toList(growable: false));
+    final userId = _authenticatedUserId;
+    if (userId == null) return Stream<List<WalletEntry>>.value(const []);
+    return _supabase
+        .from('transactions')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .order('created_at', ascending: false)
+        .limit(100)
+        .map((rows) => rows.map(_fromServerRow).toList(growable: false));
   }
 
-  WalletEntry _toEntity(WalletTransaction row) {
+  WalletEntry _fromServerRow(Map<String, dynamic> row) {
+    final type = row['type'] as String? ?? 'p2p';
+    final meta = row['meta'];
+    final metadata = meta is Map ? Map<String, dynamic>.from(meta) : const {};
+    final incoming = type == 'topup' ||
+        type == 'request' ||
+        (type == 'redpacket' && metadata['claim'] == true);
     return WalletEntry(
-      id: row.id,
-      type: WalletTxType.values.firstWhere(
-        (type) => type.name == row.type,
-        orElse: () => WalletTxType.transfer,
-      ),
-      direction: row.direction == 'in'
+      id: row['id'] as String,
+      type: switch (type) {
+        'topup' => WalletTxType.topUp,
+        'bill' => WalletTxType.bill,
+        'redpacket' => WalletTxType.redPacket,
+        'request' => WalletTxType.receive,
+        'merchant' => WalletTxType.purchase,
+        _ => WalletTxType.transfer,
+      },
+      direction: incoming
           ? WalletDirection.incoming
           : WalletDirection.outgoing,
-      amountMinor: row.amountMinor,
-      status: row.status,
-      createdAt: row.createdAt,
-      counterparty: row.counterparty,
-      note: row.note,
+      amountMinor: (row['amount_minor'] as num?)?.toInt() ?? 0,
+      status: row['status'] as String? ?? 'pending',
+      createdAt: DateTime.parse(row['created_at'] as String),
+      counterparty: row['provider'] as String?,
+      note: metadata['note'] as String?,
     );
   }
 
@@ -109,7 +109,7 @@ class WalletRepository {
       }
       try {
         final id = idempotencyKey ?? _uuid.v4();
-        await _supabase.functions.invoke(
+        final response = await _supabase.functions.invoke(
           'wallet-transfer',
           body: {
             'recipientId': recipient,
@@ -119,32 +119,28 @@ class WalletRepository {
             'idempotencyKey': id,
           },
         );
-        final row = await (db.select(db.walletTransactions)
-              ..where((t) => t.idempotencyKey.equals(id)))
-            .getSingleOrNull();
-        if (row != null) return Result.success(row);
-        await _localRecord(
+        final transactionId = (response.data as Map?)?['transactionId'] as String?;
+        if (transactionId == null) {
+          return const Result.failure(
+            ServerFailure('Transfer was not recorded by the server.'),
+          );
+        }
+        final row = await _localRecord(
           type: WalletTxType.transfer,
           amountMinor: amountMinor,
           incoming: false,
           counterparty: recipient,
           note: note,
           idempotencyKey: id,
+          transactionId: transactionId,
         );
-        final stored = await (db.select(db.walletTransactions)
-              ..where((t) => t.idempotencyKey.equals(id)))
-            .getSingle();
-        return Result.success(stored);
+        return Result.success(row);
       } catch (error) {
         return Result.failure(mapError(error));
       }
     }
-    return _debit(
-      type: WalletTxType.transfer,
-      amountMinor: amountMinor,
-      counterparty: recipient,
-      note: note,
-      idempotencyKey: idempotencyKey,
+    return const Result.failure(
+      ValidationFailure('Payments are not enabled in this build.'),
     );
   }
 
@@ -162,21 +158,17 @@ class WalletRepository {
         ValidationFailure('Enter an amount greater than zero.'),
       );
     }
-    // Bills are processed by the configured provider; without a server
-    // integration this build fails closed rather than fabricating a successful
-    // payment.
-    if (Env.hasSupabase && _supabase.auth.currentUser != null) {
+    if (_authenticatedUserId == null) {
       return const Result.failure(
-        ValidationFailure(
-          'Bill payments are not configured for this build.',
-        ),
+        ValidationFailure('Payments are not enabled in this build.'),
       );
     }
-    return _debit(
-      type: WalletTxType.bill,
+    return _requestWalletAction(
+      action: 'bill',
       amountMinor: total,
-      counterparty: provider,
-      note: 'Account $accountRef',
+      provider: provider,
+      accountRef: accountRef,
+      pin: pin,
       idempotencyKey: idempotencyKey,
     );
   }
@@ -213,7 +205,19 @@ class WalletRepository {
             'idempotencyKey': id,
           },
         );
-        await _localRecord(
+        final transaction = await _supabase
+            .from('transactions')
+            .select('id')
+            .eq('user_id', _authenticatedUserId!)
+            .eq('idempotency_key', id)
+            .maybeSingle();
+        final transactionId = transaction?['id'] as String?;
+        if (transactionId == null) {
+          return const Result.failure(
+            ServerFailure('Red packet was not recorded by the server.'),
+          );
+        }
+        final row = await _localRecord(
           type: WalletTxType.redPacket,
           amountMinor: totalMinor,
           incoming: false,
@@ -221,40 +225,22 @@ class WalletRepository {
               'Red packet · $count ${count == 1 ? 'person' : 'people'}',
           note: note,
           idempotencyKey: id,
+          transactionId: transactionId,
         );
-        final stored = await (db.select(db.walletTransactions)
-              ..where((t) => t.idempotencyKey.equals(id)))
-            .getSingleOrNull();
-        if (stored != null) return Result.success(stored);
-        await _localRecord(
-          type: WalletTxType.redPacket,
-          amountMinor: totalMinor,
-          incoming: false,
-          counterparty:
-              'Red packet · $count ${count == 1 ? 'person' : 'people'}',
-          note: note,
-          idempotencyKey: id,
-        );
-        final again = await (db.select(db.walletTransactions)
-              ..where((t) => t.idempotencyKey.equals(id)))
-            .getSingle();
-        return Result.success(again);
+        return Result.success(row);
       } catch (error) {
         return Result.failure(mapError(error));
       }
     }
-    return _debit(
-      type: WalletTxType.redPacket,
-      amountMinor: totalMinor,
-      counterparty: 'Red packet · $count ${count == 1 ? 'person' : 'people'}',
-      note: note,
-      idempotencyKey: idempotencyKey,
+    return const Result.failure(
+      ValidationFailure('Payments are not enabled in this build.'),
     );
   }
 
   Future<Result<WalletTransaction>> topUp({
     required int amountMinor,
     required String provider,
+    String? pin,
     String? idempotencyKey,
   }) async {
     if (amountMinor <= 0) {
@@ -262,22 +248,41 @@ class WalletRepository {
         ValidationFailure('Enter an amount greater than zero.'),
       );
     }
-    // Payment provider integration is not configured in this build. The
-    // repository never fabricates provider callbacks or a "successful" charge.
-    if (Env.hasSupabase && _supabase.auth.currentUser != null) {
+    if (_authenticatedUserId == null) {
       return const Result.failure(
-        ValidationFailure(
-          'Top-up is not configured for this build. Add a provider webhook or '
-          'use an approved test path.',
-        ),
+        ValidationFailure('Payments are not enabled in this build.'),
       );
     }
-    return _post(
-      type: WalletTxType.topUp,
+    return _requestWalletAction(
+      action: 'topup',
       amountMinor: amountMinor,
-      incoming: true,
-      counterparty: provider,
-      note: 'Top up',
+      provider: provider,
+      pin: pin,
+      idempotencyKey: idempotencyKey,
+    );
+  }
+
+  Future<Result<WalletTransaction>> purchase({
+    required int amountMinor,
+    required String provider,
+    String? note,
+    String? idempotencyKey,
+  }) async {
+    if (amountMinor <= 0) {
+      return const Result.failure(
+        ValidationFailure('Enter an amount greater than zero.'),
+      );
+    }
+    if (_authenticatedUserId == null) {
+      return const Result.failure(
+        ValidationFailure('Payments are not enabled in this build.'),
+      );
+    }
+    return _requestWalletAction(
+      action: 'purchase',
+      amountMinor: amountMinor,
+      provider: provider,
+      note: note,
       idempotencyKey: idempotencyKey,
     );
   }
@@ -288,130 +293,80 @@ class WalletRepository {
     String? note,
     String? idempotencyKey,
   }) async {
-    if (amountMinor <= 0) {
+    if (amountMinor < 0) {
       return const Result.failure(
         ValidationFailure('Enter an amount greater than zero.'),
       );
     }
-    if (Env.hasSupabase && _supabase.auth.currentUser != null) {
-      // Requesting money creates a shareable intent; it is not a credit. Credits
-      // only occur on the server after an authenticated payer completes a
-      // verified transfer.
-      try {
-        final row = await _localRecord(
-          type: WalletTxType.receive,
-          amountMinor: amountMinor,
-          incoming: true,
-          counterparty: sender,
-          note: note ?? 'Payment request',
-          idempotencyKey: idempotencyKey ?? _uuid.v4(),
-          pending: true,
+    if (_authenticatedUserId == null) {
+      return const Result.failure(
+        ValidationFailure('Payment requests are not enabled in this build.'),
+      );
+    }
+    final id = idempotencyKey ?? _uuid.v4();
+    try {
+      final response = await _supabase.functions.invoke(
+        'wallet-action',
+        body: {
+          'action': 'request',
+          'amountMinor': amountMinor,
+          'provider': sender,
+          'note': note,
+          'idempotencyKey': id,
+        },
+      );
+      final transaction = (response.data as Map?)?['transaction'] as Map?;
+      final transactionId = transaction?['id'] as String?;
+      if (transactionId == null) {
+        return const Result.failure(
+          ServerFailure('Payment request was not recorded by the server.'),
         );
-        return Result.success(row);
-      } catch (error) {
-        return Result.failure(mapError(error));
       }
+      final row = await _localRecord(
+        type: WalletTxType.receive,
+        amountMinor: amountMinor,
+        incoming: true,
+        counterparty: sender,
+        note: note ?? 'Payment request',
+        idempotencyKey: id,
+        transactionId: transactionId,
+        pending: true,
+      );
+      return Result.success(row);
+    } catch (error) {
+      return Result.failure(mapError(error));
     }
-    return _post(
-      type: WalletTxType.receive,
-      amountMinor: amountMinor,
-      incoming: true,
-      counterparty: sender,
-      note: note,
-      idempotencyKey: idempotencyKey,
-    );
   }
 
-  Future<Result<WalletTransaction>> _debit({
-    required WalletTxType type,
+  Future<Result<WalletTransaction>> _requestWalletAction({
+    required String action,
     required int amountMinor,
-    required String counterparty,
+    required String provider,
+    String? accountRef,
     String? note,
-    String? idempotencyKey,
-  }) async {
-    if (amountMinor <= 0) {
-      return const Result.failure(
-        ValidationFailure('Enter an amount greater than zero.'),
-      );
-    }
-    final balance = await currentBalance();
-    if (amountMinor > balance) {
-      return const Result.failure(
-        ValidationFailure('Your wallet balance is too low.'),
-      );
-    }
-    return _post(
-      type: type,
-      amountMinor: amountMinor,
-      incoming: false,
-      counterparty: counterparty,
-      note: note,
-      idempotencyKey: idempotencyKey,
-    );
-  }
-
-  Future<Result<WalletTransaction>> _post({
-    required WalletTxType type,
-    required int amountMinor,
-    required bool incoming,
-    required String counterparty,
-    String? note,
+    String? pin,
     String? idempotencyKey,
   }) async {
     try {
-      final key = idempotencyKey ?? _uuid.v4();
-      final existing = await (db.select(db.walletTransactions)
-            ..where((t) => t.idempotencyKey.equals(key)))
-          .getSingleOrNull();
-      if (existing != null) {
-        return Result.success(existing);
-      }
-
-      final txnId = _uuid.v4();
-      final meEntry = _uuid.v4();
-      final systemEntry = _uuid.v4();
-      final now = DateTime.now();
-      final systemAccount = 'system:${type.name}';
-
-      await db.transaction(() async {
-        await db.into(db.walletTransactions).insert(
-              WalletTransactionsCompanion.insert(
-                id: txnId,
-                type: type.name,
-                amountMinor: amountMinor,
-                direction: incoming ? 'in' : 'out',
-                counterparty: Value(counterparty),
-                note: Value(note),
-                idempotencyKey: Value(key),
-                createdAt: Value(now),
-              ),
-            );
-        await db.into(db.ledgerEntries).insert(
-              LedgerEntriesCompanion.insert(
-                id: meEntry,
-                txnId: txnId,
-                account: 'me',
-                direction: incoming ? 'credit' : 'debit',
-                amountMinor: amountMinor,
-                createdAt: Value(now),
-              ),
-            );
-        await db.into(db.ledgerEntries).insert(
-              LedgerEntriesCompanion.insert(
-                id: systemEntry,
-                txnId: txnId,
-                account: systemAccount,
-                direction: incoming ? 'debit' : 'credit',
-                amountMinor: amountMinor,
-                createdAt: Value(now),
-              ),
-            );
-      });
-
-      final row = await (db.select(db.walletTransactions)
-            ..where((t) => t.id.equals(txnId)))
-          .getSingle();
-      return Result.success(row);
+      final response = await _supabase.functions.invoke(
+        'wallet-action',
+        body: {
+          'action': action,
+          'amountMinor': amountMinor,
+          'provider': provider,
+          'accountRef': accountRef,
+          'note': note,
+          'pin': pin,
+          'idempotencyKey': idempotencyKey ?? _uuid.v4(),
+        },
+      );
+      final payload = response.data;
+      final message = payload is Map ? payload['message'] as String? : null;
+      return Result.failure(
+        ValidationFailure(
+          message ?? 'Payments are not enabled yet. No funds were moved.',
+        ),
+      );
     } catch (error) {
       return Result.failure(mapError(error));
     }
@@ -424,6 +379,7 @@ class WalletRepository {
     required String counterparty,
     String? note,
     String? idempotencyKey,
+    String? transactionId,
     bool pending = false,
   }) async {
     final key = idempotencyKey ?? _uuid.v4();
@@ -432,7 +388,7 @@ class WalletRepository {
         .getSingleOrNull();
     if (existing != null) return existing;
 
-    final txnId = _uuid.v4();
+    final txnId = transactionId ?? _uuid.v4();
     final now = DateTime.now();
     await db.into(db.walletTransactions).insert(
           WalletTransactionsCompanion.insert(
@@ -451,80 +407,4 @@ class WalletRepository {
         .getSingle();
   }
 
-  Future<void> seedDemoData() async {
-    final count = await (db.select(db.walletTransactions)).get();
-    if (count.isNotEmpty) return;
-    final now = DateTime.now();
-    await _seedEntry(
-      type: WalletTxType.topUp,
-      amountMinor: 50000,
-      incoming: true,
-      counterparty: 'Telebirr',
-      note: 'Wallet top up',
-      at: now.subtract(const Duration(hours: 20)),
-      id: 'seed-wallet-topup',
-    );
-    await _seedEntry(
-      type: WalletTxType.receive,
-      amountMinor: 80000,
-      incoming: true,
-      counterparty: 'Hanna Girma',
-      note: 'Dinner split',
-      at: now.subtract(const Duration(hours: 8)),
-      id: 'seed-wallet-receive',
-    );
-    await _seedEntry(
-      type: WalletTxType.bill,
-      amountMinor: 4950,
-      incoming: false,
-      counterparty: 'Ethio Telecom',
-      note: 'Airtime bundle',
-      at: now.subtract(const Duration(hours: 2)),
-      id: 'seed-wallet-bill',
-    );
-  }
-
-  Future<void> _seedEntry({
-    required WalletTxType type,
-    required int amountMinor,
-    required bool incoming,
-    required String counterparty,
-    required String note,
-    required DateTime at,
-    required String id,
-  }) async {
-    await db.transaction(() async {
-      await db.into(db.walletTransactions).insert(
-            WalletTransactionsCompanion.insert(
-              id: id,
-              type: type.name,
-              amountMinor: amountMinor,
-              direction: incoming ? 'in' : 'out',
-              counterparty: Value(counterparty),
-              note: Value(note),
-              createdAt: Value(at),
-            ),
-          );
-      await db.into(db.ledgerEntries).insert(
-            LedgerEntriesCompanion.insert(
-              id: '$id-me',
-              txnId: id,
-              account: 'me',
-              direction: incoming ? 'credit' : 'debit',
-              amountMinor: amountMinor,
-              createdAt: Value(at),
-            ),
-          );
-      await db.into(db.ledgerEntries).insert(
-            LedgerEntriesCompanion.insert(
-              id: '$id-system',
-              txnId: id,
-              account: 'system:${type.name}',
-              direction: incoming ? 'debit' : 'credit',
-              amountMinor: amountMinor,
-              createdAt: Value(at),
-            ),
-          );
-    });
-  }
 }

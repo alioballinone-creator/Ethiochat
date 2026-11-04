@@ -29,6 +29,10 @@ class _RedPacketScreenState extends ConsumerState<RedPacketScreen> {
   }
 
   Future<void> _continue() async {
+    if (!ref.read(walletRepositoryProvider).isServerAvailable) {
+      setState(() => _error = 'Payments are not enabled in this build.');
+      return;
+    }
     final amount = parseEtbToMinor(_amount.text);
     final count = int.tryParse(_count.text) ?? 0;
     if (amount <= 0) {

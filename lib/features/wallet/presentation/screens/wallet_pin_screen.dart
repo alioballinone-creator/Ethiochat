@@ -92,6 +92,10 @@ class _WalletPinScreenState extends ConsumerState<WalletPinScreen> {
 
   Future<void> _submit() async {
     if (_busy) return;
+    if (!ref.read(walletRepositoryProvider).isServerAvailable) {
+      _feedback('Wallet payments are not enabled in this build.');
+      return;
+    }
     final entered = _pin;
     if (_settingPin) {
       if (_firstPin == null) {
@@ -151,7 +155,7 @@ class _WalletPinScreenState extends ConsumerState<WalletPinScreen> {
     final repo = ref.read(walletRepositoryProvider);
     final result = switch (request.type) {
       WalletTxType.transfer => await repo.sendMoney(
-          recipient: request.recipient ?? 'EthioChat user',
+          recipient: request.recipientId ?? request.recipient ?? '',
           amountMinor: request.amountMinor,
           note: request.note,
           pin: _pin,
@@ -160,6 +164,7 @@ class _WalletPinScreenState extends ConsumerState<WalletPinScreen> {
           provider: request.provider ?? 'Biller',
           accountRef: request.accountRef ?? '',
           amountMinor: request.amountMinor,
+          pin: _pin,
         ),
       WalletTxType.redPacket => await repo.sendRedPacket(
           totalMinor: request.amountMinor,
@@ -171,10 +176,16 @@ class _WalletPinScreenState extends ConsumerState<WalletPinScreen> {
       WalletTxType.topUp => await repo.topUp(
           amountMinor: request.amountMinor,
           provider: request.provider ?? 'Telebirr',
+          pin: _pin,
         ),
       WalletTxType.receive => await repo.receive(
           sender: request.recipient ?? 'EthioChat user',
           amountMinor: request.amountMinor,
+          note: request.note,
+        ),
+      WalletTxType.purchase => await repo.purchase(
+          amountMinor: request.amountMinor,
+          provider: request.provider ?? 'EthioChat shop',
           note: request.note,
         ),
     };
