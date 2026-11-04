@@ -235,23 +235,13 @@ class _OfficialAccountScreenState extends State<OfficialAccountScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.notifications_off_outlined),
-              title: const Text('Mute updates'),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${account.name} muted for 8 hours.')),
-                );
-              },
-            ),
-            ListTile(
               leading: const Icon(Icons.flag_outlined),
               title: const Text('Report account'),
               onTap: () {
                 Navigator.pop(sheetContext);
                 context.push(
                   '/report?target=${Uri.encodeComponent(account.name)}'
-                  '&type=account',
+                  '&id=${Uri.encodeComponent(account.id)}&type=account',
                 );
               },
             ),

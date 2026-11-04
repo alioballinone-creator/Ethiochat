@@ -9,7 +9,7 @@ import '../../../profile/application/profile_controller.dart';
 import '../../application/wallet_providers.dart';
 import '../../domain/entities/wallet_entry.dart';
 
-/// 08 — Wallet. Balance is derived from the local double-entry ledger.
+/// 08 — Wallet. Balance and history are read from the server ledger.
 class WalletScreen extends ConsumerWidget {
   const WalletScreen({super.key});
 
@@ -18,9 +18,8 @@ class WalletScreen extends ConsumerWidget {
     final pal = EthioPalette.of(context);
     final profile = ref.watch(userProfileProvider);
     final balance = ref.watch(walletBalanceProvider).valueOrNull ?? 0;
-    final seed = ref.watch(walletSeedProvider);
-    final entries =
-        ref.watch(walletEntriesProvider).valueOrNull ?? const <WalletEntry>[];
+    final entriesAsync = ref.watch(walletEntriesProvider);
+    final entries = entriesAsync.valueOrNull ?? const <WalletEntry>[];
 
     return SecureScreenScope(
       child: Scaffold(
@@ -54,8 +53,8 @@ class WalletScreen extends ConsumerWidget {
           child: RefreshIndicator(
             color: EthioColors.gold,
             onRefresh: () async {
-              ref.invalidate(walletSeedProvider);
-              await ref.read(walletSeedProvider.future);
+              ref.invalidate(walletBalanceProvider);
+              ref.invalidate(walletEntriesProvider);
             },
             child: ListView(
               padding: Sp.screen.copyWith(top: Sp.x2, bottom: Sp.x8),
@@ -130,7 +129,7 @@ class WalletScreen extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: Sp.x1),
-                if (seed.isLoading && entries.isEmpty)
+                if (entriesAsync.isLoading && entries.isEmpty)
                   const SizedBox(
                     height: 172,
                     child: TransactionListSkeleton(count: 3),

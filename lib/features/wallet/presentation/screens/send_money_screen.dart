@@ -20,6 +20,7 @@ class _SendMoneyScreenState extends ConsumerState<SendMoneyScreen> {
   final _recipient = TextEditingController();
   final _amount = TextEditingController();
   final _note = TextEditingController();
+  String? _recipientId;
   String? _error;
   bool _seeded = false;
 
@@ -47,6 +48,11 @@ class _SendMoneyScreenState extends ConsumerState<SendMoneyScreen> {
   Future<void> _continue() async {
     final name = _recipient.text.trim();
     final amount = parseEtbToMinor(_amount.text);
+    final repository = ref.read(walletRepositoryProvider);
+    if (!repository.isServerAvailable) {
+      setState(() => _error = 'Payments are not enabled in this build.');
+      return;
+    }
     if (name.isEmpty) {
       setState(() => _error = 'Enter a recipient.');
       return;
@@ -55,11 +61,20 @@ class _SendMoneyScreenState extends ConsumerState<SendMoneyScreen> {
       setState(() => _error = 'Enter an amount greater than zero.');
       return;
     }
-    final balance = await ref.read(walletRepositoryProvider).currentBalance();
-    if (amount > balance) {
-      setState(() => _error = 'Your wallet balance is too low.');
+    final contacts =
+        ref.read(contactsProvider).valueOrNull ?? const <ContactEntity>[];
+    final selected = contacts.where((contact) {
+      final query = name.toLowerCase();
+      return contact.id == _recipientId ||
+          contact.displayName.toLowerCase() == query ||
+          contact.ethioId?.toLowerCase() == query ||
+          contact.phoneE164 == name;
+    }).firstOrNull;
+    if (selected == null) {
+      setState(() => _error = 'Choose a saved contact to send money.');
       return;
     }
+    _recipientId = selected.id;
     if (!mounted) return;
     setState(() => _error = null);
     await context.push(
@@ -68,7 +83,8 @@ class _SendMoneyScreenState extends ConsumerState<SendMoneyScreen> {
         type: WalletTxType.transfer,
         amountMinor: amount,
         title: 'Send ${formatEtb(amount)}',
-        recipient: name,
+        recipient: selected.displayName,
+        recipientId: selected.id,
         note: _note.text.trim().isEmpty ? null : _note.text.trim(),
       ),
     );
@@ -102,8 +118,11 @@ class _SendMoneyScreenState extends ConsumerState<SendMoneyScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.account_balance_wallet_outlined,
-                      size: 18, color: pal.textSecondary),
+                  Icon(
+                    Icons.account_balance_wallet_outlined,
+                    size: 18,
+                    color: pal.textSecondary,
+                  ),
                   const SizedBox(width: Sp.x2),
                   Text(
                     'Available ${formatEtb(balance)}',
@@ -119,7 +138,10 @@ class _SendMoneyScreenState extends ConsumerState<SendMoneyScreen> {
               controller: _recipient,
               hint: 'Name, phone or Ethio ID',
               prefix: const Icon(Icons.person_search_outlined, size: 20),
-              onChanged: (_) => setState(() => _error = null),
+              onChanged: (_) => setState(() {
+                _recipientId = null;
+                _error = null;
+              }),
             ),
             if (contacts.isNotEmpty) ...[
               const SizedBox(height: Sp.x3),
@@ -132,12 +154,14 @@ class _SendMoneyScreenState extends ConsumerState<SendMoneyScreen> {
                   itemBuilder: (context, i) {
                     final contact = contacts[i];
                     return ActionChip(
-                      avatar: CircleAvatar(
-                        child: Text(contact.initial),
-                      ),
+                      avatar: CircleAvatar(child: Text(contact.initial)),
                       label: Text(contact.displayName.split(' ').first),
                       onPressed: () {
-                        setState(() => _recipient.text = contact.displayName);
+                        setState(() {
+                          _recipient.text = contact.displayName;
+                          _recipientId = contact.id;
+                          _error = null;
+                        });
                       },
                     );
                   },
@@ -150,8 +174,9 @@ class _SendMoneyScreenState extends ConsumerState<SendMoneyScreen> {
             EthioTextField(
               controller: _amount,
               hint: '0.00',
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               prefix: Padding(
                 padding: const EdgeInsets.only(left: Sp.x4, right: Sp.x2),
                 child: Center(

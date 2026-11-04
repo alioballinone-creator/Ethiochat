@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/design.dart';
@@ -34,18 +33,6 @@ class HelpScreen extends StatelessWidget {
           'share your wallet PIN or verification codes.',
     ),
   ];
-
-  Future<void> _contactSupport(BuildContext context) async {
-    await Clipboard.setData(
-      const ClipboardData(text: 'support@ethiochat.et'),
-    );
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Support email support@ethiochat.et copied.'),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -106,8 +93,8 @@ class HelpScreen extends StatelessWidget {
                 EthioNavRow(
                   icon: Icons.mail_outline_rounded,
                   title: 'Contact support',
-                  subtitle: 'Copy the support email address',
-                  onTap: () => _contactSupport(context),
+                  subtitle: 'Create a request and follow staff replies',
+                  onTap: () => context.push('/support'),
                 ),
                 EthioNavRow(
                   icon: Icons.flag_outlined,

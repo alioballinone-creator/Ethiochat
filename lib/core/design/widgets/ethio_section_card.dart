@@ -5,11 +5,7 @@ import '../ethio_spacing.dart';
 
 /// Grouped white/black card used by settings, profile and wallet sub-pages.
 class EthioSectionCard extends StatelessWidget {
-  const EthioSectionCard({
-    super.key,
-    required this.children,
-    this.padding,
-  });
+  const EthioSectionCard({super.key, required this.children, this.padding});
 
   final List<Widget> children;
   final EdgeInsetsGeometry? padding;
@@ -133,10 +129,7 @@ class EthioNavRow extends StatelessWidget {
                   style: text.labelSmall?.copyWith(color: pal.textSecondary),
                 ),
           trailing: trailing ??
-              Icon(
-                Icons.chevron_right_rounded,
-                color: pal.textTertiary,
-              ),
+              Icon(Icons.chevron_right_rounded, color: pal.textTertiary),
         ),
         if (!last)
           Divider(
@@ -245,15 +238,11 @@ class EthioEmptyState extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: pal.textSecondary),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: pal.textSecondary),
             ),
-            if (action != null) ...[
-              const SizedBox(height: Sp.x4),
-              action!,
-            ],
+            if (action != null) ...[const SizedBox(height: Sp.x4), action!],
           ],
         ),
       ),
@@ -267,43 +256,42 @@ class EthioMiniAppTile extends StatelessWidget {
     super.key,
     required this.label,
     required this.icon,
-    required this.onTap,
+    this.onTap,
     this.color,
   });
 
   final String label;
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: Rad.r14,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: color ?? pal.chip,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: pal.line),
-            ),
-            child: Icon(icon, size: 26),
+    final content = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: color ?? pal.chip,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: pal.line),
           ),
-          const SizedBox(height: Sp.x2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
-      ),
+          child: Icon(icon, size: 26),
+        ),
+        const SizedBox(height: Sp.x2),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
     );
+    return onTap == null
+        ? content
+        : InkWell(onTap: onTap, borderRadius: Rad.r14, child: content);
   }
 }

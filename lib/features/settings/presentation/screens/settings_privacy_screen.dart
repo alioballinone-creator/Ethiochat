@@ -115,9 +115,9 @@ class PrivacySettingsScreen extends ConsumerWidget {
     }
     if (!context.mounted) return;
     if (path == null) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Export saved to $path')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Export saved to $path')));
   }
 
   Future<void> _deleteAccount(BuildContext context, WidgetRef ref) async {
@@ -200,9 +200,9 @@ class PrivacySettingsScreen extends ConsumerWidget {
     if (!context.mounted) return;
     Navigator.of(context).pop();
     if (failureMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(failureMessage)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(failureMessage)));
       return;
     }
 
@@ -234,8 +234,10 @@ class PrivacySettingsScreen extends ConsumerWidget {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        title: Text('Privacy and security',
-            style: Theme.of(context).textTheme.headlineMedium),
+        title: Text(
+          'Privacy and security',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
       ),
       body: SafeArea(
         top: false,
@@ -363,10 +365,9 @@ class PrivacySettingsScreen extends ConsumerWidget {
                       'Your personal messages and calls are protected in transit. '
                       'EthioChat never shows your phone number to people outside '
                       'your contacts.',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: pal.textSecondary),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: pal.textSecondary),
                     ),
                   ),
                 ],
@@ -414,7 +415,7 @@ class BlockedUsersScreen extends ConsumerWidget {
     if (confirmed != true) return;
     final result = await ref
         .read(chatRepositoryProvider)
-        .setContactBlocked(contact.displayName, false);
+        .setContactBlocked(contact.id, false, displayName: contact.displayName);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -437,8 +438,10 @@ class BlockedUsersScreen extends ConsumerWidget {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        title: Text('Blocked contacts',
-            style: Theme.of(context).textTheme.headlineMedium),
+        title: Text(
+          'Blocked contacts',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
       ),
       body: SafeArea(
         top: false,

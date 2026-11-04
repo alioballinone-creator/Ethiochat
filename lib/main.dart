@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
 import 'core/config/env.dart';
+import 'core/config/feature_flags.dart';
 import 'core/notifications/push_notification_service.dart';
 import 'core/widgets/global_error_boundary.dart';
 
@@ -22,6 +23,7 @@ Future<void> main() async {
       url: Env.supabaseUrl,
       anonKey: Env.supabaseAnonKey,
     );
+    await FeatureFlags.loadRemote(Supabase.instance.client);
   }
   // Push is optional. Initialization failures are logged and never block the
   // local-first app from starting.

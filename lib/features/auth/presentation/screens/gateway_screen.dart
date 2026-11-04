@@ -69,7 +69,7 @@ class _GatewayScreenState extends ConsumerState<GatewayScreen> {
     }
 
     setState(() => _submitting = false);
-    context.go('/chats');
+    context.go(_mode == _GatewayMode.admin ? '/admin' : '/chats');
   }
 
   Future<void> _changePassword() async {
