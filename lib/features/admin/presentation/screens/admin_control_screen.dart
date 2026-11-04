@@ -106,12 +106,10 @@ class _AdminControlScreenState extends State<AdminControlScreen> {
     });
     try {
       final access = await _repository.call('access');
-      final allowed = (access['sections'] as List? ?? const [])
-          .whereType<String>()
-          .toSet();
-      final actions = (access['actions'] as List? ?? const [])
-          .whereType<String>()
-          .toSet();
+      final allowed =
+          (access['sections'] as List? ?? const []).whereType<String>().toSet();
+      final actions =
+          (access['actions'] as List? ?? const []).whereType<String>().toSet();
       final selected = allowed.contains(_section.action)
           ? _section
           : _AdminSection.values.firstWhere(
@@ -244,9 +242,9 @@ class _AdminControlScreenState extends State<AdminControlScreen> {
             child: Text(
               'ETHIOCHAT / OPS',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: pal.textSecondary,
-                fontWeight: FontWeight.w700,
-              ),
+                    color: pal.textSecondary,
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
           ),
           const Divider(height: 1),
@@ -408,314 +406,319 @@ class _AdminControlScreenState extends State<AdminControlScreen> {
   }
 
   List<Widget> _users(BuildContext context) => [
-    for (final user in _rows('users'))
-      EthioSectionCard(
-        children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: CircleAvatar(
-              child: Text(_text(user['display_name'], '?')[0].toUpperCase()),
-            ),
-            title: Text(_text(user['display_name'], 'Unnamed account')),
-            subtitle: Text(
-              '${_text(user['email'], 'No email')} · ${_text(user['role'], 'user')}',
-            ),
-            onTap: () => _showUserDetails(user),
-            trailing: PopupMenuButton<String>(
-              tooltip: 'Manage account',
-              onSelected: (action) {
-                if (action == 'activity') _showActivity(user);
-                if (action == 'disable' || action == 'enable') {
-                  _run('users.set-status', {
-                    'userId': user['id'],
-                    'enabled': action == 'enable',
-                  });
-                }
-                if (action.startsWith('role:')) {
-                  _run('users.set-role', {
-                    'userId': user['id'],
-                    'role': action.substring(5),
-                  });
-                }
-              },
-              itemBuilder: (context) => [
-                if (_allowedActions.contains('users.activity'))
-                  const PopupMenuItem(
-                    value: 'activity',
-                    child: Text('View activity'),
-                  ),
-                if (_allowedActions.contains('users.set-status'))
-                  PopupMenuItem(
-                    value: user['bannedUntil'] == null ? 'disable' : 'enable',
-                    child: Text(
-                      user['bannedUntil'] == null
-                          ? 'Disable account'
-                          : 'Enable account',
-                    ),
-                  ),
-                if (_allowedActions.contains('users.set-role'))
-                  for (final role in ['user', ..._staffRoles])
-                    PopupMenuItem(
-                      value: 'role:$role',
-                      child: Text('Set role: $role'),
-                    ),
-              ],
-            ),
+        for (final user in _rows('users'))
+          EthioSectionCard(
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  child:
+                      Text(_text(user['display_name'], '?')[0].toUpperCase()),
+                ),
+                title: Text(_text(user['display_name'], 'Unnamed account')),
+                subtitle: Text(
+                  '${_text(user['email'], 'No email')} · ${_text(user['role'], 'user')}',
+                ),
+                onTap: () => _showUserDetails(user),
+                trailing: PopupMenuButton<String>(
+                  tooltip: 'Manage account',
+                  onSelected: (action) {
+                    if (action == 'activity') _showActivity(user);
+                    if (action == 'disable' || action == 'enable') {
+                      _run('users.set-status', {
+                        'userId': user['id'],
+                        'enabled': action == 'enable',
+                      });
+                    }
+                    if (action.startsWith('role:')) {
+                      _run('users.set-role', {
+                        'userId': user['id'],
+                        'role': action.substring(5),
+                      });
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    if (_allowedActions.contains('users.activity'))
+                      const PopupMenuItem(
+                        value: 'activity',
+                        child: Text('View activity'),
+                      ),
+                    if (_allowedActions.contains('users.set-status'))
+                      PopupMenuItem(
+                        value:
+                            user['bannedUntil'] == null ? 'disable' : 'enable',
+                        child: Text(
+                          user['bannedUntil'] == null
+                              ? 'Disable account'
+                              : 'Enable account',
+                        ),
+                      ),
+                    if (_allowedActions.contains('users.set-role'))
+                      for (final role in ['user', ..._staffRoles])
+                        PopupMenuItem(
+                          value: 'role:$role',
+                          child: Text('Set role: $role'),
+                        ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    if (_rows('users').isEmpty) _empty('No users found.'),
-  ];
+        if (_rows('users').isEmpty) _empty('No users found.'),
+      ];
 
   List<Widget> _staff(BuildContext context) => [
-    EthioSectionCard(
-      children: [
-        Text(
-          'Create staff access',
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
-        const SizedBox(height: 10),
-        Row(
+        EthioSectionCard(
           children: [
-            Expanded(
-              child: TextField(
-                controller: _inviteEmail,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Work email'),
-              ),
+            Text(
+              'Create staff access',
+              style: Theme.of(context).textTheme.titleSmall,
             ),
-            const SizedBox(width: 12),
-            DropdownButton<String>(
-              value: _staffRole,
-              onChanged: (value) =>
-                  setState(() => _staffRole = value ?? _staffRole),
-              items: [
-                for (final role in _staffRoles)
-                  DropdownMenuItem(value: role, child: Text(role)),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _inviteEmail,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(labelText: 'Work email'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                DropdownButton<String>(
+                  value: _staffRole,
+                  onChanged: (value) =>
+                      setState(() => _staffRole = value ?? _staffRole),
+                  items: [
+                    for (final role in _staffRoles)
+                      DropdownMenuItem(value: role, child: Text(role)),
+                  ],
+                ),
+                IconButton.filled(
+                  tooltip: 'Send invitation',
+                  onPressed:
+                      _saving || !_allowedActions.contains('staff.invite')
+                          ? null
+                          : () => _run('staff.invite', {
+                                'email': _inviteEmail.text.trim(),
+                                'role': _staffRole,
+                              }),
+                  icon: const Icon(Icons.person_add_alt_1_rounded),
+                ),
               ],
-            ),
-            IconButton.filled(
-              tooltip: 'Send invitation',
-              onPressed: _saving || !_allowedActions.contains('staff.invite')
-                  ? null
-                  : () => _run('staff.invite', {
-                      'email': _inviteEmail.text.trim(),
-                      'role': _staffRole,
-                    }),
-              icon: const Icon(Icons.person_add_alt_1_rounded),
             ),
           ],
         ),
-      ],
-    ),
-    const SizedBox(height: 8),
-    for (final staff in _rows('staff'))
-      EthioSectionCard(
-        children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(
-              _text(
-                (staff['profile'] as Map?)?['display_name'],
-                _text(staff['user_id']),
+        const SizedBox(height: 8),
+        for (final staff in _rows('staff'))
+          EthioSectionCard(
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  _text(
+                    (staff['profile'] as Map?)?['display_name'],
+                    _text(staff['user_id']),
+                  ),
+                ),
+                subtitle: Text('Role: ${_text(staff['role'])}'),
+                trailing: IconButton(
+                  tooltip: 'Remove staff role',
+                  onPressed: _saving ||
+                          !_allowedActions.contains('staff.remove')
+                      ? null
+                      : () =>
+                          _run('staff.remove', {'userId': staff['user_id']}),
+                  icon: const Icon(Icons.person_remove_outlined),
+                ),
               ),
-            ),
-            subtitle: Text('Role: ${_text(staff['role'])}'),
-            trailing: IconButton(
-              tooltip: 'Remove staff role',
-              onPressed: _saving || !_allowedActions.contains('staff.remove')
-                  ? null
-                  : () => _run('staff.remove', {'userId': staff['user_id']}),
-              icon: const Icon(Icons.person_remove_outlined),
-            ),
+            ],
           ),
-        ],
-      ),
-    if (_rows('staff').isEmpty) _empty('No staff roles are assigned.'),
-  ];
+        if (_rows('staff').isEmpty) _empty('No staff roles are assigned.'),
+      ];
 
   List<Widget> _content(BuildContext context) => [
-    for (final item in _rows('items'))
-      EthioSectionCard(
-        children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(
-              _text(
-                item['title'],
-                _text(
-                  item['caption'],
-                  _text(item['body'], _text(item['type'], 'Content item')),
+        for (final item in _rows('items'))
+          EthioSectionCard(
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  _text(
+                    item['title'],
+                    _text(
+                      item['caption'],
+                      _text(item['body'], _text(item['type'], 'Content item')),
+                    ),
+                  ),
+                ),
+                subtitle: Text(
+                  'ID ${_text(item['id'])} · ${_text(item['created_at'])}',
                 ),
               ),
-            ),
-            subtitle: Text(
-              'ID ${_text(item['id'])} · ${_text(item['created_at'])}',
-            ),
+              Wrap(
+                spacing: 8,
+                children: [
+                  if (_allowedActions.contains('content.moderate'))
+                    OutlinedButton.icon(
+                      onPressed: _saving
+                          ? null
+                          : () => _run('content.moderate', {
+                                'table': _contentTable,
+                                'id': item['id'],
+                                'status': 'hidden',
+                              }),
+                      icon: const Icon(Icons.visibility_off_outlined),
+                      label: const Text('Hide'),
+                    ),
+                  if (_allowedActions.contains('content.moderate'))
+                    OutlinedButton.icon(
+                      onPressed: _saving
+                          ? null
+                          : () => _run('content.moderate', {
+                                'table': _contentTable,
+                                'id': item['id'],
+                                'status': 'approved',
+                              }),
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: const Text('Approve'),
+                    ),
+                  if (_allowedActions.contains('content.moderate'))
+                    OutlinedButton.icon(
+                      onPressed:
+                          _saving ? null : () => _confirmDeleteContent(item),
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Delete'),
+                    ),
+                ],
+              ),
+            ],
           ),
-          Wrap(
-            spacing: 8,
+        if (_rows('items').isEmpty) _empty('No content items found.'),
+      ];
+
+  List<Widget> _reports(BuildContext context) => [
+        for (final report in _rows('reports'))
+          EthioSectionCard(
             children: [
-              if (_allowedActions.contains('content.moderate'))
-                OutlinedButton.icon(
-                  onPressed: _saving
-                      ? null
-                      : () => _run('content.moderate', {
-                          'table': _contentTable,
-                          'id': item['id'],
-                          'status': 'hidden',
-                        }),
-                  icon: const Icon(Icons.visibility_off_outlined),
-                  label: const Text('Hide'),
+              Text(
+                '${_text(report['target_type'])} · ${_text(report['target_name'], _text(report['target_id']))}',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 4),
+              Text('${_text(report['reason'])}\n${_text(report['note'], '')}'),
+              if (report['staff_reply'] != null)
+                Text('Reply: ${report['staff_reply']}'),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _allowedActions.contains('reports.update')
+                      ? () => _editReport(report)
+                      : null,
+                  icon: const Icon(Icons.reply_outlined),
+                  label: Text('${_text(report['status'])} · Reply'),
                 ),
-              if (_allowedActions.contains('content.moderate'))
-                OutlinedButton.icon(
-                  onPressed: _saving
-                      ? null
-                      : () => _run('content.moderate', {
-                          'table': _contentTable,
-                          'id': item['id'],
-                          'status': 'approved',
-                        }),
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('Approve'),
+              ),
+            ],
+          ),
+        if (_rows('reports').isEmpty) _empty('No reports are in the queue.'),
+      ];
+
+  List<Widget> _tickets(BuildContext context) => [
+        for (final ticket in _rows('tickets'))
+          EthioSectionCard(
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(_text(ticket['subject'])),
+                subtitle: Text(
+                  'Status: ${_text(ticket['status'])} · User ${_text(ticket['user_id'])}',
                 ),
-              if (_allowedActions.contains('content.moderate'))
-                OutlinedButton.icon(
-                  onPressed: _saving ? null : () => _confirmDeleteContent(item),
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Delete'),
+                trailing: IconButton(
+                  tooltip: 'Manage ticket and reply',
+                  onPressed: _allowedActions.contains('tickets.update') ||
+                          _allowedActions.contains('tickets.reply')
+                      ? () => _editTicket(ticket)
+                      : null,
+                  icon: const Icon(Icons.open_in_new_rounded),
+                ),
+              ),
+              for (final message
+                  in (ticket['ticket_messages'] as List? ?? const [])
+                      .whereType<Map>()
+                      .take(3))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    '${_text(message['sender_id'])}: ${_text(message['body'])}',
+                  ),
                 ),
             ],
           ),
-        ],
-      ),
-    if (_rows('items').isEmpty) _empty('No content items found.'),
-  ];
-
-  List<Widget> _reports(BuildContext context) => [
-    for (final report in _rows('reports'))
-      EthioSectionCard(
-        children: [
-          Text(
-            '${_text(report['target_type'])} · ${_text(report['target_name'], _text(report['target_id']))}',
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          const SizedBox(height: 4),
-          Text('${_text(report['reason'])}\n${_text(report['note'], '')}'),
-          if (report['staff_reply'] != null)
-            Text('Reply: ${report['staff_reply']}'),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: _allowedActions.contains('reports.update')
-                  ? () => _editReport(report)
-                  : null,
-              icon: const Icon(Icons.reply_outlined),
-              label: Text('${_text(report['status'])} · Reply'),
-            ),
-          ),
-        ],
-      ),
-    if (_rows('reports').isEmpty) _empty('No reports are in the queue.'),
-  ];
-
-  List<Widget> _tickets(BuildContext context) => [
-    for (final ticket in _rows('tickets'))
-      EthioSectionCard(
-        children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(_text(ticket['subject'])),
-            subtitle: Text(
-              'Status: ${_text(ticket['status'])} · User ${_text(ticket['user_id'])}',
-            ),
-            trailing: IconButton(
-              tooltip: 'Manage ticket and reply',
-              onPressed:
-                  _allowedActions.contains('tickets.update') ||
-                      _allowedActions.contains('tickets.reply')
-                  ? () => _editTicket(ticket)
-                  : null,
-              icon: const Icon(Icons.open_in_new_rounded),
-            ),
-          ),
-          for (final message
-              in (ticket['ticket_messages'] as List? ?? const [])
-                  .whereType<Map>()
-                  .take(3))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Text(
-                '${_text(message['sender_id'])}: ${_text(message['body'])}',
-              ),
-            ),
-        ],
-      ),
-    if (_rows('tickets').isEmpty) _empty('No support tickets.'),
-  ];
+        if (_rows('tickets').isEmpty) _empty('No support tickets.'),
+      ];
 
   List<Widget> _announcements(BuildContext context) => [
-    EthioSectionCard(
-      children: [
-        TextField(
-          controller: _announcementTitle,
-          decoration: const InputDecoration(labelText: 'Title'),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _announcementMessage,
-          minLines: 2,
-          maxLines: 5,
-          decoration: const InputDecoration(labelText: 'Message'),
-        ),
-        const SizedBox(height: 8),
-        Row(
+        EthioSectionCard(
           children: [
-            const Text('Audience'),
-            const SizedBox(width: 12),
-            _enumPicker(
-              _announcementAudience,
-              _audiences,
-              (value) => setState(() => _announcementAudience = value),
+            TextField(
+              controller: _announcementTitle,
+              decoration: const InputDecoration(labelText: 'Title'),
             ),
-            const Spacer(),
-            TextButton(
-              onPressed:
-                  _saving || !_allowedActions.contains('announcements.save')
-                  ? null
-                  : () => _saveAnnouncement('draft'),
-              child: const Text('Save draft'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _announcementMessage,
+              minLines: 2,
+              maxLines: 5,
+              decoration: const InputDecoration(labelText: 'Message'),
             ),
-            const SizedBox(width: 8),
-            FilledButton.icon(
-              onPressed:
-                  _saving || !_allowedActions.contains('announcements.save')
-                  ? null
-                  : () => _saveAnnouncement('published'),
-              icon: const Icon(Icons.campaign_outlined),
-              label: const Text('Publish'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Text('Audience'),
+                const SizedBox(width: 12),
+                _enumPicker(
+                  _announcementAudience,
+                  _audiences,
+                  (value) => setState(() => _announcementAudience = value),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed:
+                      _saving || !_allowedActions.contains('announcements.save')
+                          ? null
+                          : () => _saveAnnouncement('draft'),
+                  child: const Text('Save draft'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed:
+                      _saving || !_allowedActions.contains('announcements.save')
+                          ? null
+                          : () => _saveAnnouncement('published'),
+                  icon: const Icon(Icons.campaign_outlined),
+                  label: const Text('Publish'),
+                ),
+              ],
             ),
           ],
         ),
-      ],
-    ),
-    for (final item in _rows('announcements'))
-      EthioSectionCard(
-        children: [
-          Text(
-            _text(item['title']),
-            style: Theme.of(context).textTheme.titleSmall,
+        for (final item in _rows('announcements'))
+          EthioSectionCard(
+            children: [
+              Text(
+                _text(item['title']),
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 4),
+              Text(_text(item['message'])),
+              const SizedBox(height: 4),
+              Text('${_text(item['audience'])} · ${_text(item['status'])}'),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(_text(item['message'])),
-          const SizedBox(height: 4),
-          Text('${_text(item['audience'])} · ${_text(item['status'])}'),
-        ],
-      ),
-    if (_rows('announcements').isEmpty) _empty('No announcements yet.'),
-  ];
+        if (_rows('announcements').isEmpty) _empty('No announcements yet.'),
+      ];
 
   List<Widget> _finance(BuildContext context) {
     final totals =
@@ -739,8 +742,7 @@ class _AdminControlScreenState extends State<AdminControlScreen> {
               subtitle: Text(
                 '${_text(transaction['status'])} · ${_text(transaction['provider'])} · ${_text(transaction['created_at'])}',
               ),
-              trailing:
-                  transaction['status'] == 'pending' &&
+              trailing: transaction['status'] == 'pending' &&
                       ['topup', 'bill'].contains(transaction['type']) &&
                       _allowedActions.contains('finance.review')
                   ? PopupMenuButton<String>(
@@ -764,49 +766,51 @@ class _AdminControlScreenState extends State<AdminControlScreen> {
   }
 
   List<Widget> _settings(BuildContext context) => [
-    for (final flag in _rows('flags'))
-      EthioSectionCard(
-        children: [
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            title: Text(_text(flag['key'])),
-            subtitle: Text(_text(flag['description'], 'Feature availability')),
-            value: flag['enabled'] == true,
-            onChanged: _saving || !_allowedActions.contains('settings.update')
-                ? null
-                : (enabled) => _run('settings.update', {
-                    'key': flag['key'],
-                    'enabled': enabled,
-                  }),
+        for (final flag in _rows('flags'))
+          EthioSectionCard(
+            children: [
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: Text(_text(flag['key'])),
+                subtitle:
+                    Text(_text(flag['description'], 'Feature availability')),
+                value: flag['enabled'] == true,
+                onChanged:
+                    _saving || !_allowedActions.contains('settings.update')
+                        ? null
+                        : (enabled) => _run('settings.update', {
+                              'key': flag['key'],
+                              'enabled': enabled,
+                            }),
+              ),
+            ],
           ),
-        ],
-      ),
-    if (_rows('flags').isEmpty) _empty('No feature flags are configured.'),
-  ];
+        if (_rows('flags').isEmpty) _empty('No feature flags are configured.'),
+      ];
 
   List<Widget> _audit(BuildContext context) => [
-    for (final entry in _rows('entries'))
-      ListTile(
-        leading: const Icon(Icons.history_rounded),
-        title: Text(_text(entry['action'])),
-        subtitle: Text(
-          '${_text(entry['actor_id'])} · ${_text(entry['target_type'])} ${_text(entry['target_id'], '')} · ${_text(entry['created_at'])}\n${jsonEncode(entry['metadata'] ?? const {})}',
-        ),
-        isThreeLine: true,
-      ),
-    if (_rows('entries').isEmpty) _empty('No audit entries.'),
-  ];
+        for (final entry in _rows('entries'))
+          ListTile(
+            leading: const Icon(Icons.history_rounded),
+            title: Text(_text(entry['action'])),
+            subtitle: Text(
+              '${_text(entry['actor_id'])} · ${_text(entry['target_type'])} ${_text(entry['target_id'], '')} · ${_text(entry['created_at'])}\n${jsonEncode(entry['metadata'] ?? const {})}',
+            ),
+            isThreeLine: true,
+          ),
+        if (_rows('entries').isEmpty) _empty('No audit entries.'),
+      ];
 
   Widget _empty(String message) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 32),
-    child: Center(child: Text(message)),
-  );
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Center(child: Text(message)),
+      );
 
   Widget _errorBanner(BuildContext context, String message) => MaterialBanner(
-    content: Text(message),
-    leading: const Icon(Icons.error_outline_rounded),
-    actions: [TextButton(onPressed: _load, child: const Text('Retry'))],
-  );
+        content: Text(message),
+        leading: const Icon(Icons.error_outline_rounded),
+        actions: [TextButton(onPressed: _load, child: const Text('Retry'))],
+      );
 
   Future<void> _showUserDetails(Map<String, dynamic> user) async {
     await showDialog<void>(

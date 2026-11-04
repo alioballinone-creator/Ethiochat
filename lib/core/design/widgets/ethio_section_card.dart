@@ -46,9 +46,9 @@ class EthioSectionLabel extends StatelessWidget {
             child: Text(
               text.toUpperCase(),
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: pal.textTertiary,
-                letterSpacing: 0.8,
-              ),
+                    color: pal.textTertiary,
+                    letterSpacing: 0.8,
+                  ),
             ),
           ),
           if (trailing != null) trailing!,
@@ -128,8 +128,7 @@ class EthioNavRow extends StatelessWidget {
                   subtitle!,
                   style: text.labelSmall?.copyWith(color: pal.textSecondary),
                 ),
-          trailing:
-              trailing ??
+          trailing: trailing ??
               Icon(Icons.chevron_right_rounded, color: pal.textTertiary),
         ),
         if (!last)

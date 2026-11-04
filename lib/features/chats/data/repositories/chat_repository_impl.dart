@@ -22,29 +22,29 @@ class ChatRepositoryImpl implements ChatRepository {
 
   @override
   Stream<List<ConversationSummary>> watchSummaries() {
-    final query =
-        db.select(db.conversations).join([
-          leftOuterJoin(
-            db.messages,
-            db.messages.id.equalsExp(db.conversations.lastMessageId),
-          ),
-        ])..orderBy([
-          OrderingTerm.desc(db.conversations.pinned),
-          OrderingTerm.desc(db.conversations.lastMessageAt),
-        ]);
+    final query = db.select(db.conversations).join([
+      leftOuterJoin(
+        db.messages,
+        db.messages.id.equalsExp(db.conversations.lastMessageId),
+      ),
+    ])
+      ..orderBy([
+        OrderingTerm.desc(db.conversations.pinned),
+        OrderingTerm.desc(db.conversations.lastMessageAt),
+      ]);
 
     return query.watch().map(
-      (rows) => rows.map((row) {
-        final conversation = row.readTable(db.conversations);
-        final last = row.readTableOrNull(db.messages);
-        return ConversationSummary(
-          conversation: _toConversation(conversation),
-          preview: _preview(last),
-          lastMessageAt: last?.createdAt ?? conversation.lastMessageAt,
-          lastMessageType: last?.type,
+          (rows) => rows.map((row) {
+            final conversation = row.readTable(db.conversations);
+            final last = row.readTableOrNull(db.messages);
+            return ConversationSummary(
+              conversation: _toConversation(conversation),
+              preview: _preview(last),
+              lastMessageAt: last?.createdAt ?? conversation.lastMessageAt,
+              lastMessageType: last?.type,
+            );
+          }).toList(),
         );
-      }).toList(),
-    );
   }
 
   @override
@@ -75,18 +75,18 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<bool> _isBlockedConversation(String conversationId) async {
     final conversation = await (db.select(
       db.conversations,
-    )..where((c) => c.id.equals(conversationId))).getSingleOrNull();
+    )..where((c) => c.id.equals(conversationId)))
+        .getSingleOrNull();
     if (conversation == null ||
         conversation.type != ConversationType.direct.name) {
       return false;
     }
     final title = conversation.title?.trim();
     if (title == null || title.isEmpty) return false;
-    final blocked =
-        await (db.select(db.contactsLocal)
-              ..where((c) => c.displayName.equals(title))
-              ..where((c) => c.isBlocked.equals(true)))
-            .getSingleOrNull();
+    final blocked = await (db.select(db.contactsLocal)
+          ..where((c) => c.displayName.equals(title))
+          ..where((c) => c.isBlocked.equals(true)))
+        .getSingleOrNull();
     return blocked != null;
   }
 
@@ -109,9 +109,7 @@ class ChatRepositoryImpl implements ChatRepository {
       final id = _uuid.v4();
       final now = DateTime.now();
       await db.transaction(() async {
-        await db
-            .into(db.messages)
-            .insert(
+        await db.into(db.messages).insert(
               MessagesCompanion.insert(
                 id: id,
                 conversationId: conversationId,
@@ -166,13 +164,12 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       final existing = await (db.select(
         db.conversations,
-      )..where((c) => c.id.equals(id))).getSingleOrNull();
+      )..where((c) => c.id.equals(id)))
+          .getSingleOrNull();
       if (existing != null) {
         return Result.success(_toConversation(existing));
       }
-      await db
-          .into(db.conversations)
-          .insert(
+      await db.into(db.conversations).insert(
             ConversationsCompanion.insert(
               id: id,
               type: ConversationType.direct.name,
@@ -181,7 +178,8 @@ class ChatRepositoryImpl implements ChatRepository {
           );
       final row = await (db.select(
         db.conversations,
-      )..where((c) => c.id.equals(id))).getSingle();
+      )..where((c) => c.id.equals(id)))
+          .getSingle();
       return Result.success(_toConversation(row));
     } catch (e) {
       return Result.failure(mapError(e));
@@ -192,18 +190,15 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<Result<ConversationEntity>> openDirectChat(String displayName) async {
     try {
       final name = displayName.trim();
-      final existing =
-          await (db.select(db.conversations)
-                ..where((c) => c.type.equals(ConversationType.direct.name))
-                ..where((c) => c.title.equals(name)))
-              .getSingleOrNull();
+      final existing = await (db.select(db.conversations)
+            ..where((c) => c.type.equals(ConversationType.direct.name))
+            ..where((c) => c.title.equals(name)))
+          .getSingleOrNull();
       if (existing != null) {
         return Result.success(_toConversation(existing));
       }
       final id = _uuid.v4();
-      await db
-          .into(db.conversations)
-          .insert(
+      await db.into(db.conversations).insert(
             ConversationsCompanion.insert(
               id: id,
               type: ConversationType.direct.name,
@@ -212,7 +207,8 @@ class ChatRepositoryImpl implements ChatRepository {
           );
       final row = await (db.select(
         db.conversations,
-      )..where((c) => c.id.equals(id))).getSingle();
+      )..where((c) => c.id.equals(id)))
+          .getSingle();
       return Result.success(_toConversation(row));
     } catch (e) {
       return Result.failure(mapError(e));
@@ -230,9 +226,7 @@ class ChatRepositoryImpl implements ChatRepository {
           ? (memberNames.isEmpty ? 'New group' : memberNames.join(', '))
           : title.trim();
       await db.transaction(() async {
-        await db
-            .into(db.conversations)
-            .insert(
+        await db.into(db.conversations).insert(
               ConversationsCompanion.insert(
                 id: id,
                 type: ConversationType.group.name,
@@ -241,9 +235,7 @@ class ChatRepositoryImpl implements ChatRepository {
             );
         final messageId = _uuid.v4();
         final now = DateTime.now();
-        await db
-            .into(db.messages)
-            .insert(
+        await db.into(db.messages).insert(
               MessagesCompanion.insert(
                 id: messageId,
                 conversationId: id,
@@ -262,9 +254,7 @@ class ChatRepositoryImpl implements ChatRepository {
           messageId: messageId,
           at: now,
         );
-        await db
-            .into(db.groupMembers)
-            .insert(
+        await db.into(db.groupMembers).insert(
               GroupMembersCompanion.insert(
                 conversationId: id,
                 memberId: 'me',
@@ -274,9 +264,7 @@ class ChatRepositoryImpl implements ChatRepository {
               ),
             );
         for (final member in memberNames) {
-          await db
-              .into(db.groupMembers)
-              .insert(
+          await db.into(db.groupMembers).insert(
                 GroupMembersCompanion.insert(
                   conversationId: id,
                   memberId: _uuid.v4(),
@@ -288,7 +276,8 @@ class ChatRepositoryImpl implements ChatRepository {
       });
       final row = await (db.select(
         db.conversations,
-      )..where((c) => c.id.equals(id))).getSingle();
+      )..where((c) => c.id.equals(id)))
+          .getSingle();
       return Result.success(_toConversation(row));
     } catch (e) {
       return Result.failure(mapError(e));
@@ -322,7 +311,8 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       final msg = await (db.select(
         db.messages,
-      )..where((m) => m.id.equals(messageId))).getSingle();
+      )..where((m) => m.id.equals(messageId)))
+          .getSingle();
       await (db.update(db.messages)..where((m) => m.id.equals(messageId)))
           .write(const MessagesCompanion(status: Value(0)));
       await OutboxWorker.enqueue(
@@ -378,7 +368,8 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       final row = await (db.select(
         db.messages,
-      )..where((m) => m.id.equals(messageId))).getSingleOrNull();
+      )..where((m) => m.id.equals(messageId)))
+          .getSingleOrNull();
       if (row == null) {
         return const Result.failure(NotFoundFailure('Message not found.'));
       }
@@ -387,18 +378,19 @@ class ChatRepositoryImpl implements ChatRepository {
             .write(const MessagesCompanion(deletedForMe: Value(true)));
         final conversation = await (db.select(
           db.conversations,
-        )..where((c) => c.id.equals(row.conversationId))).getSingleOrNull();
+        )..where((c) => c.id.equals(row.conversationId)))
+            .getSingleOrNull();
         if (conversation?.lastMessageId == messageId) {
-          final remaining =
-              await (db.select(db.messages)
-                    ..where((m) => m.conversationId.equals(row.conversationId))
-                    ..where((m) => m.deletedForMe.equals(false))
-                    ..orderBy([(m) => OrderingTerm.desc(m.createdAt)])
-                    ..limit(1))
-                  .getSingleOrNull();
+          final remaining = await (db.select(db.messages)
+                ..where((m) => m.conversationId.equals(row.conversationId))
+                ..where((m) => m.deletedForMe.equals(false))
+                ..orderBy([(m) => OrderingTerm.desc(m.createdAt)])
+                ..limit(1))
+              .getSingleOrNull();
           await (db.update(
             db.conversations,
-          )..where((c) => c.id.equals(row.conversationId))).write(
+          )..where((c) => c.id.equals(row.conversationId)))
+              .write(
             ConversationsCompanion(
               lastMessageId: Value(remaining?.id),
               lastMessageAt: Value(remaining?.createdAt),
@@ -417,7 +409,8 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       final row = await (db.select(
         db.messages,
-      )..where((m) => m.id.equals(messageId))).getSingleOrNull();
+      )..where((m) => m.id.equals(messageId)))
+          .getSingleOrNull();
       if (row == null) {
         return const Result.failure(NotFoundFailure('Message not found.'));
       }
@@ -437,7 +430,8 @@ class ChatRepositoryImpl implements ChatRepository {
       await db.transaction(() async {
         await (db.update(
           db.messages,
-        )..where((m) => m.id.equals(messageId))).write(
+        )..where((m) => m.id.equals(messageId)))
+            .write(
           const MessagesCompanion(
             deletedEveryone: Value(true),
             body: Value(null),
@@ -446,7 +440,8 @@ class ChatRepositoryImpl implements ChatRepository {
         );
         await (db.delete(
           db.outbox,
-        )..where((o) => o.messageId.equals(messageId))).go();
+        )..where((o) => o.messageId.equals(messageId)))
+            .go();
         if (_isRemoteConversation(row.conversationId)) {
           await OutboxWorker.enqueue(
             db,
@@ -477,7 +472,8 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       final row = await (db.select(
         db.messages,
-      )..where((m) => m.id.equals(messageId))).getSingleOrNull();
+      )..where((m) => m.id.equals(messageId)))
+          .getSingleOrNull();
       if (row == null) {
         return const Result.failure(NotFoundFailure('Message not found.'));
       }
@@ -506,12 +502,14 @@ class ChatRepositoryImpl implements ChatRepository {
       await db.transaction(() async {
         await (db.update(
           db.messages,
-        )..where((m) => m.id.equals(messageId))).write(
+        )..where((m) => m.id.equals(messageId)))
+            .write(
           MessagesCompanion(body: Value(trimmed), editedAt: Value(editedAt)),
         );
         final outboxRow = await (db.select(
           db.outbox,
-        )..where((o) => o.messageId.equals(messageId))).getSingleOrNull();
+        )..where((o) => o.messageId.equals(messageId)))
+            .getSingleOrNull();
         if (outboxRow != null) {
           final payload =
               jsonDecode(outboxRow.payloadJson) as Map<String, dynamic>;
@@ -550,7 +548,8 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       final row = await (db.select(
         db.messages,
-      )..where((m) => m.id.equals(messageId))).getSingleOrNull();
+      )..where((m) => m.id.equals(messageId)))
+          .getSingleOrNull();
       if (row == null) {
         return const Result.failure(NotFoundFailure('Message not found.'));
       }
@@ -564,9 +563,7 @@ class ChatRepositoryImpl implements ChatRepository {
       final id = _uuid.v4();
       final now = DateTime.now();
       await db.transaction(() async {
-        await db
-            .into(db.messages)
-            .insert(
+        await db.into(db.messages).insert(
               MessagesCompanion.insert(
                 id: id,
                 conversationId: targetConversationId,
@@ -647,9 +644,7 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       final id = _uuid.v4();
       final name = displayName.trim();
-      await db
-          .into(db.contactsLocal)
-          .insert(
+      await db.into(db.contactsLocal).insert(
             ContactsLocalCompanion.insert(
               id: id,
               displayName: Value(name),
@@ -692,9 +687,7 @@ class ChatRepositoryImpl implements ChatRepository {
       if (name.isEmpty) {
         return const Result.failure(ValidationFailure('Enter a member name.'));
       }
-      await db
-          .into(db.groupMembers)
-          .insert(
+      await db.into(db.groupMembers).insert(
             GroupMembersCompanion.insert(
               conversationId: conversationId,
               memberId: _uuid.v4(),
@@ -735,8 +728,8 @@ class ChatRepositoryImpl implements ChatRepository {
             ..where((m) => m.conversationId.equals(conversationId))
             ..where((m) => m.memberId.equals(memberId)))
           .write(
-            GroupMembersCompanion(role: Value(admin ? 'admin' : 'member')),
-          );
+        GroupMembersCompanion(role: Value(admin ? 'admin' : 'member')),
+      );
       return const Result.success(null);
     } catch (e) {
       return Result.failure(mapError(e));
@@ -769,11 +762,10 @@ class ChatRepositoryImpl implements ChatRepository {
       }
       final existing = await (db.select(
         db.contactsLocal,
-      )..where((c) => c.id.equals(userId))).getSingleOrNull();
+      )..where((c) => c.id.equals(userId)))
+          .getSingleOrNull();
       if (existing == null && blocked) {
-        await db
-            .into(db.contactsLocal)
-            .insert(
+        await db.into(db.contactsLocal).insert(
               ContactsLocalCompanion.insert(
                 id: userId,
                 displayName: Value(
@@ -819,9 +811,7 @@ class ChatRepositoryImpl implements ChatRepository {
         );
         return const Result.success(null);
       }
-      await db
-          .into(db.reports)
-          .insert(
+      await db.into(db.reports).insert(
             ReportsCompanion.insert(
               id: _uuid.v4(),
               targetId: targetId,
@@ -971,7 +961,8 @@ class ChatRepositoryImpl implements ChatRepository {
   Stream<List<MomentRow>> watchMoments() {
     return (db.select(
       db.momentsLocal,
-    )..orderBy([(m) => OrderingTerm.desc(m.createdAt)])).watch();
+    )..orderBy([(m) => OrderingTerm.desc(m.createdAt)]))
+        .watch();
   }
 
   @override
@@ -993,9 +984,7 @@ class ChatRepositoryImpl implements ChatRepository {
       );
     }
     try {
-      await db
-          .into(db.momentsLocal)
-          .insert(
+      await db.into(db.momentsLocal).insert(
             MomentsLocalCompanion.insert(
               id: _uuid.v4(),
               authorId: 'me',
@@ -1014,26 +1003,25 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<Result<void>> toggleMomentLike(String momentId) async {
     try {
       await db.transaction(() async {
-        final existing =
-            await (db.select(db.momentLikes)
-                  ..where((l) => l.momentId.equals(momentId))
-                  ..where((l) => l.userId.equals('me')))
-                .getSingleOrNull();
+        final existing = await (db.select(db.momentLikes)
+              ..where((l) => l.momentId.equals(momentId))
+              ..where((l) => l.userId.equals('me')))
+            .getSingleOrNull();
         final moment = await (db.select(
           db.momentsLocal,
-        )..where((m) => m.id.equals(momentId))).getSingleOrNull();
+        )..where((m) => m.id.equals(momentId)))
+            .getSingleOrNull();
         if (moment == null) {
           throw const NotFoundFailure('Moment not found.');
         }
         if (existing == null) {
-          await db
-              .into(db.momentLikes)
-              .insert(
+          await db.into(db.momentLikes).insert(
                 MomentLikesCompanion.insert(momentId: momentId, userId: 'me'),
               );
           await (db.update(
             db.momentsLocal,
-          )..where((m) => m.id.equals(momentId))).write(
+          )..where((m) => m.id.equals(momentId)))
+              .write(
             MomentsLocalCompanion(likeCount: Value(moment.likeCount + 1)),
           );
         } else {
@@ -1043,7 +1031,8 @@ class ChatRepositoryImpl implements ChatRepository {
               .go();
           await (db.update(
             db.momentsLocal,
-          )..where((m) => m.id.equals(momentId))).write(
+          )..where((m) => m.id.equals(momentId)))
+              .write(
             MomentsLocalCompanion(
               likeCount: Value(
                 (moment.likeCount - 1).clamp(0, 1 << 31).toInt(),
@@ -1076,13 +1065,12 @@ class ChatRepositoryImpl implements ChatRepository {
       await db.transaction(() async {
         final moment = await (db.select(
           db.momentsLocal,
-        )..where((m) => m.id.equals(momentId))).getSingleOrNull();
+        )..where((m) => m.id.equals(momentId)))
+            .getSingleOrNull();
         if (moment == null) {
           throw const NotFoundFailure('Moment not found.');
         }
-        await db
-            .into(db.momentComments)
-            .insert(
+        await db.into(db.momentComments).insert(
               MomentCommentsCompanion.insert(
                 id: _uuid.v4(),
                 momentId: momentId,
@@ -1093,7 +1081,8 @@ class ChatRepositoryImpl implements ChatRepository {
             );
         await (db.update(
           db.momentsLocal,
-        )..where((m) => m.id.equals(momentId))).write(
+        )..where((m) => m.id.equals(momentId)))
+            .write(
           MomentsLocalCompanion(commentCount: Value(moment.commentCount + 1)),
         );
       });
@@ -1109,13 +1098,16 @@ class ChatRepositoryImpl implements ChatRepository {
       await db.transaction(() async {
         await (db.delete(
           db.momentComments,
-        )..where((c) => c.momentId.equals(momentId))).go();
+        )..where((c) => c.momentId.equals(momentId)))
+            .go();
         await (db.delete(
           db.momentLikes,
-        )..where((l) => l.momentId.equals(momentId))).go();
+        )..where((l) => l.momentId.equals(momentId)))
+            .go();
         await (db.delete(
           db.momentsLocal,
-        )..where((m) => m.id.equals(momentId))).go();
+        )..where((m) => m.id.equals(momentId)))
+            .go();
       });
       return const Result.success(null);
     } catch (e) {
@@ -1188,102 +1180,97 @@ class ChatRepositoryImpl implements ChatRepository {
       ('u10', 'Alemayehu Tadesse', '+251910123456'),
     ];
 
-    final seededConversations =
-        <
-          ({
-            String id,
-            String type,
-            String title,
-            int unread,
-            bool pinned,
-            List<(String body, bool mine, Duration ago)> messages,
-          })
-        >[
+    final seededConversations = <({
+      String id,
+      String type,
+      String title,
+      int unread,
+      bool pinned,
+      List<(String body, bool mine, Duration ago)> messages,
+    })>[
+      (
+        id: '1',
+        type: 'direct',
+        title: 'Abebe Kebede',
+        unread: 2,
+        pinned: true,
+        messages: [
+          ('Hello! How are you?', false, const Duration(hours: 2)),
           (
-            id: '1',
-            type: 'direct',
-            title: 'Abebe Kebede',
-            unread: 2,
-            pinned: true,
-            messages: [
-              ('Hello! How are you?', false, const Duration(hours: 2)),
-              (
-                'I am fine, thanks! Are we still meeting tomorrow?',
-                true,
-                const Duration(hours: 1),
-              ),
-              (
-                'Yes — see you at 9 at Bole. 🙌',
-                false,
-                const Duration(minutes: 40),
-              ),
-              ('See you tomorrow', false, const Duration(minutes: 12)),
-            ],
+            'I am fine, thanks! Are we still meeting tomorrow?',
+            true,
+            const Duration(hours: 1),
           ),
           (
-            id: '2',
-            type: 'direct',
-            title: 'Tigist Alemayehu',
-            unread: 0,
-            pinned: false,
-            messages: [
-              ('Did you get the invoice?', true, const Duration(hours: 5)),
-              ('Thanks! 🙏', false, const Duration(hours: 4)),
-            ],
+            'Yes — see you at 9 at Bole. 🙌',
+            false,
+            const Duration(minutes: 40),
           ),
+          ('See you tomorrow', false, const Duration(minutes: 12)),
+        ],
+      ),
+      (
+        id: '2',
+        type: 'direct',
+        title: 'Tigist Alemayehu',
+        unread: 0,
+        pinned: false,
+        messages: [
+          ('Did you get the invoice?', true, const Duration(hours: 5)),
+          ('Thanks! 🙏', false, const Duration(hours: 4)),
+        ],
+      ),
+      (
+        id: '3',
+        type: 'channel',
+        title: 'EthioChat Support',
+        unread: 0,
+        pinned: false,
+        messages: [
           (
-            id: '3',
-            type: 'channel',
-            title: 'EthioChat Support',
-            unread: 0,
-            pinned: false,
-            messages: [
-              (
-                'Welcome to EthioChat 👋 Tap here for help at any time.',
-                false,
-                const Duration(days: 1),
-              ),
-            ],
+            'Welcome to EthioChat 👋 Tap here for help at any time.',
+            false,
+            const Duration(days: 1),
           ),
+        ],
+      ),
+      (
+        id: '4',
+        type: 'group',
+        title: 'Work group',
+        unread: 5,
+        pinned: false,
+        messages: [
           (
-            id: '4',
-            type: 'group',
-            title: 'Work group',
-            unread: 5,
-            pinned: false,
-            messages: [
-              (
-                'Dawit: Meeting moved to 3 PM',
-                false,
-                const Duration(days: 1, hours: 2),
-              ),
-            ],
+            'Dawit: Meeting moved to 3 PM',
+            false,
+            const Duration(days: 1, hours: 2),
           ),
-          (
-            id: '5',
-            type: 'direct',
-            title: 'Hanna Girma',
-            unread: 0,
-            pinned: false,
-            messages: [
-              ('Voice message · 0:12', false, const Duration(days: 2)),
-            ],
-          ),
-          (
-            id: '6',
-            type: 'direct',
-            title: 'Selam Bekele',
-            unread: 0,
-            pinned: false,
-            messages: [('Sent ETB 250.00', true, const Duration(days: 3))],
-          ),
-        ];
+        ],
+      ),
+      (
+        id: '5',
+        type: 'direct',
+        title: 'Hanna Girma',
+        unread: 0,
+        pinned: false,
+        messages: [
+          ('Voice message · 0:12', false, const Duration(days: 2)),
+        ],
+      ),
+      (
+        id: '6',
+        type: 'direct',
+        title: 'Selam Bekele',
+        unread: 0,
+        pinned: false,
+        messages: [('Sent ETB 250.00', true, const Duration(days: 3))],
+      ),
+    ];
 
     await db.transaction(() async {
       for (final contact in contacts) {
-        await db
-            .into(db.contactsLocal)
-            .insert(
+        await db.into(db.contactsLocal).insert(
               ContactsLocalCompanion.insert(
                 id: contact.$1,
                 displayName: Value(contact.$2),
@@ -1296,9 +1283,7 @@ class ChatRepositoryImpl implements ChatRepository {
       }
 
       for (final seeded in seededConversations) {
-        await db
-            .into(db.conversations)
-            .insert(
+        await db.into(db.conversations).insert(
               ConversationsCompanion.insert(
                 id: seeded.id,
                 type: seeded.type,
@@ -1315,9 +1300,7 @@ class ChatRepositoryImpl implements ChatRepository {
             ('u5', 'Samuel Tesfaye', 'member'),
             ('u6', 'Marta Assefa', 'member'),
           ]) {
-            await db
-                .into(db.groupMembers)
-                .insert(
+            await db.into(db.groupMembers).insert(
                   GroupMembersCompanion.insert(
                     conversationId: seeded.id,
                     memberId: member.$1,
@@ -1334,9 +1317,7 @@ class ChatRepositoryImpl implements ChatRepository {
         for (final message in seeded.messages) {
           final id = '${seeded.id}-m$seq';
           final at = now.subtract(message.$3);
-          await db
-              .into(db.messages)
-              .insert(
+          await db.into(db.messages).insert(
                 MessagesCompanion.insert(
                   id: id,
                   conversationId: seeded.id,
@@ -1381,7 +1362,8 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       await (db.update(
         db.conversations,
-      )..where((c) => c.id.equals(conversationId))).write(companion);
+      )..where((c) => c.id.equals(conversationId)))
+          .write(companion);
       return const Result.success(null);
     } catch (e) {
       return Result.failure(mapError(e));

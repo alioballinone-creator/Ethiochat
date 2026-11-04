@@ -170,8 +170,8 @@ class _ProgramIntro extends StatelessWidget {
             child: Text(
               program.description,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: EthioPalette.of(context).textSecondary,
-              ),
+                    color: EthioPalette.of(context).textSecondary,
+                  ),
             ),
           ),
         ],
@@ -210,9 +210,7 @@ class _MiniBillsState extends ConsumerState<_MiniBills> {
       return;
     }
     setState(() => _busy = true);
-    final result = await ref
-        .read(walletRepositoryProvider)
-        .payBill(
+    final result = await ref.read(walletRepositoryProvider).payBill(
           provider: _biller.name,
           accountRef: _account.text.trim(),
           amountMinor: parseEtbToMinor(_amount.text),
@@ -322,9 +320,7 @@ class _MiniAirtimeState extends ConsumerState<_MiniAirtime> {
       return;
     }
     setState(() => _busy = true);
-    final result = await ref
-        .read(walletRepositoryProvider)
-        .topUp(
+    final result = await ref.read(walletRepositoryProvider).topUp(
           amountMinor: _amount * 100,
           provider: 'Airtime · ${_phone.text.trim()}',
         );
@@ -412,9 +408,7 @@ class _MiniShopState extends ConsumerState<_MiniShop> {
     final details = _cart.entries
         .map((entry) => '${entry.value} x ${entry.key}')
         .join(', ');
-    final result = await ref
-        .read(walletRepositoryProvider)
-        .purchase(
+    final result = await ref.read(walletRepositoryProvider).purchase(
           amountMinor: _total,
           provider: 'EthioChat shop',
           note: details,

@@ -210,8 +210,7 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: Align(
-                                alignment:
-                                    row['sender_id'] ==
+                                alignment: row['sender_id'] ==
                                         _client.auth.currentUser?.id
                                     ? Alignment.centerRight
                                     : Alignment.centerLeft,
@@ -231,9 +230,8 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
                                 labelText: 'Reply',
                                 suffixIcon: IconButton(
                                   tooltip: 'Send reply',
-                                  onPressed: _sending
-                                      ? null
-                                      : () => _reply(ticket),
+                                  onPressed:
+                                      _sending ? null : () => _reply(ticket),
                                   icon: const Icon(Icons.send_rounded),
                                 ),
                               ),

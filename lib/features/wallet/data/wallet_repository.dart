@@ -63,8 +63,7 @@ class WalletRepository {
     final type = row['type'] as String? ?? 'p2p';
     final meta = row['meta'];
     final metadata = meta is Map ? Map<String, dynamic>.from(meta) : const {};
-    final incoming =
-        type == 'topup' ||
+    final incoming = type == 'topup' ||
         type == 'request' ||
         (type == 'redpacket' && metadata['claim'] == true);
     return WalletEntry(
@@ -384,14 +383,13 @@ class WalletRepository {
     final key = idempotencyKey ?? _uuid.v4();
     final existing = await (db.select(
       db.walletTransactions,
-    )..where((t) => t.idempotencyKey.equals(key))).getSingleOrNull();
+    )..where((t) => t.idempotencyKey.equals(key)))
+        .getSingleOrNull();
     if (existing != null) return existing;
 
     final txnId = transactionId ?? _uuid.v4();
     final now = DateTime.now();
-    await db
-        .into(db.walletTransactions)
-        .insert(
+    await db.into(db.walletTransactions).insert(
           WalletTransactionsCompanion.insert(
             id: txnId,
             type: type.name,
@@ -406,6 +404,7 @@ class WalletRepository {
         );
     return (db.select(
       db.walletTransactions,
-    )..where((t) => t.id.equals(txnId))).getSingle();
+    )..where((t) => t.id.equals(txnId)))
+        .getSingle();
   }
 }

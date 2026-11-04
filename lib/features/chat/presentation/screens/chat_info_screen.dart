@@ -27,31 +27,27 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
   bool _busy = false;
 
   Future<void> _setMuted(bool muted) async {
-    final result = await ref
-        .read(chatRepositoryProvider)
-        .setMuted(widget.chatId, muted);
+    final result =
+        await ref.read(chatRepositoryProvider).setMuted(widget.chatId, muted);
     if (result.failureOrNull case final failure?) _feedback(failure.message);
   }
 
   Future<void> _setPinned(bool pinned) async {
-    final result = await ref
-        .read(chatRepositoryProvider)
-        .setPinned(widget.chatId, pinned);
+    final result =
+        await ref.read(chatRepositoryProvider).setPinned(widget.chatId, pinned);
     if (result.failureOrNull case final failure?) _feedback(failure.message);
   }
 
   Future<void> _clearChat() async {
     final confirmed = await _confirm(
       title: 'Clear chat?',
-      message:
-          'All messages in this conversation will be removed from this '
+      message: 'All messages in this conversation will be removed from this '
           'device. This cannot be undone.',
       confirmLabel: 'Clear',
     );
     if (!confirmed) return;
-    final result = await ref
-        .read(chatRepositoryProvider)
-        .clearMessages(widget.chatId);
+    final result =
+        await ref.read(chatRepositoryProvider).clearMessages(widget.chatId);
     _feedback(
       result.isSuccess ? 'Chat cleared' : result.failureOrNull!.message,
     );
@@ -60,8 +56,7 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
   Future<void> _deleteChat() async {
     final confirmed = await _confirm(
       title: 'Delete chat?',
-      message:
-          'This conversation and its messages will be removed from this '
+      message: 'This conversation and its messages will be removed from this '
           'device.',
       confirmLabel: 'Delete',
     );
@@ -120,9 +115,7 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
       ),
     );
     if (reason == null) return;
-    final result = await ref
-        .read(chatRepositoryProvider)
-        .saveReport(
+    final result = await ref.read(chatRepositoryProvider).saveReport(
           targetId: targetId,
           targetName: name,
           reason: reason,
@@ -155,8 +148,7 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                 itemBuilder: (context, index) {
                   final file = files[index];
                   final path = file.media?['path'] as String?;
-                  final name =
-                      file.media?['name'] as String? ??
+                  final name = file.media?['name'] as String? ??
                       file.body?.split('/').last ??
                       'Shared document';
                   return ListTile(
@@ -254,8 +246,7 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
     final pal = EthioPalette.of(context);
     final text = Theme.of(context).textTheme;
     final conversation = ref.watch(conversationProvider(widget.chatId));
-    final messages =
-        ref.watch(messagesProvider(widget.chatId)).valueOrNull ??
+    final messages = ref.watch(messagesProvider(widget.chatId)).valueOrNull ??
         const <entity.MessageEntity>[];
     final contacts =
         ref.watch(contactsProvider).valueOrNull ?? const <ContactEntity>[];
@@ -269,9 +260,8 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
               (m.media?['path'] as String?) != null,
         )
         .toList(growable: false);
-    final documents = messages
-        .where((m) => m.type == entity.MessageType.file)
-        .length;
+    final documents =
+        messages.where((m) => m.type == entity.MessageType.file).length;
     final links = messages.where((m) => (m.body ?? '').contains('http')).length;
     ContactEntity? contact;
     for (final c in contacts) {
@@ -352,11 +342,11 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                   Text(
                     isGroup
                         ? '${messages.map((m) => m.senderId).toSet().length} '
-                              'participants'
+                            'participants'
                         : contact?.phoneE164 ??
-                              (contact?.ethioId == null
-                                  ? 'EthioChat contact'
-                                  : 'Ethio ID: ${contact?.ethioId}'),
+                            (contact?.ethioId == null
+                                ? 'EthioChat contact'
+                                : 'Ethio ID: ${contact?.ethioId}'),
                     style: text.bodyMedium?.copyWith(color: pal.textSecondary),
                   ),
                   const SizedBox(height: Sp.x3),
@@ -563,10 +553,10 @@ class _MediaThumb extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    EthioColors.avatarTones[index %
-                        EthioColors.avatarTones.length],
-                    EthioColors.avatarTones[(index + 3) %
-                        EthioColors.avatarTones.length],
+                    EthioColors
+                        .avatarTones[index % EthioColors.avatarTones.length],
+                    EthioColors.avatarTones[
+                        (index + 3) % EthioColors.avatarTones.length],
                   ],
                 ),
               ),

@@ -200,8 +200,7 @@ class AppRouter {
                 GoRoute(
                   path: chats,
                   builder: (context, state) {
-                    final filter =
-                        int.tryParse(
+                    final filter = int.tryParse(
                           state.uri.queryParameters['filter'] ?? '',
                         ) ??
                         0;
@@ -436,9 +435,8 @@ class AppRouter {
           GoRoute(
             path: '/wallet/pin',
             builder: (context, state) => WalletPinScreen(
-              request: state.extra is PinRequest
-                  ? state.extra! as PinRequest
-                  : null,
+              request:
+                  state.extra is PinRequest ? state.extra! as PinRequest : null,
             ),
           ),
           GoRoute(
