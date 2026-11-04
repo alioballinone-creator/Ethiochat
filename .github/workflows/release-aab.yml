@@ -5,6 +5,10 @@ on:
   push:
     branches: [main, signed-release]
 
+concurrency:
+  group: release-aab-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
