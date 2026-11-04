@@ -231,7 +231,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                                 errorBuilder: (_, __, ___) => Container(
                                   width: 150,
                                   height: 150,
-                                  color: pal.surfaceMuted,
+                                  color: pal.surface2,
                                 ),
                               ),
                             ),
