@@ -27,35 +27,41 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
   bool _busy = false;
 
   Future<void> _setMuted(bool muted) async {
-    final result =
-        await ref.read(chatRepositoryProvider).setMuted(widget.chatId, muted);
+    final result = await ref
+        .read(chatRepositoryProvider)
+        .setMuted(widget.chatId, muted);
     if (result.failureOrNull case final failure?) _feedback(failure.message);
   }
 
   Future<void> _setPinned(bool pinned) async {
-    final result =
-        await ref.read(chatRepositoryProvider).setPinned(widget.chatId, pinned);
+    final result = await ref
+        .read(chatRepositoryProvider)
+        .setPinned(widget.chatId, pinned);
     if (result.failureOrNull case final failure?) _feedback(failure.message);
   }
 
   Future<void> _clearChat() async {
     final confirmed = await _confirm(
       title: 'Clear chat?',
-      message: 'All messages in this conversation will be removed from this '
+      message:
+          'All messages in this conversation will be removed from this '
           'device. This cannot be undone.',
       confirmLabel: 'Clear',
     );
     if (!confirmed) return;
-    final result =
-        await ref.read(chatRepositoryProvider).clearMessages(widget.chatId);
+    final result = await ref
+        .read(chatRepositoryProvider)
+        .clearMessages(widget.chatId);
     _feedback(
-        result.isSuccess ? 'Chat cleared' : result.failureOrNull!.message);
+      result.isSuccess ? 'Chat cleared' : result.failureOrNull!.message,
+    );
   }
 
   Future<void> _deleteChat() async {
     final confirmed = await _confirm(
       title: 'Delete chat?',
-      message: 'This conversation and its messages will be removed from this '
+      message:
+          'This conversation and its messages will be removed from this '
           'device.',
       confirmLabel: 'Delete',
     );
@@ -78,11 +84,9 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
       confirmLabel: 'Block',
     );
     if (!confirmed) return;
-    final result = await ref.read(chatRepositoryProvider).setContactBlocked(
-        userId,
-        true,
-        displayName: name,
-      );
+    final result = await ref
+        .read(chatRepositoryProvider)
+        .setContactBlocked(userId, true, displayName: name);
     if (!mounted) return;
     if (!result.isSuccess) {
       _feedback(result.failureOrNull?.message ?? 'Could not block contact');
@@ -91,11 +95,7 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
     _feedback('$name blocked. You can unblock them in Settings.');
   }
 
-  Future<void> _report(
-    String name,
-    String targetId,
-    String targetType,
-  ) async {
+  Future<void> _report(String name, String targetId, String targetType) async {
     final reason = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -120,7 +120,9 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
       ),
     );
     if (reason == null) return;
-    final result = await ref.read(chatRepositoryProvider).saveReport(
+    final result = await ref
+        .read(chatRepositoryProvider)
+        .saveReport(
           targetId: targetId,
           targetName: name,
           reason: reason,
@@ -153,7 +155,8 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                 itemBuilder: (context, index) {
                   final file = files[index];
                   final path = file.media?['path'] as String?;
-                  final name = file.media?['name'] as String? ??
+                  final name =
+                      file.media?['name'] as String? ??
                       file.body?.split('/').last ??
                       'Shared document';
                   return ListTile(
@@ -195,7 +198,11 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                 itemCount: links.length,
                 itemBuilder: (context, index) => ListTile(
                   leading: const Icon(Icons.link_rounded),
-                  title: Text(links[index], maxLines: 2, overflow: TextOverflow.ellipsis),
+                  title: Text(
+                    links[index],
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   onTap: () async {
                     await Clipboard.setData(ClipboardData(text: links[index]));
                     if (sheetContext.mounted) Navigator.pop(sheetContext);
@@ -247,7 +254,8 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
     final pal = EthioPalette.of(context);
     final text = Theme.of(context).textTheme;
     final conversation = ref.watch(conversationProvider(widget.chatId));
-    final messages = ref.watch(messagesProvider(widget.chatId)).valueOrNull ??
+    final messages =
+        ref.watch(messagesProvider(widget.chatId)).valueOrNull ??
         const <entity.MessageEntity>[];
     final contacts =
         ref.watch(contactsProvider).valueOrNull ?? const <ContactEntity>[];
@@ -255,12 +263,15 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
     final title = info?.title ?? 'Chat';
     final isGroup = info?.type == ConversationType.group;
     final images = messages
-        .where((m) =>
-            m.type == entity.MessageType.image &&
-            (m.media?['path'] as String?) != null)
+        .where(
+          (m) =>
+              m.type == entity.MessageType.image &&
+              (m.media?['path'] as String?) != null,
+        )
         .toList(growable: false);
-    final documents =
-        messages.where((m) => m.type == entity.MessageType.file).length;
+    final documents = messages
+        .where((m) => m.type == entity.MessageType.file)
+        .length;
     final links = messages.where((m) => (m.body ?? '').contains('http')).length;
     ContactEntity? contact;
     for (final c in contacts) {
@@ -291,8 +302,9 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             ListTile(
-                              leading:
-                                  const Icon(Icons.cleaning_services_outlined),
+                              leading: const Icon(
+                                Icons.cleaning_services_outlined,
+                              ),
                               title: const Text('Clear chat'),
                               onTap: () => Navigator.pop(sheetContext, 'clear'),
                             ),
@@ -329,11 +341,7 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
             Center(
               child: Column(
                 children: [
-                  EthioAvatar(
-                    name: title,
-                    imageUrl: info?.avatarUrl,
-                    size: 88,
-                  ),
+                  EthioAvatar(name: title, imageUrl: info?.avatarUrl, size: 88),
                   const SizedBox(height: Sp.x3),
                   Text(
                     title,
@@ -344,11 +352,11 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                   Text(
                     isGroup
                         ? '${messages.map((m) => m.senderId).toSet().length} '
-                            'participants'
+                              'participants'
                         : contact?.phoneE164 ??
-                            (contact?.ethioId == null
-                                ? 'EthioChat contact'
-                                : 'Ethio ID: ${contact?.ethioId}'),
+                              (contact?.ethioId == null
+                                  ? 'EthioChat contact'
+                                  : 'Ethio ID: ${contact?.ethioId}'),
                     style: text.bodyMedium?.copyWith(color: pal.textSecondary),
                   ),
                   const SizedBox(height: Sp.x3),
@@ -366,7 +374,8 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                         _QuickPill(
                           icon: Icons.videocam_outlined,
                           label: 'Video',
-                          onTap: () => context.push('/call/${widget.chatId}?video=true'),
+                          onTap: () =>
+                              context.push('/call/${widget.chatId}?video=true'),
                         ),
                       ],
                       _QuickPill(
@@ -378,9 +387,8 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                         _QuickPill(
                           icon: Icons.manage_accounts_outlined,
                           label: 'Group info',
-                          onTap: () => context.push(
-                            '/chats/${widget.chatId}/group',
-                          ),
+                          onTap: () =>
+                              context.push('/chats/${widget.chatId}/group'),
                         ),
                     ],
                   ),
@@ -487,11 +495,11 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                   icon: Icons.flag_outlined,
                   title: 'Report',
                   danger: true,
-                    onTap: () => _report(
-                      title,
-                      contact?.id ?? widget.chatId,
-                      isGroup ? 'group' : 'account',
-                    ),
+                  onTap: () => _report(
+                    title,
+                    contact?.id ?? widget.chatId,
+                    isGroup ? 'group' : 'account',
+                  ),
                   last: true,
                 ),
               ],
@@ -555,10 +563,10 @@ class _MediaThumb extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    EthioColors
-                        .avatarTones[index % EthioColors.avatarTones.length],
-                    EthioColors.avatarTones[
-                        (index + 3) % EthioColors.avatarTones.length],
+                    EthioColors.avatarTones[index %
+                        EthioColors.avatarTones.length],
+                    EthioColors.avatarTones[(index + 3) %
+                        EthioColors.avatarTones.length],
                   ],
                 ),
               ),
@@ -649,11 +657,7 @@ class _IconTile extends StatelessWidget {
         color: danger ? EthioColors.danger.withValues(alpha: 0.12) : pal.chip,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Icon(
-        icon,
-        size: 22,
-        color: danger ? EthioColors.danger : null,
-      ),
+      child: Icon(icon, size: 22, color: danger ? EthioColors.danger : null),
     );
   }
 }

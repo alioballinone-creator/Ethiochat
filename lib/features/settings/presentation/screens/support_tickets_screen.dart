@@ -53,7 +53,9 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
     try {
       final rows = await _client
           .from('tickets')
-          .select('id,subject,status,created_at,updated_at,ticket_messages(id,sender_id,body,created_at)')
+          .select(
+            'id,subject,status,created_at,updated_at,ticket_messages(id,sender_id,body,created_at)',
+          )
           .eq('user_id', user.id)
           .order('updated_at', ascending: false);
       if (!mounted) return;
@@ -87,17 +89,18 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
       _error = null;
     });
     try {
-      await _client.rpc('create_support_ticket', params: {
-        'p_subject': subject,
-        'p_message': message,
-      });
+      await _client.rpc(
+        'create_support_ticket',
+        params: {'p_subject': subject, 'p_message': message},
+      );
       _subject.clear();
       _message.clear();
       await _load();
     } on PostgrestException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Your support message could not be sent.');
+      if (mounted)
+        setState(() => _error = 'Your support message could not be sent.');
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -112,10 +115,10 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
       _error = null;
     });
     try {
-      await _client.rpc('reply_support_ticket', params: {
-        'p_ticket': ticket['id'],
-        'p_message': text,
-      });
+      await _client.rpc(
+        'reply_support_ticket',
+        params: {'p_ticket': ticket['id'], 'p_message': text},
+      );
       _replies[ticket['id']]?.clear();
       await _load();
     } on PostgrestException catch (error) {
@@ -148,20 +151,29 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
                         TextField(
                           controller: _subject,
                           maxLength: 160,
-                          decoration: const InputDecoration(labelText: 'Subject'),
+                          decoration: const InputDecoration(
+                            labelText: 'Subject',
+                          ),
                         ),
                         TextField(
                           controller: _message,
                           minLines: 3,
                           maxLines: 6,
                           maxLength: 5000,
-                          decoration: const InputDecoration(labelText: 'Message'),
+                          decoration: const InputDecoration(
+                            labelText: 'Message',
+                          ),
                         ),
                         const SizedBox(height: 8),
                         FilledButton.icon(
                           onPressed: _sending ? null : _createTicket,
                           icon: _sending
-                              ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
                               : const Icon(Icons.send_rounded),
                           label: const Text('Send to support'),
                         ),
@@ -169,7 +181,12 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: 12),
-                      Text(_error!, style: text.bodySmall?.copyWith(color: EthioColors.danger)),
+                      Text(
+                        _error!,
+                        style: text.bodySmall?.copyWith(
+                          color: EthioColors.danger,
+                        ),
+                      ),
                     ],
                     const EthioSectionLabel('Your requests'),
                     for (final ticket in _tickets) ...[
@@ -177,15 +194,25 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
                         children: [
                           Row(
                             children: [
-                              Expanded(child: Text('${ticket['subject']}', style: text.titleSmall)),
+                              Expanded(
+                                child: Text(
+                                  '${ticket['subject']}',
+                                  style: text.titleSmall,
+                                ),
+                              ),
                               Chip(label: Text('${ticket['status']}')),
                             ],
                           ),
-                          for (final row in (ticket['ticket_messages'] as List? ?? const []).whereType<Map>())
+                          for (final row
+                              in (ticket['ticket_messages'] as List? ??
+                                      const [])
+                                  .whereType<Map>())
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: Align(
-                                alignment: row['sender_id'] == _client.auth.currentUser?.id
+                                alignment:
+                                    row['sender_id'] ==
+                                        _client.auth.currentUser?.id
                                     ? Alignment.centerRight
                                     : Alignment.centerLeft,
                                 child: Text('${row['body']}'),
@@ -194,14 +221,19 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
                           if (ticket['status'] != 'resolved') ...[
                             const SizedBox(height: 8),
                             TextField(
-                              controller: _replies.putIfAbsent(ticket['id'] as String, TextEditingController.new),
+                              controller: _replies.putIfAbsent(
+                                ticket['id'] as String,
+                                TextEditingController.new,
+                              ),
                               minLines: 1,
                               maxLines: 3,
                               decoration: InputDecoration(
                                 labelText: 'Reply',
                                 suffixIcon: IconButton(
                                   tooltip: 'Send reply',
-                                  onPressed: _sending ? null : () => _reply(ticket),
+                                  onPressed: _sending
+                                      ? null
+                                      : () => _reply(ticket),
                                   icon: const Icon(Icons.send_rounded),
                                 ),
                               ),
@@ -210,10 +242,11 @@ class _SupportTicketsScreenState extends State<SupportTicketsScreen> {
                         ],
                       ),
                     ],
-                    if (_tickets.isEmpty) const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(child: Text('No support requests yet.')),
-                    ),
+                    if (_tickets.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(child: Text('No support requests yet.')),
+                      ),
                   ],
                 ),
               ),

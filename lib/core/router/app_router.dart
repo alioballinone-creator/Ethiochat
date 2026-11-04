@@ -112,7 +112,9 @@ class AppRouter {
           if (location == maintenance) return null;
           if (signedIn && location == admin) {
             try {
-              final staff = await Supabase.instance.client.rpc<bool>('is_staff');
+              final staff = await Supabase.instance.client.rpc<bool>(
+                'is_staff',
+              );
               if (staff == true) return null;
             } catch (_) {
               return maintenance;
@@ -198,7 +200,8 @@ class AppRouter {
                 GoRoute(
                   path: chats,
                   builder: (context, state) {
-                    final filter = int.tryParse(
+                    final filter =
+                        int.tryParse(
                           state.uri.queryParameters['filter'] ?? '',
                         ) ??
                         0;
@@ -331,10 +334,7 @@ class AppRouter {
           builder: (context, state) =>
               const ProfileSetupScreen(isEditing: true),
         ),
-        GoRoute(
-          path: myQr,
-          builder: (context, state) => const MyQrScreen(),
-        ),
+        GoRoute(path: myQr, builder: (context, state) => const MyQrScreen()),
         GoRoute(
           path: call,
           builder: (context, state) {
@@ -436,8 +436,9 @@ class AppRouter {
           GoRoute(
             path: '/wallet/pin',
             builder: (context, state) => WalletPinScreen(
-              request:
-                  state.extra is PinRequest ? state.extra! as PinRequest : null,
+              request: state.extra is PinRequest
+                  ? state.extra! as PinRequest
+                  : null,
             ),
           ),
           GoRoute(

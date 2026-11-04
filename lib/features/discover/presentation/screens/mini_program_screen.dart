@@ -29,9 +29,9 @@ class _MiniProgramScreenState extends State<MiniProgramScreen> {
       ClipboardData(text: 'Open ${_program.name} on EthioChat.'),
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Mini program link copied.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Mini program link copied.')));
   }
 
   void _menu() {
@@ -169,10 +169,9 @@ class _ProgramIntro extends StatelessWidget {
           Expanded(
             child: Text(
               program.description,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: EthioPalette.of(context).textSecondary),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: EthioPalette.of(context).textSecondary,
+              ),
             ),
           ),
         ],
@@ -211,7 +210,9 @@ class _MiniBillsState extends ConsumerState<_MiniBills> {
       return;
     }
     setState(() => _busy = true);
-    final result = await ref.read(walletRepositoryProvider).payBill(
+    final result = await ref
+        .read(walletRepositoryProvider)
+        .payBill(
           provider: _biller.name,
           accountRef: _account.text.trim(),
           amountMinor: parseEtbToMinor(_amount.text),
@@ -321,7 +322,9 @@ class _MiniAirtimeState extends ConsumerState<_MiniAirtime> {
       return;
     }
     setState(() => _busy = true);
-    final result = await ref.read(walletRepositoryProvider).topUp(
+    final result = await ref
+        .read(walletRepositoryProvider)
+        .topUp(
           amountMinor: _amount * 100,
           provider: 'Airtime · ${_phone.text.trim()}',
         );
@@ -329,8 +332,10 @@ class _MiniAirtimeState extends ConsumerState<_MiniAirtime> {
     setState(() => _busy = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(result.failureOrNull?.message ??
-            'Airtime was not confirmed by the provider.'),
+        content: Text(
+          result.failureOrNull?.message ??
+              'Airtime was not confirmed by the provider.',
+        ),
       ),
     );
   }
@@ -398,16 +403,18 @@ class _MiniShopState extends ConsumerState<_MiniShop> {
     ('Berbere spice mix', 18000),
   ];
 
-  int get _total => _items.fold<int>(
-        0,
-        (sum, item) => sum + item.$2 * (_cart[item.$1] ?? 0),
-      );
+  int get _total =>
+      _items.fold<int>(0, (sum, item) => sum + item.$2 * (_cart[item.$1] ?? 0));
 
   Future<void> _checkout() async {
     if (_total <= 0) return;
     setState(() => _checkingOut = true);
-    final details = _cart.entries.map((entry) => '${entry.value} x ${entry.key}').join(', ');
-    final result = await ref.read(walletRepositoryProvider).purchase(
+    final details = _cart.entries
+        .map((entry) => '${entry.value} x ${entry.key}')
+        .join(', ');
+    final result = await ref
+        .read(walletRepositoryProvider)
+        .purchase(
           amountMinor: _total,
           provider: 'EthioChat shop',
           note: details,
@@ -416,8 +423,10 @@ class _MiniShopState extends ConsumerState<_MiniShop> {
     setState(() => _checkingOut = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(result.failureOrNull?.message ??
-            'Purchase was not confirmed by a provider.'),
+        content: Text(
+          result.failureOrNull?.message ??
+              'Purchase was not confirmed by a provider.',
+        ),
       ),
     );
   }
@@ -480,9 +489,7 @@ class _MiniShopState extends ConsumerState<_MiniShop> {
                   label: 'Checkout',
                   size: EthioButtonSize.small,
                   expand: false,
-                  onPressed: _total == 0 || _checkingOut
-                      ? null
-                      : _checkout,
+                  onPressed: _total == 0 || _checkingOut ? null : _checkout,
                 ),
               ],
             ),
@@ -515,14 +522,16 @@ class _MiniRideState extends State<_MiniRide> {
 
   Future<void> _request() async {
     if (_dropOff.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a destination.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enter a destination.')));
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Ride booking is not enabled yet. No ride was requested.'),
+        content: Text(
+          'Ride booking is not enabled yet. No ride was requested.',
+        ),
       ),
     );
   }

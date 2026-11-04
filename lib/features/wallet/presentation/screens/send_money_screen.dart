@@ -61,8 +61,8 @@ class _SendMoneyScreenState extends ConsumerState<SendMoneyScreen> {
       setState(() => _error = 'Enter an amount greater than zero.');
       return;
     }
-    final contacts = ref.read(contactsProvider).valueOrNull ??
-        const <ContactEntity>[];
+    final contacts =
+        ref.read(contactsProvider).valueOrNull ?? const <ContactEntity>[];
     final selected = contacts.where((contact) {
       final query = name.toLowerCase();
       return contact.id == _recipientId ||
@@ -118,8 +118,11 @@ class _SendMoneyScreenState extends ConsumerState<SendMoneyScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.account_balance_wallet_outlined,
-                      size: 18, color: pal.textSecondary),
+                  Icon(
+                    Icons.account_balance_wallet_outlined,
+                    size: 18,
+                    color: pal.textSecondary,
+                  ),
                   const SizedBox(width: Sp.x2),
                   Text(
                     'Available ${formatEtb(balance)}',
@@ -151,9 +154,7 @@ class _SendMoneyScreenState extends ConsumerState<SendMoneyScreen> {
                   itemBuilder: (context, i) {
                     final contact = contacts[i];
                     return ActionChip(
-                      avatar: CircleAvatar(
-                        child: Text(contact.initial),
-                      ),
+                      avatar: CircleAvatar(child: Text(contact.initial)),
                       label: Text(contact.displayName.split(' ').first),
                       onPressed: () {
                         setState(() {
@@ -173,8 +174,9 @@ class _SendMoneyScreenState extends ConsumerState<SendMoneyScreen> {
             EthioTextField(
               controller: _amount,
               hint: '0.00',
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               prefix: Padding(
                 padding: const EdgeInsets.only(left: Sp.x4, right: Sp.x2),
                 child: Center(

@@ -41,13 +41,10 @@ class WalletRepository {
   bool get isServerAvailable => _authenticatedUserId != null;
 
   int _balanceFromRows(List<Map<String, dynamic>> rows) {
-    return rows.fold<int>(
-      0,
-      (sum, row) {
-        final amount = (row['amount_minor'] as num?)?.toInt() ?? 0;
-        return sum + (row['direction'] == 'credit' ? amount : -amount);
-      },
-    );
+    return rows.fold<int>(0, (sum, row) {
+      final amount = (row['amount_minor'] as num?)?.toInt() ?? 0;
+      return sum + (row['direction'] == 'credit' ? amount : -amount);
+    });
   }
 
   Stream<List<WalletEntry>> watchEntries() {
@@ -66,7 +63,8 @@ class WalletRepository {
     final type = row['type'] as String? ?? 'p2p';
     final meta = row['meta'];
     final metadata = meta is Map ? Map<String, dynamic>.from(meta) : const {};
-    final incoming = type == 'topup' ||
+    final incoming =
+        type == 'topup' ||
         type == 'request' ||
         (type == 'redpacket' && metadata['claim'] == true);
     return WalletEntry(
@@ -79,9 +77,7 @@ class WalletRepository {
         'merchant' => WalletTxType.purchase,
         _ => WalletTxType.transfer,
       },
-      direction: incoming
-          ? WalletDirection.incoming
-          : WalletDirection.outgoing,
+      direction: incoming ? WalletDirection.incoming : WalletDirection.outgoing,
       amountMinor: (row['amount_minor'] as num?)?.toInt() ?? 0,
       status: row['status'] as String? ?? 'pending',
       createdAt: DateTime.parse(row['created_at'] as String),
@@ -105,7 +101,8 @@ class WalletRepository {
     if (Env.hasSupabase && _supabase.auth.currentUser != null) {
       if (pin == null || pin.isEmpty) {
         return const Result.failure(
-            ValidationFailure('Enter your wallet PIN.'));
+          ValidationFailure('Enter your wallet PIN.'),
+        );
       }
       try {
         final id = idempotencyKey ?? _uuid.v4();
@@ -119,7 +116,8 @@ class WalletRepository {
             'idempotencyKey': id,
           },
         );
-        final transactionId = (response.data as Map?)?['transactionId'] as String?;
+        final transactionId =
+            (response.data as Map?)?['transactionId'] as String?;
         if (transactionId == null) {
           return const Result.failure(
             ServerFailure('Transfer was not recorded by the server.'),
@@ -189,7 +187,8 @@ class WalletRepository {
     if (Env.hasSupabase && _supabase.auth.currentUser != null) {
       if (pin == null || pin.isEmpty) {
         return const Result.failure(
-            ValidationFailure('Enter your wallet PIN.'));
+          ValidationFailure('Enter your wallet PIN.'),
+        );
       }
       try {
         final id = idempotencyKey ?? _uuid.v4();
@@ -383,14 +382,16 @@ class WalletRepository {
     bool pending = false,
   }) async {
     final key = idempotencyKey ?? _uuid.v4();
-    final existing = await (db.select(db.walletTransactions)
-          ..where((t) => t.idempotencyKey.equals(key)))
-        .getSingleOrNull();
+    final existing = await (db.select(
+      db.walletTransactions,
+    )..where((t) => t.idempotencyKey.equals(key))).getSingleOrNull();
     if (existing != null) return existing;
 
     final txnId = transactionId ?? _uuid.v4();
     final now = DateTime.now();
-    await db.into(db.walletTransactions).insert(
+    await db
+        .into(db.walletTransactions)
+        .insert(
           WalletTransactionsCompanion.insert(
             id: txnId,
             type: type.name,
@@ -403,8 +404,8 @@ class WalletRepository {
             createdAt: Value(now),
           ),
         );
-    return (db.select(db.walletTransactions)..where((t) => t.id.equals(txnId)))
-        .getSingle();
+    return (db.select(
+      db.walletTransactions,
+    )..where((t) => t.id.equals(txnId))).getSingle();
   }
-
 }

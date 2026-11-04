@@ -32,19 +32,21 @@ class DiscoverScreen extends StatelessWidget {
         child: ListView(
           padding: Sp.screen.copyWith(top: Sp.x4, bottom: Sp.x6),
           children: [
-            if (FeatureFlags.moments) _DiscoverItem(
-              icon: Icons.photo_library_outlined,
-              title: 'Moments',
-              subtitle: 'What your friends are sharing',
-              hasRedDot: true,
-              onTap: () => context.push('/discover/moments'),
-            ),
-            if (FeatureFlags.channels) _DiscoverItem(
-              icon: Icons.wifi_tethering_outlined,
-              title: 'Channels',
-              subtitle: 'Follow news, faith, music and city life',
-              onTap: () => context.push('/discover/channels'),
-            ),
+            if (FeatureFlags.moments)
+              _DiscoverItem(
+                icon: Icons.photo_library_outlined,
+                title: 'Moments',
+                subtitle: 'What your friends are sharing',
+                hasRedDot: true,
+                onTap: () => context.push('/discover/moments'),
+              ),
+            if (FeatureFlags.channels)
+              _DiscoverItem(
+                icon: Icons.wifi_tethering_outlined,
+                title: 'Channels',
+                subtitle: 'Follow news, faith, music and city life',
+                onTap: () => context.push('/discover/channels'),
+              ),
             _DiscoverItem(
               icon: Icons.verified_outlined,
               title: 'Official Accounts',
@@ -87,9 +89,7 @@ class DiscoverScreen extends StatelessWidget {
                       label: program.name,
                       icon: program.icon,
                       color: program.color.withValues(alpha: 0.16),
-                      onTap: () => context.push(
-                        '/discover/mini/${program.id}',
-                      ),
+                      onTap: () => context.push('/discover/mini/${program.id}'),
                     ),
                 ],
               ),
@@ -119,15 +119,13 @@ class DiscoverScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'EthioChat for business',
-                          style: text.titleMedium,
-                        ),
+                        Text('EthioChat for business', style: text.titleMedium),
                         const SizedBox(height: 2),
                         Text(
                           'Open a channel or mini program for your customers.',
-                          style: text.bodySmall
-                              ?.copyWith(color: pal.textSecondary),
+                          style: text.bodySmall?.copyWith(
+                            color: pal.textSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -197,10 +195,9 @@ class _DiscoverItem extends StatelessWidget {
         title: Text(title, style: Theme.of(context).textTheme.titleMedium),
         subtitle: Text(
           subtitle,
-          style: Theme.of(context)
-              .textTheme
-              .labelSmall
-              ?.copyWith(color: pal.textSecondary),
+          style: Theme.of(
+            context,
+          ).textTheme.labelSmall?.copyWith(color: pal.textSecondary),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -218,8 +215,10 @@ class _DiscoverItem extends StatelessWidget {
             const Icon(Icons.chevron_right_rounded, size: 22),
           ],
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: Sp.x4, vertical: Sp.x1),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: Sp.x4,
+          vertical: Sp.x1,
+        ),
       ),
     );
   }

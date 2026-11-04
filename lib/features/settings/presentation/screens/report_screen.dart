@@ -53,7 +53,9 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
     }
     if (_block && widget.targetId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This account cannot be blocked from this report.')),
+        const SnackBar(
+          content: Text('This account cannot be blocked from this report.'),
+        ),
       );
       return;
     }
@@ -137,15 +139,19 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                         ),
                       ),
                       const SizedBox(height: Sp.x4),
-                      Text('Thank you for keeping EthioChat safe',
-                          textAlign: TextAlign.center, style: text.titleLarge),
+                      Text(
+                        'Thank you for keeping EthioChat safe',
+                        textAlign: TextAlign.center,
+                        style: text.titleLarge,
+                      ),
                       const SizedBox(height: Sp.x2),
                       Text(
                         'Our safety team will review this report. '
                         'We never reveal who reported an account.',
                         textAlign: TextAlign.center,
-                        style:
-                            text.bodyMedium?.copyWith(color: pal.textSecondary),
+                        style: text.bodyMedium?.copyWith(
+                          color: pal.textSecondary,
+                        ),
                       ),
                       const SizedBox(height: Sp.x6),
                       EthioButton(
@@ -177,8 +183,9 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                               Text(widget.targetName, style: text.titleMedium),
                               Text(
                                 'Reports are confidential.',
-                                style: text.labelSmall
-                                    ?.copyWith(color: pal.textSecondary),
+                                style: text.labelSmall?.copyWith(
+                                  color: pal.textSecondary,
+                                ),
                               ),
                             ],
                           ),
@@ -198,8 +205,9 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                           onChanged: (value) => setState(() => _reason = value),
                           title: Text(reason),
                           activeColor: EthioColors.goldDeep,
-                          contentPadding:
-                              const EdgeInsets.symmetric(horizontal: Sp.x3),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: Sp.x3,
+                          ),
                         ),
                     ],
                   ),
