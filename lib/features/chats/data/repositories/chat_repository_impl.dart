@@ -5,6 +5,7 @@ import 'package:ethiochat/core/config/env.dart';
 import 'package:ethiochat/core/db/app_database.dart';
 import 'package:ethiochat/core/errors/failure.dart';
 import 'package:ethiochat/core/errors/result.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ethiochat/features/chats/data/datasources/outbox_worker.dart';
 import 'package:ethiochat/features/chats/domain/entities/conversation_entity.dart';
 import 'package:ethiochat/features/chats/domain/entities/conversation_summary.dart';
@@ -725,23 +726,40 @@ class ChatRepositoryImpl implements ChatRepository {
 
   @override
   Future<Result<void>> setContactBlocked(
-    String displayName,
-    bool blocked,
+    String userId,
+    bool blocked, {
+    String? displayName,
+  }
   ) async {
     try {
-      final name = displayName.trim();
+      if (Env.hasSupabase && Supabase.instance.client.auth.currentUser != null) {
+        final client = Supabase.instance.client;
+        final ownerId = client.auth.currentUser!.id;
+        if (blocked) {
+          await client.from('blocks').upsert({
+            'owner_id': ownerId,
+            'blocked_id': userId,
+          }, onConflict: 'owner_id,blocked_id');
+        } else {
+          await client.from('blocks').delete()
+              .eq('owner_id', ownerId)
+              .eq('blocked_id', userId);
+        }
+      }
       final existing = await (db.select(db.contactsLocal)
-            ..where((c) => c.displayName.equals(name)))
+            ..where((c) => c.id.equals(userId)))
           .getSingleOrNull();
-      if (existing == null) {
+      if (existing == null && blocked) {
         await db.into(db.contactsLocal).insert(
               ContactsLocalCompanion.insert(
-                id: _uuid.v4(),
-                displayName: Value(name),
+                id: userId,
+                displayName: Value(displayName?.trim().isNotEmpty == true
+                    ? displayName!.trim()
+                    : userId),
                 isBlocked: Value(blocked),
               ),
             );
-      } else {
+      } else if (existing != null) {
         await (db.update(db.contactsLocal)
               ..where((c) => c.id.equals(existing.id)))
             .write(ContactsLocalCompanion(isBlocked: Value(blocked)));
@@ -757,9 +775,24 @@ class ChatRepositoryImpl implements ChatRepository {
     required String targetId,
     required String targetName,
     required String reason,
+    String targetType = 'account',
     String? note,
   }) async {
     try {
+      if (Env.hasSupabase && Supabase.instance.client.auth.currentUser != null) {
+        await Supabase.instance.client.functions.invoke(
+          'moderate-content',
+          body: {
+            'action': 'report',
+            'targetId': targetId,
+            'targetName': targetName,
+            'targetType': targetType,
+            'reason': reason,
+            'note': note,
+          },
+        );
+        return const Result.success(null);
+      }
       await db.into(db.reports).insert(
             ReportsCompanion.insert(
               id: _uuid.v4(),

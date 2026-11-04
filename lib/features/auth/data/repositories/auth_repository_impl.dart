@@ -314,13 +314,13 @@ class AuthRepositoryImpl implements AuthRepository {
         return const Result.success(false);
       }
 
-      final adminResult = await _checkAdmin(client);
-      final failure = adminResult.failureOrNull;
+      final staffResult = await _checkStaff(client);
+      final failure = staffResult.failureOrNull;
       if (failure != null) {
         await client.auth.signOut(scope: SignOutScope.local);
         return Result.failure(failure);
       }
-      if (adminResult.valueOrNull != true) {
+      if (staffResult.valueOrNull != true) {
         await client.auth.signOut(scope: SignOutScope.local);
         return const Result.failure(
           AuthFailure('This account does not have admin access.'),
@@ -378,9 +378,9 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
-  Future<Result<bool>> _checkAdmin(SupabaseClient client) async {
+  Future<Result<bool>> _checkStaff(SupabaseClient client) async {
     try {
-      final value = await client.rpc('is_admin');
+      final value = await client.rpc('is_staff');
       return Result.success(value == true);
     } on PostgrestException catch (error) {
       return Result.failure(ServerFailure(error.message, error.code, error));

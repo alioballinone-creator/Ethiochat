@@ -10,6 +10,7 @@ type Body = {
   note?: string;
   reportId?: string;
   status?: string;
+  reply?: string;
 };
 
 Deno.serve(async (req) => {
@@ -17,7 +18,7 @@ Deno.serve(async (req) => {
   if (early) return early;
 
   try {
-    const { user } = await requireUser(req);
+    const { client, user } = await requireUser(req);
     const body = await readJson<Body>(req);
     const admin = adminClient();
 
@@ -46,12 +47,11 @@ Deno.serve(async (req) => {
     }
 
     if (body.action === 'review') {
-      const { data: profile } = await admin
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (profile?.role !== 'admin') {
+      const { data: canReview, error: permissionError } = await client.rpc(
+        'has_permission',
+        { permission_name: 'reports.reply' },
+      );
+      if (permissionError || canReview !== true) {
         return fail('Admin privileges required', 403, 'forbidden');
       }
 
@@ -65,6 +65,10 @@ Deno.serve(async (req) => {
         .from('reports')
         .update({
           status,
+          staff_reply: body.reply?.trim().slice(0, 3000) || null,
+          reviewed_by: user.id,
+          reviewed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         })
         .eq('id', body.reportId);
       if (error) throw new Error(error.message);

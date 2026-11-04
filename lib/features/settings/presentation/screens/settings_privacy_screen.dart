@@ -414,7 +414,11 @@ class BlockedUsersScreen extends ConsumerWidget {
     if (confirmed != true) return;
     final result = await ref
         .read(chatRepositoryProvider)
-        .setContactBlocked(contact.displayName, false);
+        .setContactBlocked(
+          contact.id,
+          false,
+          displayName: contact.displayName,
+        );
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

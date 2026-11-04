@@ -1,9 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:open_filex/open_filex.dart';
 
+import '../../../../core/config/feature_flags.dart';
 import '../../../../core/design/design.dart';
 import '../../../chats/application/chat_providers.dart';
 import '../../../chats/domain/entities/conversation_entity.dart';
@@ -68,15 +71,18 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
     }
   }
 
-  Future<void> _blockContact(String name) async {
+  Future<void> _blockContact(String userId, String name) async {
     final confirmed = await _confirm(
       title: 'Block $name?',
       message: 'Blocked contacts can no longer call you or send new messages.',
       confirmLabel: 'Block',
     );
     if (!confirmed) return;
-    final result =
-        await ref.read(chatRepositoryProvider).setContactBlocked(name, true);
+    final result = await ref.read(chatRepositoryProvider).setContactBlocked(
+        userId,
+        true,
+        displayName: name,
+      );
     if (!mounted) return;
     if (!result.isSuccess) {
       _feedback(result.failureOrNull?.message ?? 'Could not block contact');
@@ -85,7 +91,11 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
     _feedback('$name blocked. You can unblock them in Settings.');
   }
 
-  Future<void> _report(String name) async {
+  Future<void> _report(
+    String name,
+    String targetId,
+    String targetType,
+  ) async {
     final reason = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -111,15 +121,89 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
     );
     if (reason == null) return;
     final result = await ref.read(chatRepositoryProvider).saveReport(
-          targetId: widget.chatId,
+          targetId: targetId,
           targetName: name,
           reason: reason,
+          targetType: targetType,
         );
     if (!mounted) return;
     _feedback(
       result.isSuccess
           ? 'Reported $name for "$reason". Thank you.'
           : result.failureOrNull?.message ?? 'Could not send report.',
+    );
+  }
+
+  Future<void> _showDocuments(List<entity.MessageEntity> messages) async {
+    final files = messages
+        .where((message) => message.type == entity.MessageType.file)
+        .toList(growable: false);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: files.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('No documents in this chat.'),
+              )
+            : ListView.builder(
+                shrinkWrap: true,
+                itemCount: files.length,
+                itemBuilder: (context, index) {
+                  final file = files[index];
+                  final path = file.media?['path'] as String?;
+                  final name = file.media?['name'] as String? ??
+                      file.body?.split('/').last ??
+                      'Shared document';
+                  return ListTile(
+                    leading: const Icon(Icons.insert_drive_file_outlined),
+                    title: Text(name),
+                    subtitle: Text(file.createdAt.toLocal().toString()),
+                    onTap: path == null
+                        ? null
+                        : () async {
+                            final result = await OpenFilex.open(path);
+                            if (result.type != ResultType.done && mounted) {
+                              _feedback(result.message);
+                            }
+                          },
+                  );
+                },
+              ),
+      ),
+    );
+  }
+
+  Future<void> _showLinks(List<entity.MessageEntity> messages) async {
+    final links = messages
+        .map((message) => message.body ?? '')
+        .map((body) => RegExp(r'https?://[^\\s]+').firstMatch(body)?.group(0))
+        .whereType<String>()
+        .toList(growable: false);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: links.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('No links in this chat.'),
+              )
+            : ListView.builder(
+                shrinkWrap: true,
+                itemCount: links.length,
+                itemBuilder: (context, index) => ListTile(
+                  leading: const Icon(Icons.link_rounded),
+                  title: Text(links[index], maxLines: 2, overflow: TextOverflow.ellipsis),
+                  onTap: () async {
+                    await Clipboard.setData(ClipboardData(text: links[index]));
+                    if (sheetContext.mounted) Navigator.pop(sheetContext);
+                    _feedback('Link copied.');
+                  },
+                ),
+              ),
+      ),
     );
   }
 
@@ -273,17 +357,18 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                     runSpacing: Sp.x2,
                     alignment: WrapAlignment.center,
                     children: [
-                      _QuickPill(
-                        icon: Icons.call_outlined,
-                        label: 'Call',
-                        onTap: () => context.push('/call/${widget.chatId}'),
-                      ),
-                      _QuickPill(
-                        icon: Icons.videocam_outlined,
-                        label: 'Video',
-                        onTap: () =>
-                            context.push('/call/${widget.chatId}?video=true'),
-                      ),
+                      if (FeatureFlags.calls) ...[
+                        _QuickPill(
+                          icon: Icons.call_outlined,
+                          label: 'Call',
+                          onTap: () => context.push('/call/${widget.chatId}'),
+                        ),
+                        _QuickPill(
+                          icon: Icons.videocam_outlined,
+                          label: 'Video',
+                          onTap: () => context.push('/call/${widget.chatId}?video=true'),
+                        ),
+                      ],
                       _QuickPill(
                         icon: Icons.search_rounded,
                         label: 'Search',
@@ -377,29 +462,13 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                   icon: Icons.insert_drive_file_outlined,
                   title: 'Documents',
                   trailing: '$documents',
-                  onTap: () => _feedback(
-                    documents == 0
-                        ? 'No documents in this chat yet.'
-                        : '$documents document(s) shared.',
-                  ),
+                  onTap: () => _showDocuments(messages),
                 ),
                 _NavRow(
                   icon: Icons.link_rounded,
                   title: 'Links',
                   trailing: '$links',
-                  onTap: () => _feedback(
-                    links == 0
-                        ? 'No links in this chat yet.'
-                        : '$links link(s) shared.',
-                  ),
-                ),
-                _NavRow(
-                  icon: Icons.auto_delete_outlined,
-                  title: 'Disappearing messages',
-                  trailing: 'Off',
-                  onTap: () => _feedback(
-                    'Disappearing messages are not available in this release.',
-                  ),
+                  onTap: () => _showLinks(messages),
                   last: true,
                 ),
               ],
@@ -407,17 +476,22 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
             const SizedBox(height: Sp.x4),
             _Card(
               children: [
-                _NavRow(
-                  icon: Icons.block_outlined,
-                  title: isGroup ? 'Block group' : 'Block contact',
-                  danger: true,
-                  onTap: () => _blockContact(title),
-                ),
+                if (!isGroup && contact != null)
+                  _NavRow(
+                    icon: Icons.block_outlined,
+                    title: 'Block contact',
+                    danger: true,
+                    onTap: () => _blockContact(contact!.id, title),
+                  ),
                 _NavRow(
                   icon: Icons.flag_outlined,
                   title: 'Report',
                   danger: true,
-                  onTap: () => _report(title),
+                    onTap: () => _report(
+                      title,
+                      contact?.id ?? widget.chatId,
+                      isGroup ? 'group' : 'account',
+                    ),
                   last: true,
                 ),
               ],

@@ -267,22 +267,19 @@ class EthioMiniAppTile extends StatelessWidget {
     super.key,
     required this.label,
     required this.icon,
-    required this.onTap,
+    this.onTap,
     this.color,
   });
 
   final String label;
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: Rad.r14,
-      child: Column(
+    final content = Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
@@ -303,7 +300,9 @@ class EthioMiniAppTile extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
-      ),
-    );
+      );
+    return onTap == null
+        ? content
+        : InkWell(onTap: onTap, borderRadius: Rad.r14, child: content);
   }
 }

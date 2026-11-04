@@ -68,11 +68,16 @@ abstract class ChatRepository {
     bool admin,
   );
 
-  Future<Result<void>> setContactBlocked(String displayName, bool blocked);
+  Future<Result<void>> setContactBlocked(
+    String userId,
+    bool blocked, {
+    String? displayName,
+  });
 
   Future<Result<void>> saveReport({
     required String targetId,
     required String targetName,
+    String targetType = 'account',
     required String reason,
     String? note,
   });

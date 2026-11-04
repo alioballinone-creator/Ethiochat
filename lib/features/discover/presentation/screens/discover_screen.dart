@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/config/feature_flags.dart';
 import '../../../../core/demo/demo_content.dart';
 import '../../../../core/design/design.dart';
 
@@ -31,14 +32,14 @@ class DiscoverScreen extends StatelessWidget {
         child: ListView(
           padding: Sp.screen.copyWith(top: Sp.x4, bottom: Sp.x6),
           children: [
-            _DiscoverItem(
+            if (FeatureFlags.moments) _DiscoverItem(
               icon: Icons.photo_library_outlined,
               title: 'Moments',
               subtitle: 'What your friends are sharing',
               hasRedDot: true,
               onTap: () => context.push('/discover/moments'),
             ),
-            _DiscoverItem(
+            if (FeatureFlags.channels) _DiscoverItem(
               icon: Icons.wifi_tethering_outlined,
               title: 'Channels',
               subtitle: 'Follow news, faith, music and city life',
@@ -74,23 +75,24 @@ class DiscoverScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: Sp.x3),
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 4,
-              childAspectRatio: 0.78,
-              children: [
-                for (final program in DemoContent.miniPrograms)
-                  EthioMiniAppTile(
-                    label: program.name,
-                    icon: program.icon,
-                    color: program.color.withValues(alpha: 0.16),
-                    onTap: () => context.push(
-                      '/discover/mini/${program.id}',
+            if (FeatureFlags.miniPrograms)
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 4,
+                childAspectRatio: 0.78,
+                children: [
+                  for (final program in DemoContent.miniPrograms)
+                    EthioMiniAppTile(
+                      label: program.name,
+                      icon: program.icon,
+                      color: program.color.withValues(alpha: 0.16),
+                      onTap: () => context.push(
+                        '/discover/mini/${program.id}',
+                      ),
                     ),
-                  ),
-              ],
-            ),
+                ],
+              ),
             const SizedBox(height: Sp.x5),
             Container(
               padding: const EdgeInsets.all(Sp.x4),

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/design/design.dart';
 import '../../../../core/utils/time_format.dart';
+import '../../../announcements/presentation/widgets/announcement_feed.dart';
 import '../../../chats/application/chat_providers.dart';
 import '../../../chats/domain/entities/conversation_entity.dart';
 import '../../../chats/domain/entities/conversation_summary.dart';
@@ -328,6 +329,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                 },
               ),
             ),
+            const AnnouncementFeed(),
             Expanded(
               child: loading
                   ? const ChatListSkeleton()

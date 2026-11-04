@@ -51,12 +51,19 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       );
       return;
     }
+    if (_block && widget.targetId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This account cannot be blocked from this report.')),
+      );
+      return;
+    }
     setState(() => _busy = true);
     final repo = ref.read(chatRepositoryProvider);
     final report = await repo.saveReport(
       targetId: widget.targetId.isEmpty ? widget.targetName : widget.targetId,
       targetName: widget.targetName,
       reason: reason,
+      targetType: widget.targetType,
       note: _note.text.trim().isEmpty ? null : _note.text.trim(),
     );
     if (!mounted) return;
@@ -70,7 +77,21 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       return;
     }
     if (_block) {
-      await repo.setContactBlocked(widget.targetName, true);
+      final result = await repo.setContactBlocked(
+        widget.targetId,
+        true,
+        displayName: widget.targetName,
+      );
+      if (!result.isSuccess && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Report sent, but blocking failed: '
+              '${result.failureOrNull?.message ?? 'try again in Settings.'}',
+            ),
+          ),
+        );
+      }
     }
     if (!mounted) return;
     setState(() {
