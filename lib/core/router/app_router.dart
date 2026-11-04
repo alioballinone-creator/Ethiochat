@@ -26,6 +26,9 @@ import '../../features/discover/presentation/screens/official_account_screen.dar
 import '../../features/discover/presentation/screens/official_accounts_screen.dart';
 import '../../features/discover/presentation/screens/scan_screen.dart';
 import '../../features/moments/presentation/screens/moments_feed_screen.dart';
+import '../../features/feed/presentation/screens/feed_screen.dart';
+import '../../features/feed/presentation/screens/create_post_screen.dart';
+import '../../features/feed/presentation/screens/post_detail_screen.dart';
 import '../../features/onboarding/presentation/screens/tips_screen.dart';
 import '../../features/profile/presentation/screens/me_screen.dart';
 import '../../features/profile/presentation/screens/my_qr_screen.dart';
@@ -70,6 +73,9 @@ class AppRouter {
   static const String newGroup = '/new-group';
   static const String search = '/search';
   static const String moments = '/discover/moments';
+  static const String feed = '/feed';
+  static const String createPost = '/feed/create';
+  static const String postDetail = '/feed/post/:id';
   static const String channels = '/discover/channels';
   static const String officialAccounts = '/discover/official';
   static const String scan = '/scan';
@@ -181,6 +187,21 @@ class AppRouter {
           builder: (context, state) {
             final phone = state.uri.queryParameters['phone'] ?? '';
             return OtpVerificationScreen(phone: phone);
+          },
+        ),
+        GoRoute(
+          path: feed,
+          builder: (context, state) => const FeedScreen(),
+        ),
+        GoRoute(
+          path: createPost,
+          builder: (context, state) => const CreatePostScreen(),
+        ),
+        GoRoute(
+          path: postDetail,
+          builder: (context, state) {
+            final id = state.pathParameters['id'] ?? '';
+            return PostDetailScreen(postId: id);
           },
         ),
         GoRoute(

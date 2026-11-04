@@ -40,6 +40,8 @@ dependencies:
   flutter_local_notifications: ^17.2.2
   image_picker: ^1.1.2
   file_picker: ^8.1.6
+  flutter_image_compress: ^2.3.0
+  share_plus: ^10.0.2
   record: ^6.2.1
   audioplayers: ^6.1.0
   open_filex: ^4.5.0
