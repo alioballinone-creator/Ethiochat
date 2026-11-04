@@ -9,10 +9,6 @@ final walletRepositoryProvider = Provider<WalletRepository>((ref) {
   return WalletRepository(ref.watch(appDatabaseProvider));
 });
 
-final walletSeedProvider = FutureProvider<void>((ref) {
-  return ref.watch(walletRepositoryProvider).seedDemoData();
-});
-
 final walletBalanceProvider = StreamProvider.autoDispose<int>((ref) {
   return ref.watch(walletRepositoryProvider).watchBalance();
 });

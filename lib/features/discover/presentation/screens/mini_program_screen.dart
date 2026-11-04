@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/config/feature_flags.dart';
 import '../../../../core/demo/demo_content.dart';
 import '../../../../core/design/design.dart';
 import '../../../../core/utils/money_format.dart';
+import '../../../wallet/application/wallet_providers.dart';
 
 /// Mini program container with the three-dot capsule menu from the design.
 class MiniProgramScreen extends StatefulWidget {
@@ -27,9 +29,9 @@ class _MiniProgramScreenState extends State<MiniProgramScreen> {
       ClipboardData(text: 'Open ${_program.name} on EthioChat.'),
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Mini program link copied.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Mini program link copied.')));
   }
 
   void _menu() {
@@ -162,16 +164,14 @@ class _ProgramIntro extends StatelessWidget {
             label: program.name,
             icon: program.icon,
             color: program.color.withValues(alpha: 0.18),
-            onTap: () {},
           ),
           const SizedBox(width: Sp.x3),
           Expanded(
             child: Text(
               program.description,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: EthioPalette.of(context).textSecondary),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: EthioPalette.of(context).textSecondary,
+                  ),
             ),
           ),
         ],
@@ -180,16 +180,16 @@ class _ProgramIntro extends StatelessWidget {
   }
 }
 
-class _MiniBills extends StatefulWidget {
+class _MiniBills extends ConsumerStatefulWidget {
   const _MiniBills({required this.program});
 
   final DemoMiniProgram program;
 
   @override
-  State<_MiniBills> createState() => _MiniBillsState();
+  ConsumerState<_MiniBills> createState() => _MiniBillsState();
 }
 
-class _MiniBillsState extends State<_MiniBills> {
+class _MiniBillsState extends ConsumerState<_MiniBills> {
   final _account = TextEditingController();
   final _amount = TextEditingController();
   var _biller = DemoContent.billers.first;
@@ -210,15 +210,22 @@ class _MiniBillsState extends State<_MiniBills> {
       return;
     }
     setState(() => _busy = true);
-    await Future<void>.delayed(const Duration(milliseconds: 650));
+    final result = await ref.read(walletRepositoryProvider).payBill(
+          provider: _biller.name,
+          accountRef: _account.text.trim(),
+          amountMinor: parseEtbToMinor(_amount.text),
+          feeMinor: _biller.fee,
+        );
     if (!mounted) return;
     setState(() => _busy = false);
-    final amount = formatEtb(parseEtbToMinor(_amount.text));
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${_biller.name} payment of $amount confirmed.')),
+      SnackBar(
+        content: Text(
+          result.failureOrNull?.message ??
+              'Payment was not confirmed by the provider.',
+        ),
+      ),
     );
-    _account.clear();
-    _amount.clear();
   }
 
   @override
@@ -285,16 +292,16 @@ class _MiniBillsState extends State<_MiniBills> {
   }
 }
 
-class _MiniAirtime extends StatefulWidget {
+class _MiniAirtime extends ConsumerStatefulWidget {
   const _MiniAirtime({required this.program});
 
   final DemoMiniProgram program;
 
   @override
-  State<_MiniAirtime> createState() => _MiniAirtimeState();
+  ConsumerState<_MiniAirtime> createState() => _MiniAirtimeState();
 }
 
-class _MiniAirtimeState extends State<_MiniAirtime> {
+class _MiniAirtimeState extends ConsumerState<_MiniAirtime> {
   final _phone = TextEditingController();
   var _amount = 50;
   var _busy = false;
@@ -313,13 +320,17 @@ class _MiniAirtimeState extends State<_MiniAirtime> {
       return;
     }
     setState(() => _busy = true);
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    final result = await ref.read(walletRepositoryProvider).topUp(
+          amountMinor: _amount * 100,
+          provider: 'Airtime · ${_phone.text.trim()}',
+        );
     if (!mounted) return;
     setState(() => _busy = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'ETB $_amount airtime sent to ${_phone.text.trim()}.',
+          result.failureOrNull?.message ??
+              'Airtime was not confirmed by the provider.',
         ),
       ),
     );
@@ -369,17 +380,18 @@ class _MiniAirtimeState extends State<_MiniAirtime> {
   }
 }
 
-class _MiniShop extends StatefulWidget {
+class _MiniShop extends ConsumerStatefulWidget {
   const _MiniShop({required this.program});
 
   final DemoMiniProgram program;
 
   @override
-  State<_MiniShop> createState() => _MiniShopState();
+  ConsumerState<_MiniShop> createState() => _MiniShopState();
 }
 
-class _MiniShopState extends State<_MiniShop> {
+class _MiniShopState extends ConsumerState<_MiniShop> {
   final _cart = <String, int>{};
+  var _checkingOut = false;
   static const _items = [
     ('Ethiopian coffee, 1 kg', 48000),
     ('Handwoven basket', 125000),
@@ -387,10 +399,31 @@ class _MiniShopState extends State<_MiniShop> {
     ('Berbere spice mix', 18000),
   ];
 
-  int get _total => _items.fold<int>(
-        0,
-        (sum, item) => sum + item.$2 * (_cart[item.$1] ?? 0),
-      );
+  int get _total =>
+      _items.fold<int>(0, (sum, item) => sum + item.$2 * (_cart[item.$1] ?? 0));
+
+  Future<void> _checkout() async {
+    if (_total <= 0) return;
+    setState(() => _checkingOut = true);
+    final details = _cart.entries
+        .map((entry) => '${entry.value} x ${entry.key}')
+        .join(', ');
+    final result = await ref.read(walletRepositoryProvider).purchase(
+          amountMinor: _total,
+          provider: 'EthioChat shop',
+          note: details,
+        );
+    if (!mounted) return;
+    setState(() => _checkingOut = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.failureOrNull?.message ??
+              'Purchase was not confirmed by a provider.',
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -450,19 +483,7 @@ class _MiniShopState extends State<_MiniShop> {
                   label: 'Checkout',
                   size: EthioButtonSize.small,
                   expand: false,
-                  onPressed: _total == 0
-                      ? null
-                      : () {
-                          final total = _total;
-                          setState(_cart.clear);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Order placed · ${formatEtb(total)}',
-                              ),
-                            ),
-                          );
-                        },
+                  onPressed: _total == 0 || _checkingOut ? null : _checkout,
                 ),
               ],
             ),
@@ -485,7 +506,6 @@ class _MiniRide extends StatefulWidget {
 class _MiniRideState extends State<_MiniRide> {
   final _pickup = TextEditingController(text: 'Bole Medhanialem');
   final _dropOff = TextEditingController();
-  var _searching = false;
 
   @override
   void dispose() {
@@ -496,30 +516,16 @@ class _MiniRideState extends State<_MiniRide> {
 
   Future<void> _request() async {
     if (_dropOff.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a destination.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enter a destination.')));
       return;
     }
-    setState(() => _searching = true);
-    await Future<void>.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-    setState(() => _searching = false);
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Ride confirmed'),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
         content: Text(
-          'A driver is on the way to ${_pickup.text.trim()}.\n\n'
-          'Destination: ${_dropOff.text.trim()}\n'
-          'Estimated fare: ETB 180.00',
+          'Ride booking is not enabled yet. No ride was requested.',
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Done'),
-          ),
-        ],
       ),
     );
   }
@@ -562,9 +568,9 @@ class _MiniRideState extends State<_MiniRide> {
         ),
         const SizedBox(height: Sp.x4),
         EthioButton(
-          label: _searching ? 'Finding a driver…' : 'Find a ride',
+          label: 'Find a ride',
           icon: Icons.local_taxi_outlined,
-          onPressed: _searching ? null : _request,
+          onPressed: _request,
         ),
       ],
     );

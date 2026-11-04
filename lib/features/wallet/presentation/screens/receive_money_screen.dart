@@ -6,6 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../core/design/design.dart';
 import '../../../../core/utils/money_format.dart';
+import '../../application/wallet_providers.dart';
 import '../../../profile/application/profile_controller.dart';
 
 class ReceiveMoneyScreen extends ConsumerStatefulWidget {
@@ -33,6 +34,7 @@ class _ReceiveMoneyScreenState extends ConsumerState<ReceiveMoneyScreen> {
   Future<void> _copy() async {
     final profile = ref.read(userProfileProvider);
     final amount = parseEtbToMinor(_amount.text);
+    if (!await _recordRequest(profile.ethioId, amount)) return;
     final suffix = amount > 0 ? '?amount=$amount' : '';
     await Clipboard.setData(
       ClipboardData(
@@ -43,9 +45,26 @@ class _ReceiveMoneyScreenState extends ConsumerState<ReceiveMoneyScreen> {
     if (mounted) _feedback('Payment link copied.');
   }
 
-  void _shareInChat() {
+  Future<void> _shareInChat() async {
     final profile = ref.read(userProfileProvider);
+    if (!await _recordRequest(profile.ethioId, parseEtbToMinor(_amount.text))) {
+      return;
+    }
+    if (!mounted) return;
     context.push('/new-chat?share=ethiochat://pay/${profile.ethioId}');
+  }
+
+  Future<bool> _recordRequest(String sender, int amountMinor) async {
+    final result = await ref.read(walletRepositoryProvider).receive(
+          sender: sender,
+          amountMinor: amountMinor,
+          note: 'Payment request',
+        );
+    if (result.failureOrNull case final failure?) {
+      _feedback(failure.message);
+      return false;
+    }
+    return true;
   }
 
   @override

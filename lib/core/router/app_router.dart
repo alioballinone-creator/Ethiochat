@@ -6,6 +6,7 @@ import '../../features/auth/presentation/screens/otp_verification_screen.dart';
 import '../../features/auth/presentation/screens/phone_entry_screen.dart';
 import '../../features/auth/presentation/screens/profile_setup_screen.dart';
 import '../../features/auth/presentation/screens/welcome_screen.dart';
+import '../../features/admin/presentation/screens/admin_control_screen.dart';
 import '../../features/calls/presentation/screens/call_screen.dart';
 import '../../features/chat/presentation/screens/chat_detail_screen.dart';
 import '../../features/chat/presentation/screens/chat_info_screen.dart';
@@ -35,6 +36,7 @@ import '../../features/settings/presentation/screens/settings_app_screens.dart';
 import '../../features/settings/presentation/screens/settings_help_screen.dart';
 import '../../features/settings/presentation/screens/settings_privacy_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
+import '../../features/settings/presentation/screens/support_tickets_screen.dart';
 import '../../features/wallet/domain/entities/wallet_entry.dart';
 import '../../features/wallet/presentation/screens/bills_screen.dart';
 import '../../features/wallet/presentation/screens/receive_money_screen.dart';
@@ -47,6 +49,7 @@ import '../../features/wallet/presentation/screens/wallet_receipt_screen.dart';
 import '../../features/wallet/presentation/screens/wallet_screen.dart';
 import '../config/env.dart';
 import '../config/feature_flags.dart';
+import '../screens/maintenance_screen.dart';
 import '../screens/splash_screen.dart';
 import 'main_shell.dart';
 
@@ -57,6 +60,8 @@ class AppRouter {
   static const String otpVerification = '/auth/otp';
   static const String profileSetup = '/auth/profile';
   static const String gateway = '/auth/gateway';
+  static const String admin = '/admin';
+  static const String maintenance = '/maintenance';
   static const String chats = '/chats';
   static const String chatDetail = '/chats/:id';
   static const String chatInfo = '/chats/:id/info';
@@ -95,7 +100,7 @@ class AppRouter {
   static GoRouter createRouter({String initialLocation = splash}) {
     return GoRouter(
       initialLocation: initialLocation,
-      redirect: (context, state) {
+      redirect: (context, state) async {
         // Credential-free debug builds remain usable for local UI development.
         // Release builds without Supabase never reach the router because the
         // app shell shows the configuration error screen instead.
@@ -103,8 +108,40 @@ class AppRouter {
 
         final signedIn = _hasSession;
         final location = state.matchedLocation;
+        if (FeatureFlags.maintenanceMode) {
+          if (location == maintenance) return null;
+          if (signedIn && location == admin) {
+            try {
+              final staff = await Supabase.instance.client.rpc<bool>(
+                'is_staff',
+              );
+              if (staff == true) return null;
+            } catch (_) {
+              return maintenance;
+            }
+          }
+          return maintenance;
+        }
+        if (location == maintenance) return signedIn ? chats : welcome;
+        if (!FeatureFlags.moments && location == moments) return discover;
+        if (!FeatureFlags.channels && location.startsWith(channels)) {
+          return discover;
+        }
+        if (!FeatureFlags.miniPrograms &&
+            location.startsWith('/discover/mini/')) {
+          return discover;
+        }
+        if (!FeatureFlags.calls && location.startsWith('/call/')) return chats;
         if (!signedIn) {
           return _signedOutRoutes.contains(location) ? null : welcome;
+        }
+        if (location == admin) {
+          try {
+            final staff = await Supabase.instance.client.rpc<bool>('is_staff');
+            if (staff != true) return chats;
+          } catch (_) {
+            return chats;
+          }
         }
         if (location == welcome ||
             location == phoneEntry ||
@@ -130,6 +167,14 @@ class AppRouter {
         GoRoute(
           path: gateway,
           builder: (context, state) => const GatewayScreen(),
+        ),
+        GoRoute(
+          path: admin,
+          builder: (context, state) => const AdminControlScreen(),
+        ),
+        GoRoute(
+          path: maintenance,
+          builder: (context, state) => const MaintenanceScreen(),
         ),
         GoRoute(
           path: otpVerification,
@@ -288,10 +333,7 @@ class AppRouter {
           builder: (context, state) =>
               const ProfileSetupScreen(isEditing: true),
         ),
-        GoRoute(
-          path: myQr,
-          builder: (context, state) => const MyQrScreen(),
-        ),
+        GoRoute(path: myQr, builder: (context, state) => const MyQrScreen()),
         GoRoute(
           path: call,
           builder: (context, state) {
@@ -356,6 +398,10 @@ class AppRouter {
             targetId: state.uri.queryParameters['id'] ?? '',
             targetType: state.uri.queryParameters['type'] ?? 'account',
           ),
+        ),
+        GoRoute(
+          path: '/support',
+          builder: (context, state) => const SupportTicketsScreen(),
         ),
         if (FeatureFlags.wallet) ...[
           GoRoute(

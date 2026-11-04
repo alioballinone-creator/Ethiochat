@@ -117,6 +117,7 @@ class WalletReceiptScreen extends StatelessWidget {
                           WalletTxType.redPacket => 'Red packet',
                           WalletTxType.topUp => 'Top up',
                           WalletTxType.receive => 'Received',
+                          WalletTxType.purchase => 'Purchase',
                         },
                       ),
                       if (value.counterparty != null)

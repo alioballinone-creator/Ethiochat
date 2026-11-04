@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 enum WalletDirection { incoming, outgoing }
 
-enum WalletTxType { topUp, transfer, bill, redPacket, receive }
+enum WalletTxType { topUp, transfer, bill, redPacket, receive, purchase }
 
 @immutable
 class WalletEntry {
@@ -37,6 +37,7 @@ class PinRequest {
     required this.amountMinor,
     required this.title,
     this.recipient,
+    this.recipientId,
     this.note,
     this.provider,
     this.accountRef,
@@ -47,6 +48,7 @@ class PinRequest {
   final int amountMinor;
   final String title;
   final String? recipient;
+  final String? recipientId;
   final String? note;
   final String? provider;
   final String? accountRef;

@@ -29,6 +29,11 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
   }
 
   Future<void> _continue() async {
+    final repository = ref.read(walletRepositoryProvider);
+    if (!repository.isServerAvailable) {
+      setState(() => _error = 'Bill payments are not enabled yet.');
+      return;
+    }
     final amount = parseEtbToMinor(_amount.text);
     if (_account.text.trim().length < 3) {
       setState(
@@ -40,7 +45,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
       return;
     }
     final total = amount + _biller.fee;
-    final balance = await ref.read(walletRepositoryProvider).currentBalance();
+    final balance = await repository.currentBalance();
     if (total > balance) {
       setState(() => _error = 'Your wallet balance is too low.');
       return;
