@@ -26,6 +26,7 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS public.is_conversation_member(UUID, UUID);
 CREATE OR REPLACE FUNCTION public.is_conversation_member(cid UUID, uid UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
