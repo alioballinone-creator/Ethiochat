@@ -179,14 +179,17 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     Row(
                       children: [
                         EthioAvatar(
-                            name: (profiles?['display_name'] as String?) ?? 'User',
+                            name: (profiles?['display_name'] as String?) ??
+                                'User',
                             size: 40),
                         const SizedBox(width: Sp.x3),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text((profiles?['display_name'] as String?) ?? 'User',
+                              Text(
+                                  (profiles?['display_name'] as String?) ??
+                                      'User',
                                   style:
                                       Theme.of(context).textTheme.titleSmall),
                               Text(post['created_at']?.toString() ?? '',
@@ -211,7 +214,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                               });
                               if (!mounted) return;
                               messenger.showSnackBar(
-                                const SnackBar(content: Text('Report submitted')),
+                                const SnackBar(
+                                    content: Text('Report submitted')),
                               );
                             } else if (v == 'block' &&
                                 post['author_id'] != null &&
@@ -247,7 +251,9 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12),
                               child: Image.network(
-                                ((m as Map<String, dynamic>)['media_url'] as String?) ?? '',
+                                ((m as Map<String, dynamic>)['media_url']
+                                        as String?) ??
+                                    '',
                                 width: 150,
                                 height: 150,
                                 fit: BoxFit.cover,
