@@ -36,12 +36,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       final client = Supabase.instance.client;
       final post = await client
           .from('posts')
-          .select('*, post_media(*), profiles!posts_author_id_fkey(display_name, avatar_url)')
+          .select(
+              '*, post_media(*), profiles!posts_author_id_fkey(display_name, avatar_url)')
           .eq('id', widget.postId)
           .maybeSingle();
       final comments = await client
           .from('post_comments')
-          .select('*, profiles!post_comments_author_id_fkey(display_name, avatar_url)')
+          .select(
+              '*, profiles!post_comments_author_id_fkey(display_name, avatar_url)')
           .eq('post_id', widget.postId)
           .isFilter('deleted_at', null)
           .order('created_at', ascending: true);
@@ -56,7 +58,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       if (mounted) {
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load post. Please try again.')),
+          const SnackBar(
+              content: Text('Failed to load post. Please try again.')),
         );
       }
     }
@@ -79,7 +82,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to add comment. Please try again.')),
+          const SnackBar(
+              content: Text('Failed to add comment. Please try again.')),
         );
       }
     }
@@ -97,15 +101,24 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           .eq('user_id', userId)
           .maybeSingle();
       if (existing != null) {
-        await client.from('post_reactions').delete().eq('post_id', widget.postId).eq('user_id', userId);
+        await client
+            .from('post_reactions')
+            .delete()
+            .eq('post_id', widget.postId)
+            .eq('user_id', userId);
       } else {
-        await client.from('post_reactions').insert({'post_id': widget.postId, 'user_id': userId, 'reaction_type': 'like'});
+        await client.from('post_reactions').insert({
+          'post_id': widget.postId,
+          'user_id': userId,
+          'reaction_type': 'like'
+        });
       }
       _load();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to update reaction. Please try again.')),
+          const SnackBar(
+              content: Text('Failed to update reaction. Please try again.')),
         );
       }
     }
@@ -120,12 +133,16 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Future<void> _deletePost() async {
     try {
       final client = Supabase.instance.client;
-      await client.from('posts').update({'deleted_at': DateTime.now().toUtc().toIso8601String()}).eq('id', widget.postId);
+      await client
+          .from('posts')
+          .update({'deleted_at': DateTime.now().toUtc().toIso8601String()}).eq(
+              'id', widget.postId);
       if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to delete post. Please try again.')),
+          const SnackBar(
+              content: Text('Failed to delete post. Please try again.')),
         );
       }
     }
@@ -135,7 +152,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Widget build(BuildContext context) {
     final post = _post;
     final client = Supabase.instance.client;
-    final isOwner = post != null && post['author_id'] == client.auth.currentUser?.id;
+    final isOwner =
+        post != null && post['author_id'] == client.auth.currentUser?.id;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Post'),
@@ -163,31 +181,44 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         children: [
                           Row(
                             children: [
-                              EthioAvatar(name: post['profiles']?['display_name'] ?? 'User', size: 40),
+                              EthioAvatar(
+                                  name: post['profiles']?['display_name'] ??
+                                      'User',
+                                  size: 40),
                               const SizedBox(width: Sp.x3),
                               Text(post['profiles']?['display_name'] ?? 'User'),
                             ],
                           ),
-                          if (post['body'] != null && post['body'].toString().isNotEmpty) ...[
+                          if (post['body'] != null &&
+                              post['body'].toString().isNotEmpty) ...[
                             const SizedBox(height: Sp.x3),
                             Text(post['body'].toString()),
                           ],
                           const SizedBox(height: Sp.x3),
                           Row(
                             children: [
-                              IconButton(icon: const Icon(Icons.favorite_border), onPressed: _toggleLike),
+                              IconButton(
+                                  icon: const Icon(Icons.favorite_border),
+                                  onPressed: _toggleLike),
                               Text('${post['like_count'] ?? 0}'),
-                              IconButton(icon: const Icon(Icons.share_outlined), onPressed: _share),
+                              IconButton(
+                                  icon: const Icon(Icons.share_outlined),
+                                  onPressed: _share),
                             ],
                           ),
                           const Divider(),
-                          Text('Comments (${_comments.length})', style: Theme.of(context).textTheme.titleSmall),
+                          Text('Comments (${_comments.length})',
+                              style: Theme.of(context).textTheme.titleSmall),
                           const SizedBox(height: Sp.x2),
                           for (final c in _comments)
                             ListTile(
                               contentPadding: EdgeInsets.zero,
-                              leading: EthioAvatar(name: c['profiles']?['display_name'] ?? 'User', size: 32),
-                              title: Text(c['profiles']?['display_name'] ?? 'User'),
+                              leading: EthioAvatar(
+                                  name:
+                                      c['profiles']?['display_name'] ?? 'User',
+                                  size: 32),
+                              title: Text(
+                                  c['profiles']?['display_name'] ?? 'User'),
                               subtitle: Text(c['body']?.toString() ?? ''),
                             ),
                         ],
@@ -197,7 +228,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       padding: EdgeInsets.only(
                         left: Sp.x4,
                         right: Sp.x4,
-                        bottom: MediaQuery.of(context).viewInsets.bottom + Sp.x2,
+                        bottom:
+                            MediaQuery.of(context).viewInsets.bottom + Sp.x2,
                         top: Sp.x2,
                       ),
                       child: Row(
@@ -205,10 +237,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           Expanded(
                             child: TextField(
                               controller: _commentCtrl,
-                              decoration: const InputDecoration(hintText: 'Add a comment...'),
+                              decoration: const InputDecoration(
+                                  hintText: 'Add a comment...'),
                             ),
                           ),
-                          IconButton(icon: const Icon(Icons.send), onPressed: _addComment),
+                          IconButton(
+                              icon: const Icon(Icons.send),
+                              onPressed: _addComment),
                         ],
                       ),
                     ),

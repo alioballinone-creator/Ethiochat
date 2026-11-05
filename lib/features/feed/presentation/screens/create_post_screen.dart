@@ -59,11 +59,15 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       final client = Supabase.instance.client;
       final userId = client.auth.currentUser?.id;
       if (userId == null) throw Exception('Not authenticated');
-      final postRes = await client.from('posts').insert({
-        'author_id': userId,
-        'body': _controller.text.trim(),
-        'visibility': _visibility,
-      }).select().single();
+      final postRes = await client
+          .from('posts')
+          .insert({
+            'author_id': userId,
+            'body': _controller.text.trim(),
+            'visibility': _visibility,
+          })
+          .select()
+          .single();
       final postId = postRes['id'];
 
       for (final img in _images) {
@@ -88,7 +92,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (mounted) {
         setState(() => _posting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to create post. Please try again.')),
+          const SnackBar(
+              content: Text('Failed to create post. Please try again.')),
         );
       }
     }
@@ -115,7 +120,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               controller: _controller,
               maxLength: 500,
               maxLines: 5,
-              decoration: const InputDecoration(hintText: "What's on your mind?"),
+              decoration:
+                  const InputDecoration(hintText: "What's on your mind?"),
             ),
             const SizedBox(height: Sp.x3),
             DropdownButton<String>(

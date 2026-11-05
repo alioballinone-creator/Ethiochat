@@ -60,14 +60,18 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       // Get blocked users
       final blocked = <String>{};
       if (userId != null) {
-        final blocks = await client.from('blocks').select('blocked_id').eq('owner_id', userId);
+        final blocks = await client
+            .from('blocks')
+            .select('blocked_id')
+            .eq('owner_id', userId);
         for (final b in blocks) {
           blocked.add(b['blocked_id'].toString());
         }
       }
       var query = client
           .from('posts')
-          .select('*, post_media(*), profiles!posts_author_id_fkey(display_name, avatar_url)')
+          .select(
+              '*, post_media(*), profiles!posts_author_id_fkey(display_name, avatar_url)')
           .isFilter('deleted_at', null)
           .eq('is_hidden', false)
           .order('created_at', ascending: false)
@@ -94,7 +98,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       if (mounted) {
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load feed. Please try again.')),
+          const SnackBar(
+              content: Text('Failed to load feed. Please try again.')),
         );
       }
     }
@@ -112,15 +117,21 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           .eq('user_id', userId)
           .maybeSingle();
       if (existing != null) {
-        await client.from('post_reactions').delete().eq('post_id', postId).eq('user_id', userId);
+        await client
+            .from('post_reactions')
+            .delete()
+            .eq('post_id', postId)
+            .eq('user_id', userId);
       } else {
-        await client.from('post_reactions').insert({'post_id': postId, 'user_id': userId, 'reaction_type': 'like'});
+        await client.from('post_reactions').insert(
+            {'post_id': postId, 'user_id': userId, 'reaction_type': 'like'});
       }
       _loadPosts();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to update reaction. Please try again.')),
+          const SnackBar(
+              content: Text('Failed to update reaction. Please try again.')),
         );
       }
     }
@@ -166,16 +177,22 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   children: [
                     Row(
                       children: [
-                        EthioAvatar(name: post['profiles']?['display_name'] ?? 'User', size: 40),
+                        EthioAvatar(
+                            name: post['profiles']?['display_name'] ?? 'User',
+                            size: 40),
                         const SizedBox(width: Sp.x3),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(post['profiles']?['display_name'] ?? 'User',
-                                  style: Theme.of(context).textTheme.titleSmall),
+                                  style:
+                                      Theme.of(context).textTheme.titleSmall),
                               Text(post['created_at']?.toString() ?? '',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: pal.textSecondary)),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(color: pal.textSecondary)),
                             ],
                           ),
                         ),
@@ -192,10 +209,13 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                               });
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Report submitted')),
+                                  const SnackBar(
+                                      content: Text('Report submitted')),
                                 );
                               }
-                            } else if (v == 'block' && post['author_id'] != null && userId != null) {
+                            } else if (v == 'block' &&
+                                post['author_id'] != null &&
+                                userId != null) {
                               await client.from('blocks').insert({
                                 'owner_id': userId,
                                 'blocked_id': post['author_id'],
@@ -204,13 +224,16 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                             }
                           },
                           itemBuilder: (context) => [
-                            const PopupMenuItem(value: 'report', child: Text('Report post')),
-                            const PopupMenuItem(value: 'block', child: Text('Block user')),
+                            const PopupMenuItem(
+                                value: 'report', child: Text('Report post')),
+                            const PopupMenuItem(
+                                value: 'block', child: Text('Block user')),
                           ],
                         ),
                       ],
                     ),
-                    if (post['body'] != null && post['body'].toString().isNotEmpty) ...[
+                    if (post['body'] != null &&
+                        post['body'].toString().isNotEmpty) ...[
                       const SizedBox(height: Sp.x3),
                       Text(post['body'].toString()),
                     ],
@@ -249,7 +272,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         const SizedBox(width: Sp.x3),
                         IconButton(
                           icon: const Icon(Icons.comment_outlined),
-                          onPressed: () => context.push('/feed/post/${post['id']}'),
+                          onPressed: () =>
+                              context.push('/feed/post/${post['id']}'),
                         ),
                         Text('${post['comment_count'] ?? 0}'),
                         const Spacer(),
