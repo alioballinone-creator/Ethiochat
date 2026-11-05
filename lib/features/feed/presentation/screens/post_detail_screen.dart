@@ -133,7 +133,6 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pal = EthioPalette.of(context);
     final post = _post;
     final client = Supabase.instance.client;
     final isOwner = post != null && post['author_id'] == client.auth.currentUser?.id;
