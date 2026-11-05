@@ -1,111 +1,3 @@
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  ethio_id TEXT UNIQUE,
-  display_name TEXT,
-  avatar_url TEXT,
-  bio TEXT,
-  language TEXT DEFAULT 'en',
-  phone_hash TEXT,
-  last_seen_at TIMESTAMPTZ,
-  privacy JSONB DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ
-);
-CREATE TABLE IF NOT EXISTS public.devices (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  fcm_token TEXT,
-  platform TEXT,
-  identity_pubkey BYTEA,
-  prekeys JSONB DEFAULT '[]'::jsonb,
-  last_active TIMESTAMPTZ DEFAULT NOW(),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.contacts (
-  owner_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  contact_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  alias TEXT,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','blocked')),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (owner_id, contact_id)
-);
-CREATE TABLE IF NOT EXISTS public.conversations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  type TEXT NOT NULL CHECK (type IN ('direct','group','channel')),
-  title TEXT,
-  avatar_url TEXT,
-  created_by UUID REFERENCES auth.users(id),
-  last_message_id UUID,
-  last_message_at TIMESTAMPTZ,
-  seq_counter BIGINT NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ
-);
-CREATE TABLE IF NOT EXISTS public.conversation_members (
-  conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner','admin','member')),
-  muted_until TIMESTAMPTZ,
-  last_read_seq BIGINT DEFAULT 0,
-  joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  left_at TIMESTAMPTZ,
-  PRIMARY KEY (conversation_id, user_id)
-);
-CREATE TABLE IF NOT EXISTS public.messages (
-  id UUID PRIMARY KEY,
-  conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
-  sender_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  seq BIGINT NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('text','image','voice','video','file','location','contact','sticker','payment','redpacket','system')),
-  body TEXT,
-  media JSONB,
-  reply_to UUID REFERENCES public.messages(id),
-  edited_at TIMESTAMPTZ,
-  deleted_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (conversation_id, seq)
-);
-CREATE TABLE IF NOT EXISTS public.message_receipts (
-  message_id UUID NOT NULL REFERENCES public.messages(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  delivered_at TIMESTAMPTZ,
-  read_at TIMESTAMPTZ,
-  PRIMARY KEY (message_id, user_id)
-);
-CREATE OR REPLACE FUNCTION public.assign_message_seq()
-RETURNS TRIGGER AS $$
-DECLARE
-  next_seq BIGINT;
-BEGIN
-  UPDATE public.conversations
-     SET seq_counter = seq_counter + 1,
-         updated_at  = NOW()
-   WHERE id = NEW.conversation_id
-   RETURNING seq_counter INTO next_seq;
-  NEW.seq := next_seq;
-  NEW.created_at := COALESCE(NEW.created_at, NOW());
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-DROP TRIGGER IF EXISTS trg_assign_message_seq ON public.messages;
-CREATE TRIGGER trg_assign_message_seq
-  BEFORE INSERT ON public.messages
-  FOR EACH ROW
-  WHEN (NEW.seq IS NULL)
-  EXECUTE FUNCTION public.assign_message_seq();
-CREATE INDEX IF NOT EXISTS idx_messages_conv_seq ON public.messages (conversation_id, seq DESC);
-CREATE INDEX IF NOT EXISTS idx_conv_members_user ON public.conversation_members (user_id);
-CREATE INDEX IF NOT EXISTS idx_messages_created ON public.messages (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_receipts_user ON public.message_receipts (user_id);
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.devices ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.contacts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.conversation_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.message_receipts ENABLE ROW LEVEL SECURITY;
@@ -118,18 +10,25 @@ BEGIN
   );
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+DROP POLICY IF EXISTS profiles_select_self ON public.profiles;
 CREATE POLICY profiles_select_self ON public.profiles
   FOR SELECT USING (id = auth.uid());
+DROP POLICY IF EXISTS profiles_update_self ON public.profiles;
 CREATE POLICY profiles_update_self ON public.profiles
   FOR UPDATE USING (id = auth.uid());
+DROP POLICY IF EXISTS profiles_insert_self ON public.profiles;
 CREATE POLICY profiles_insert_self ON public.profiles
   FOR INSERT WITH CHECK (id = auth.uid());
+DROP POLICY IF EXISTS devices_all_own ON public.devices;
 CREATE POLICY devices_all_own ON public.devices
   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS contacts_owner ON public.contacts;
 CREATE POLICY contacts_owner ON public.contacts
   FOR ALL USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid());
+DROP POLICY IF EXISTS conversations_select_member ON public.conversations;
 CREATE POLICY conversations_select_member ON public.conversations
   FOR SELECT USING (public.is_conversation_member(id, auth.uid()));
+DROP POLICY IF EXISTS conversations_update_creator_or_admin ON public.conversations;
 CREATE POLICY conversations_update_creator_or_admin ON public.conversations
   FOR UPDATE USING (
     created_by = auth.uid() OR EXISTS (
@@ -137,8 +36,10 @@ CREATE POLICY conversations_update_creator_or_admin ON public.conversations
       WHERE cm.conversation_id = id AND cm.user_id = auth.uid() AND cm.role IN ('owner','admin')
     )
   );
+DROP POLICY IF EXISTS members_select ON public.conversation_members;
 CREATE POLICY members_select ON public.conversation_members
   FOR SELECT USING (public.is_conversation_member(conversation_id, auth.uid()) OR user_id = auth.uid());
+DROP POLICY IF EXISTS members_insert ON public.conversation_members;
 CREATE POLICY members_insert ON public.conversation_members
   FOR INSERT WITH CHECK (
     user_id = auth.uid() OR EXISTS (
@@ -146,6 +47,7 @@ CREATE POLICY members_insert ON public.conversation_members
       WHERE cm.conversation_id = conversation_id AND cm.user_id = auth.uid() AND cm.role IN ('owner','admin')
     )
   );
+DROP POLICY IF EXISTS members_update ON public.conversation_members;
 CREATE POLICY members_update ON public.conversation_members
   FOR UPDATE USING (
     user_id = auth.uid() OR EXISTS (
@@ -153,14 +55,18 @@ CREATE POLICY members_update ON public.conversation_members
       WHERE cm.conversation_id = conversation_id AND cm.user_id = auth.uid() AND cm.role IN ('owner','admin')
     )
   );
+DROP POLICY IF EXISTS messages_select_member ON public.messages;
 CREATE POLICY messages_select_member ON public.messages
   FOR SELECT USING (public.is_conversation_member(conversation_id, auth.uid()));
+DROP POLICY IF EXISTS messages_insert_member ON public.messages;
 CREATE POLICY messages_insert_member ON public.messages
   FOR INSERT WITH CHECK (
     sender_id = auth.uid() AND public.is_conversation_member(conversation_id, auth.uid())
   );
+DROP POLICY IF EXISTS messages_update_sender ON public.messages;
 CREATE POLICY messages_update_sender ON public.messages
   FOR UPDATE USING (sender_id = auth.uid());
+DROP POLICY IF EXISTS receipts_select_member ON public.message_receipts;
 CREATE POLICY receipts_select_member ON public.message_receipts
   FOR SELECT USING (
     EXISTS (
@@ -168,6 +74,7 @@ CREATE POLICY receipts_select_member ON public.message_receipts
       WHERE m.id = message_id AND public.is_conversation_member(m.conversation_id, auth.uid())
     )
   );
+DROP POLICY IF EXISTS receipts_upsert_self ON public.message_receipts;
 CREATE POLICY receipts_upsert_self ON public.message_receipts
   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS media_duration_ms INTEGER;
@@ -236,17 +143,26 @@ ALTER TABLE public.signed_prekeys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.calls ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.call_participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.message_search ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS prekeys_select ON public.prekeys;
 CREATE POLICY prekeys_select ON public.prekeys FOR SELECT USING (true);
+DROP POLICY IF EXISTS prekeys_manage_own ON public.prekeys;
 CREATE POLICY prekeys_manage_own ON public.prekeys FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS onetime_prekeys_select ON public.onetime_prekeys;
 CREATE POLICY onetime_prekeys_select ON public.onetime_prekeys FOR SELECT USING (true);
+DROP POLICY IF EXISTS onetime_prekeys_manage_own ON public.onetime_prekeys;
 CREATE POLICY onetime_prekeys_manage_own ON public.onetime_prekeys FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS signed_prekeys_select ON public.signed_prekeys;
 CREATE POLICY signed_prekeys_select ON public.signed_prekeys FOR SELECT USING (true);
+DROP POLICY IF EXISTS signed_prekeys_manage_own ON public.signed_prekeys;
 CREATE POLICY signed_prekeys_manage_own ON public.signed_prekeys FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS calls_select_member ON public.calls;
 CREATE POLICY calls_select_member ON public.calls FOR SELECT USING (
   caller_id = auth.uid() OR callee_id = auth.uid() OR
   EXISTS (SELECT 1 FROM public.conversation_members cm WHERE cm.conversation_id = calls.conversation_id AND cm.user_id = auth.uid())
 );
+DROP POLICY IF EXISTS calls_insert ON public.calls;
 CREATE POLICY calls_insert ON public.calls FOR INSERT WITH CHECK (caller_id = auth.uid());
+DROP POLICY IF EXISTS call_participants_all ON public.call_participants;
 CREATE POLICY call_participants_all ON public.call_participants FOR ALL USING (
   user_id = auth.uid() OR EXISTS (SELECT 1 FROM public.calls c WHERE c.id = call_id AND c.caller_id = auth.uid())
 ) WITH CHECK (user_id = auth.uid());
@@ -323,14 +239,23 @@ ALTER TABLE public.redpackets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.redpacket_claims ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pin_secrets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.kyc ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS wallets_own ON public.wallets;
 CREATE POLICY wallets_own ON public.wallets FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS ledger_read_own ON public.ledger_entries;
 CREATE POLICY ledger_read_own ON public.ledger_entries FOR SELECT USING (account = auth.uid()::text);
+DROP POLICY IF EXISTS transactions_own ON public.transactions;
 CREATE POLICY transactions_own ON public.transactions FOR SELECT USING (user_id = auth.uid());
+DROP POLICY IF EXISTS transactions_insert_own ON public.transactions;
 CREATE POLICY transactions_insert_own ON public.transactions FOR INSERT WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS redpackets_select ON public.redpackets;
 CREATE POLICY redpackets_select ON public.redpackets FOR SELECT USING (true);
+DROP POLICY IF EXISTS redpackets_insert ON public.redpackets;
 CREATE POLICY redpackets_insert ON public.redpackets FOR INSERT WITH CHECK (sender_id = auth.uid());
+DROP POLICY IF EXISTS redpacket_claims_all ON public.redpacket_claims;
 CREATE POLICY redpacket_claims_all ON public.redpacket_claims FOR ALL USING (claimer_id = auth.uid()) WITH CHECK (claimer_id = auth.uid());
+DROP POLICY IF EXISTS pin_own ON public.pin_secrets;
 CREATE POLICY pin_own ON public.pin_secrets FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS kyc_own ON public.kyc;
 CREATE POLICY kyc_own ON public.kyc FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 REVOKE UPDATE, DELETE ON public.ledger_entries FROM anon, authenticated;
 CREATE TABLE IF NOT EXISTS public.moments (
@@ -420,15 +345,25 @@ ALTER TABLE public.official_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.oa_posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.oa_subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mini_programs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS moments_read ON public.moments;
 CREATE POLICY moments_read ON public.moments FOR SELECT USING (true);
+DROP POLICY IF EXISTS moments_own ON public.moments;
 CREATE POLICY moments_own ON public.moments FOR ALL USING (author_id = auth.uid()) WITH CHECK (author_id = auth.uid());
+DROP POLICY IF EXISTS moment_likes_all ON public.moment_likes;
 CREATE POLICY moment_likes_all ON public.moment_likes FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS moment_comments_all ON public.moment_comments;
 CREATE POLICY moment_comments_all ON public.moment_comments FOR ALL USING (author_id = auth.uid()) WITH CHECK (author_id = auth.uid());
+DROP POLICY IF EXISTS channels_read ON public.channels;
 CREATE POLICY channels_read ON public.channels FOR SELECT USING (true);
+DROP POLICY IF EXISTS channel_posts_read ON public.channel_posts;
 CREATE POLICY channel_posts_read ON public.channel_posts FOR SELECT USING (true);
+DROP POLICY IF EXISTS oa_read ON public.official_accounts;
 CREATE POLICY oa_read ON public.official_accounts FOR SELECT USING (true);
+DROP POLICY IF EXISTS oa_posts_read ON public.oa_posts;
 CREATE POLICY oa_posts_read ON public.oa_posts FOR SELECT USING (true);
+DROP POLICY IF EXISTS oa_subs_all ON public.oa_subscriptions;
 CREATE POLICY oa_subs_all ON public.oa_subscriptions FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS miniprograms_read ON public.mini_programs;
 CREATE POLICY miniprograms_read ON public.mini_programs FOR SELECT USING (status = 'approved');
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE OR REPLACE FUNCTION public.assign_message_seq()
@@ -989,6 +924,7 @@ CREATE POLICY moment_comments_insert ON public.moment_comments
   FOR INSERT WITH CHECK (author_id = auth.uid() AND public.can_view_moment(moment_id));
 CREATE POLICY moment_comments_own ON public.moment_comments
   FOR UPDATE USING (author_id = auth.uid()) WITH CHECK (author_id = auth.uid());
+DROP POLICY IF EXISTS moment_comments_delete ON public.moment_comments;
 CREATE POLICY moment_comments_delete ON public.moment_comments
   FOR DELETE USING (
     author_id = auth.uid()
@@ -1377,6 +1313,7 @@ CREATE POLICY avatars_insert_own ON storage.objects
     bucket_id = 'avatars'
     AND (storage.foldername(name))[1] = auth.uid()::text
   );
+DROP POLICY IF EXISTS avatars_update_own ON storage.objects;
 CREATE POLICY avatars_update_own ON storage.objects
   FOR UPDATE USING (
     bucket_id = 'avatars'
@@ -1396,6 +1333,7 @@ CREATE POLICY media_read_member ON storage.objects
       auth.uid()
     )
   );
+DROP POLICY IF EXISTS media_insert_member ON storage.objects;
 CREATE POLICY media_insert_member ON storage.objects
   FOR INSERT WITH CHECK (
     bucket_id = 'media'
@@ -2084,6 +2022,7 @@ ALTER TABLE public.transactions ADD CONSTRAINT transactions_type_check
   CHECK (type IN ('topup', 'p2p', 'redpacket', 'merchant', 'withdraw', 'bill', 'request'));
 DROP POLICY IF EXISTS transactions_insert_own ON public.transactions;
 DROP POLICY IF EXISTS transactions_own ON public.transactions;
+DROP POLICY IF EXISTS transactions_read_own_or_finance ON public.transactions;
 CREATE POLICY transactions_read_own_or_finance ON public.transactions
   FOR SELECT USING (
     user_id = auth.uid() OR public.has_permission('finance.read')
@@ -2100,6 +2039,7 @@ ALTER TABLE public.reports
   ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 DROP POLICY IF EXISTS reports_select_own ON public.reports;
+DROP POLICY IF EXISTS reports_select_own_or_staff ON public.reports;
 CREATE POLICY reports_select_own_or_staff ON public.reports
   FOR SELECT USING (
     reporter_id = auth.uid() OR public.has_permission('reports.read')
