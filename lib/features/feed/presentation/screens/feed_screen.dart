@@ -167,7 +167,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               return const SizedBox.shrink();
             }
             final post = _posts[index];
-            final media = post['post_media'] as List? ?? [];
+            final media = (post['post_media'] as List?) ?? const [];
+            final profiles = post['profiles'] as Map<String, dynamic>?;
             return Card(
               margin: const EdgeInsets.only(bottom: Sp.x4),
               child: Padding(
@@ -178,14 +179,14 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     Row(
                       children: [
                         EthioAvatar(
-                            name: post['profiles']?['display_name'] ?? 'User',
+                            name: (profiles?['display_name'] as String?) ?? 'User',
                             size: 40),
                         const SizedBox(width: Sp.x3),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(post['profiles']?['display_name'] ?? 'User',
+                              Text((profiles?['display_name'] as String?) ?? 'User',
                                   style:
                                       Theme.of(context).textTheme.titleSmall),
                               Text(post['created_at']?.toString() ?? '',
@@ -198,21 +199,20 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         ),
                         PopupMenuButton<String>(
                           onSelected: (v) async {
+                            final messenger = ScaffoldMessenger.of(context);
                             final client = Supabase.instance.client;
                             final userId = client.auth.currentUser?.id;
-                            if (v == 'report') {
+                            if (v == 'report' && userId != null) {
                               await client.from('reports').insert({
                                 'reporter_id': userId,
                                 'target_type': 'moment',
                                 'target_id': post['id'],
                                 'reason': 'inappropriate',
                               });
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Report submitted')),
-                                );
-                              }
+                              if (!mounted) return;
+                              messenger.showSnackBar(
+                                const SnackBar(content: Text('Report submitted')),
+                              );
                             } else if (v == 'block' &&
                                 post['author_id'] != null &&
                                 userId != null) {
@@ -220,7 +220,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                                 'owner_id': userId,
                                 'blocked_id': post['author_id'],
                               });
-                              _loadPosts();
+                              if (mounted) _loadPosts();
                             }
                           },
                           itemBuilder: (context) => [
@@ -247,7 +247,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12),
                               child: Image.network(
-                                m['media_url'],
+                                ((m as Map<String, dynamic>)['media_url'] as String?) ?? '',
                                 width: 150,
                                 height: 150,
                                 fit: BoxFit.cover,

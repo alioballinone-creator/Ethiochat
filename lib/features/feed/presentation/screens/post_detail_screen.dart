@@ -154,6 +154,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final client = Supabase.instance.client;
     final isOwner =
         post != null && post['author_id'] == client.auth.currentUser?.id;
+    final profiles = post?['profiles'] as Map<String, dynamic>?;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Post'),
@@ -182,11 +183,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           Row(
                             children: [
                               EthioAvatar(
-                                  name: post['profiles']?['display_name'] ??
-                                      'User',
+                                  name:
+                                      (profiles?['display_name'] as String?) ??
+                                          'User',
                                   size: 40),
                               const SizedBox(width: Sp.x3),
-                              Text(post['profiles']?['display_name'] ?? 'User'),
+                              Text((profiles?['display_name'] as String?) ??
+                                  'User'),
                             ],
                           ),
                           if (post['body'] != null &&
@@ -211,16 +214,22 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               style: Theme.of(context).textTheme.titleSmall),
                           const SizedBox(height: Sp.x2),
                           for (final c in _comments)
-                            ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: EthioAvatar(
-                                  name:
-                                      c['profiles']?['display_name'] ?? 'User',
-                                  size: 32),
-                              title: Text(
-                                  c['profiles']?['display_name'] ?? 'User'),
-                              subtitle: Text(c['body']?.toString() ?? ''),
-                            ),
+                            Builder(builder: (context) {
+                              final cProfiles =
+                                  c['profiles'] as Map<String, dynamic>?;
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: EthioAvatar(
+                                    name: (cProfiles?['display_name']
+                                            as String?) ??
+                                        'User',
+                                    size: 32),
+                                title: Text(
+                                    (cProfiles?['display_name'] as String?) ??
+                                        'User'),
+                                subtitle: Text(c['body']?.toString() ?? ''),
+                              );
+                            }),
                         ],
                       ),
                     ),
