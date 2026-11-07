@@ -163,7 +163,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             Align(
               alignment: Alignment.centerRight,
               child: Text(
-                '${_controller.text.characters.length}/$maxChars',
+                '${_controller.text.length}/$maxChars',
                 key: const Key('create-post-char-counter'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
