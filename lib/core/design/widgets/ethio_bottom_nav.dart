@@ -14,7 +14,7 @@ class EthioNavItem {
   final int badge;
 }
 
-/// The only bottom nav in the app: Chats, Contacts, Discover, Me (in that order).
+/// Bottom nav: Chats, Feed, Contacts, Discover, Me.
 class EthioBottomNav extends StatelessWidget {
   const EthioBottomNav(
       {super.key,
@@ -31,6 +31,10 @@ class EthioBottomNav extends StatelessWidget {
         icon: Icons.chat_bubble_outline_rounded,
         activeIcon: Icons.chat_bubble_rounded,
         label: 'Chats'),
+    EthioNavItem(
+        icon: Icons.dynamic_feed_outlined,
+        activeIcon: Icons.dynamic_feed_rounded,
+        label: 'Feed'),
     EthioNavItem(
         icon: Icons.people_outline_rounded,
         activeIcon: Icons.people_rounded,

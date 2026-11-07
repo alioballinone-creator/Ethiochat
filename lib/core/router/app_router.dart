@@ -190,10 +190,6 @@ class AppRouter {
           },
         ),
         GoRoute(
-          path: feed,
-          builder: (context, state) => const FeedScreen(),
-        ),
-        GoRoute(
           path: createPost,
           builder: (context, state) => const CreatePostScreen(),
         ),
@@ -227,6 +223,14 @@ class AppRouter {
                         0;
                     return ChatListScreen(initialFilter: filter);
                   },
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: feed,
+                  builder: (context, state) => const FeedScreen(),
                 ),
               ],
             ),
