@@ -29,9 +29,15 @@ class _MeScreenState extends ConsumerState<MeScreen> {
       final client = Supabase.instance.client;
       final uid = client.auth.currentUser?.id;
       if (uid == null) return;
-      final followers = await client.from('follows').select('id').eq('followee_id', uid);
-      final following = await client.from('follows').select('id').eq('follower_id', uid);
-      if (mounted) setState(() { _followers = (followers as List).length; _following = (following as List).length; });
+      final followers =
+          await client.from('follows').select('id').eq('followee_id', uid);
+      final following =
+          await client.from('follows').select('id').eq('follower_id', uid);
+      if (mounted)
+        setState(() {
+          _followers = (followers as List).length;
+          _following = (following as List).length;
+        });
     } catch (_) {}
   }
 
@@ -236,7 +242,6 @@ class _MeItem extends StatelessWidget {
     );
   }
 }
-
 
 class _CountChip extends StatelessWidget {
   const _CountChip({required this.label, required this.value});

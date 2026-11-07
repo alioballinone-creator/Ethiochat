@@ -51,8 +51,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
-  Future<void> _rollback(SupabaseClient client, String? postId,
-      List<String> uploadedPaths) async {
+  Future<void> _rollback(
+      SupabaseClient client, String? postId, List<String> uploadedPaths) async {
     for (final p in uploadedPaths) {
       try {
         await client.storage.from('posts').remove([p]);
@@ -175,8 +175,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               decoration: const InputDecoration(labelText: 'Visibility'),
               items: const [
                 DropdownMenuItem(value: 'public', child: Text('Public')),
-                DropdownMenuItem(
-                    value: 'followers', child: Text('Followers')),
+                DropdownMenuItem(value: 'followers', child: Text('Followers')),
               ],
               onChanged: _posting
                   ? null

@@ -303,8 +303,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                             child: Text(
                                 (profiles?['display_name'] as String?) ??
                                     'User',
-                                style:
-                                    Theme.of(context).textTheme.titleSmall),
+                                style: Theme.of(context).textTheme.titleSmall),
                           ),
                           PopupMenuButton<String>(
                             onSelected: (v) async {
@@ -337,8 +336,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
                                 child: Image.network(
-                                  ((m as Map)['resolved_url'] as String?) ??
-                                      '',
+                                  ((m as Map)['resolved_url'] as String?) ?? '',
                                   width: 150,
                                   height: 150,
                                   fit: BoxFit.cover,
@@ -357,8 +355,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         children: [
                           IconButton(
                             icon: const Icon(Icons.favorite_border),
-                            onPressed: () =>
-                                _toggleLike(post['id'].toString()),
+                            onPressed: () => _toggleLike(post['id'].toString()),
                           ),
                           Text('${post['like_count'] ?? 0}'),
                           const SizedBox(width: Sp.x3),

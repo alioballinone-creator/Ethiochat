@@ -5,8 +5,7 @@ class PostUploadSpec {
   static String newObjectPath(String userId, {Uuid? uuidGen}) =>
       objectPath(userId, (uuidGen ?? const Uuid()).v4());
   static bool isValidObjectPath(String userId, String path) {
-    final re = RegExp(
-        '^${RegExp.escape(userId)}/[0-9a-fA-F-]{36}\\.jpg\$');
+    final re = RegExp('^${RegExp.escape(userId)}/[0-9a-fA-F-]{36}\\.jpg\$');
     return re.hasMatch(path);
   }
 }

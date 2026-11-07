@@ -59,7 +59,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         setState(() {
           _post = post == null ? null : Map<String, dynamic>.from(post);
           _media = media;
-          _comments = [for (final c in (comments as List)) Map<String, dynamic>.from(c as Map)];
+          _comments = [
+            for (final c in (comments as List))
+              Map<String, dynamic>.from(c as Map)
+          ];
           _loading = false;
         });
       }
@@ -122,8 +125,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         title: const Text('Edit post'),
         content: TextField(controller: ctrl, maxLength: 500, maxLines: 4),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Save')),
         ],
       ),
     );
@@ -137,9 +144,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   Future<void> _deletePost() async {
-    await Supabase.instance.client.from('posts').update({
-      'deleted_at': DateTime.now().toUtc().toIso8601String()
-    }).eq('id', widget.postId);
+    await Supabase.instance.client
+        .from('posts')
+        .update({'deleted_at': DateTime.now().toUtc().toIso8601String()}).eq(
+            'id', widget.postId);
     if (mounted) context.pop();
   }
 
@@ -151,8 +159,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         title: const Text('Edit comment'),
         content: TextField(controller: ctrl, maxLines: 3),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Save')),
         ],
       ),
     );
@@ -166,9 +178,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   Future<void> _deleteComment(String id) async {
-    await Supabase.instance.client.from('post_comments').update({
-      'deleted_at': DateTime.now().toUtc().toIso8601String()
-    }).eq('id', id);
+    await Supabase.instance.client.from('post_comments').update(
+        {'deleted_at': DateTime.now().toUtc().toIso8601String()}).eq('id', id);
     _load();
   }
 
@@ -184,10 +195,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         title: const Text('Post'),
         actions: [
           if (post != null)
-            IconButton(icon: const Icon(Icons.share_outlined), onPressed: () => FeedUtils.sharePost(post)),
+            IconButton(
+                icon: const Icon(Icons.share_outlined),
+                onPressed: () => FeedUtils.sharePost(post)),
           if (isOwner)
             PopupMenuButton<String>(
-              onSelected: (v) { if (v == 'edit') _editPost(); if (v == 'delete') _deletePost(); },
+              onSelected: (v) {
+                if (v == 'edit') _editPost();
+                if (v == 'delete') _deletePost();
+              },
               itemBuilder: (context) => const [
                 PopupMenuItem(value: 'edit', child: Text('Edit')),
                 PopupMenuItem(value: 'delete', child: Text('Delete')),
@@ -206,9 +222,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         padding: Sp.screen,
                         children: [
                           Row(children: [
-                            EthioAvatar(name: (profiles?['display_name'] as String?) ?? 'User', size: 40),
+                            EthioAvatar(
+                                name: (profiles?['display_name'] as String?) ??
+                                    'User',
+                                size: 40),
                             const SizedBox(width: Sp.x3),
-                            Text((profiles?['display_name'] as String?) ?? 'User'),
+                            Text((profiles?['display_name'] as String?) ??
+                                'User'),
                           ]),
                           if ((post['body'] ?? '').toString().isNotEmpty) ...[
                             const SizedBox(height: Sp.x3),
@@ -221,41 +241,78 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                 padding: const EdgeInsets.only(bottom: Sp.x2),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
-                                  child: Image.network(m['resolved_url']?.toString() ?? '', fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => const SizedBox(height: 120)),
+                                  child: Image.network(
+                                      m['resolved_url']?.toString() ?? '',
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          const SizedBox(height: 120)),
                                 ),
                               ),
                           ],
                           const SizedBox(height: Sp.x3),
                           Row(children: [
-                            IconButton(icon: const Icon(Icons.favorite_border), onPressed: _toggleLike),
+                            IconButton(
+                                icon: const Icon(Icons.favorite_border),
+                                onPressed: _toggleLike),
                             Text('${post['like_count'] ?? 0}'),
                           ]),
                           const Divider(),
-                          Text('Comments (${_comments.length})', style: Theme.of(context).textTheme.titleSmall),
+                          Text('Comments (${_comments.length})',
+                              style: Theme.of(context).textTheme.titleSmall),
                           for (final c in _comments)
                             Builder(builder: (context) {
-                              final cProfiles = c['profiles'] as Map<String, dynamic>?;
+                              final cProfiles =
+                                  c['profiles'] as Map<String, dynamic>?;
                               final own = c['author_id'] == me;
                               return ListTile(
                                 contentPadding: EdgeInsets.zero,
-                                leading: EthioAvatar(name: (cProfiles?['display_name'] as String?) ?? 'User', size: 32),
-                                title: Text((cProfiles?['display_name'] as String?) ?? 'User'),
+                                leading: EthioAvatar(
+                                    name: (cProfiles?['display_name']
+                                            as String?) ??
+                                        'User',
+                                    size: 32),
+                                title: Text(
+                                    (cProfiles?['display_name'] as String?) ??
+                                        'User'),
                                 subtitle: Text(c['body']?.toString() ?? ''),
-                                trailing: own ? PopupMenuButton<String>(
-                                  onSelected: (v) { if (v=='edit') _editComment(c); if (v=='delete') _deleteComment(c['id'].toString()); },
-                                  itemBuilder: (_) => const [PopupMenuItem(value:'edit', child: Text('Edit')), PopupMenuItem(value:'delete', child: Text('Delete'))],
-                                ) : null,
+                                trailing: own
+                                    ? PopupMenuButton<String>(
+                                        onSelected: (v) {
+                                          if (v == 'edit') _editComment(c);
+                                          if (v == 'delete')
+                                            _deleteComment(c['id'].toString());
+                                        },
+                                        itemBuilder: (_) => const [
+                                          PopupMenuItem(
+                                              value: 'edit',
+                                              child: Text('Edit')),
+                                          PopupMenuItem(
+                                              value: 'delete',
+                                              child: Text('Delete'))
+                                        ],
+                                      )
+                                    : null,
                               );
                             }),
                         ],
                       ),
                     ),
                     Padding(
-                      padding: EdgeInsets.only(left: Sp.x4, right: Sp.x4, bottom: MediaQuery.of(context).viewInsets.bottom + Sp.x2, top: Sp.x2),
+                      padding: EdgeInsets.only(
+                          left: Sp.x4,
+                          right: Sp.x4,
+                          bottom:
+                              MediaQuery.of(context).viewInsets.bottom + Sp.x2,
+                          top: Sp.x2),
                       child: Row(children: [
-                        Expanded(child: TextField(controller: _commentCtrl, decoration: const InputDecoration(hintText: 'Add a comment...'))),
-                        IconButton(icon: const Icon(Icons.send), onPressed: _addComment),
+                        Expanded(
+                            child: TextField(
+                                controller: _commentCtrl,
+                                decoration: const InputDecoration(
+                                    hintText: 'Add a comment...'))),
+                        IconButton(
+                            icon: const Icon(Icons.send),
+                            onPressed: _addComment),
                       ]),
                     ),
                   ],
