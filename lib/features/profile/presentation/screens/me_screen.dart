@@ -1,16 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/config/feature_flags.dart';
 import '../../../../core/design/design.dart';
 import '../../../profile/application/profile_controller.dart';
 
-class MeScreen extends ConsumerWidget {
+class MeScreen extends ConsumerStatefulWidget {
   const MeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MeScreen> createState() => _MeScreenState();
+}
+
+class _MeScreenState extends ConsumerState<MeScreen> {
+  int _followers = 0;
+  int _following = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCounts();
+  }
+
+  Future<void> _loadCounts() async {
+    try {
+      final client = Supabase.instance.client;
+      final uid = client.auth.currentUser?.id;
+      if (uid == null) return;
+      final followers = await client.from('follows').select('id').eq('followee_id', uid);
+      final following = await client.from('follows').select('id').eq('follower_id', uid);
+      if (mounted) setState(() { _followers = (followers as List).length; _following = (following as List).length; });
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final pal = EthioPalette.of(context);
     final profile = ref.watch(userProfileProvider);
 
@@ -124,6 +150,15 @@ class MeScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            const SizedBox(height: Sp.x3),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _CountChip(label: 'Followers', value: _followers),
+                const SizedBox(width: Sp.x4),
+                _CountChip(label: 'Following', value: _following),
+              ],
+            ),
             const SizedBox(height: Sp.x4),
             if (FeatureFlags.wallet) ...[
               _MeItem(
@@ -199,5 +234,19 @@ class _MeItem extends StatelessWidget {
             const EdgeInsets.symmetric(horizontal: Sp.x4, vertical: Sp.x1),
       ),
     );
+  }
+}
+
+
+class _CountChip extends StatelessWidget {
+  const _CountChip({required this.label, required this.value});
+  final String label;
+  final int value;
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      Text('$value', style: Theme.of(context).textTheme.titleMedium),
+      Text(label, style: Theme.of(context).textTheme.bodySmall),
+    ]);
   }
 }

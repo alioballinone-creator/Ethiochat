@@ -6,16 +6,9 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../../core/design/design.dart';
-
-/// Pure helpers for testability.
-class PostUploadSpec {
-  static String objectPath(String userId, String uuid) => '$userId/$uuid.jpg';
-  static String newObjectPath(String userId) =>
-      objectPath(userId, const Uuid().v4());
-}
+import '../post_upload_utils.dart';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
